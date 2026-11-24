@@ -534,3 +534,275 @@ test('quest givers always exist: reading a quest target early never builds the s
   const want = { sailor: 'sailor', frost: 'warden' };
   for (const k of ['sailor', 'frost']) assert.ok(g.targets[k].npcs.some((n) => n.kind === want[k]), k + ' town has its quest giver');
 });
+
+// ---------------------------------------------------------------- bounty missions (the cop path)
+const walkTo = (g, x, z, yaw = 0) => { g.mode = 'foot'; g.foot.x = x; g.foot.z = z; g.foot.y = groundAt(g, x, z); g.foot.yaw = yaw; };
+const placed = async (g, w, secs = 2) => { const { step } = await import('../src/rules/game.js'); for (let j = 0; j < w.i; j++) g.hunts['w' + j] = { st: 'jailed' }; const isl = w.island, pl = isl.port ? islandTown(isl).plaza : isl.landing; walkTo(g, pl.x, pl.z + 14); for (let i = 0; i < 60 * secs; i++) step(g, {}, 1 / 60); return g.hunts[w.id]; };
+test('bounty board: the same list for the same seed, four open names, targets are real islands and sea captains', async () => {
+  const { board, wanted, rankOf } = await import('../src/rules/hunt.js');
+  const g = newGame(SEED), b = board(g); assert.equal(b.length, 4);
+  assert.deepEqual(board(newGame(SEED)).map((w) => w.id), b.map((w) => w.id)); assert.equal(new Set(b.map((w) => w.name)).size, 4);
+  for (let i = 0; i < 12; i++) { const w = wanted(SEED, i); assert.ok(w.reward > 0 && w.dead > 0 && w.name); if (w.kind === 'foot') assert.ok(w.island && (w.island.port || w.island.landing) && !w.island.port?.home, 'foot targets hide on a real island, never in the home port'); else assert.ok(w.enemyId); }
+  assert.ok([0, 1, 2, 3, 4, 5, 6, 7].some((i) => wanted(SEED, i).kind === 'ship'), 'some targets are raider captains at sea');
+  assert.equal(rankOf(0), 'Civilian'); assert.equal(rankOf(3), 'Constable');
+});
+test('bounty: every foot target can be found, stands on solid ground, and is on its island', async () => {
+  const { wanted } = await import('../src/rules/hunt.js'); let n = 0;
+  for (let i = 0; i < 16; i++) { const w = wanted(SEED, i); if (w.kind !== 'foot') continue; const g = newGame(SEED), h = await placed(g, w); assert.ok(h && h.x !== undefined, `${w.id} placed`); assert.ok(canStand(g, h.x, h.z, groundAt(g, h.x, h.z)), `${w.id} stands on open ground`); assert.ok(Math.hypot(h.x - w.island.x, h.z - w.island.z) < w.island.r * 1.2, 'on their island'); n++; }
+  assert.ok(n >= 8);
+});
+test('bounty: hit a target until they drop, bind them, they follow you aboard and ashore, hand them in at a guard station for gold, rank and a jailed prisoner', async () => {
+  const { step, interact, stationOf, handIn, prompt } = await import('../src/rules/game.js'); const { board } = await import('../src/rules/hunt.js');
+  const w = board(newGame(SEED)).find((q) => q.kind === 'foot' && !q.aliveOnly), g = newGame(SEED); g.weapons.sword = true; g.weapon = 'sword';
+  const h = await placed(g, w); walkTo(g, h.x - 2.4, h.z, 0);
+  for (let i = 0; i < 60 * 8 && h.st === 'free'; i++) { g.foot.yaw = Math.atan2(h.z - g.foot.z, h.x - g.foot.x); step(g, { attack: true }, 1 / 60); g.hp = g.maxHp; }
+  assert.equal(h.st, 'sub', 'beaten, not dead'); assert.ok(h.hp > 0 && h.hp <= w.hp * 0.25 + 1e-6);
+  walkTo(g, h.x - 1, h.z); assert.match(prompt(g) || '', /Bind/); assert.equal(interact(g).type, 'bind'); assert.equal(g.prisoner, w.id); assert.equal(h.st, 'bound');
+  for (let i = 0; i < 60 * 6; i++) step(g, { mz: 1, yaw: 0 }, 1 / 60); assert.ok(Math.hypot(g.foot.x - h.x, g.foot.z - h.z) < 6, 'follows');
+  g.mode = 'ship'; g.ship = g.ship || { x: g.foot.x, z: g.foot.z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; g.hull = 100; step(g, {}, 1 / 60); assert.ok(h.aboard, 'goes aboard'); g.mode = 'foot'; step(g, {}, 1 / 60); assert.ok(!h.aboard && Math.hypot(g.foot.x - h.x, g.foot.z - h.z) < 8, 'comes ashore with you');
+  const home = sectorIslands(SEED, 0, 0)[0], gold0 = g.gold, wr0 = g.rep.world; assert.ok(stationOf(home));
+  const pay = handIn(g, home); assert.equal(pay, w.reward); assert.equal(g.gold, gold0 + w.reward); assert.equal(g.handed, 1); assert.ok(g.rep.world > wr0 && g.rep.local[home.id] > 0); assert.equal(g.prisoner, null); assert.equal(h.st, 'jailed'); assert.deepEqual(g.jailed[home.id], [w.id]);
+  assert.ok(!board(g).some((q) => q.id === w.id), 'off the board'); assert.equal(board(g).length, 4, 'a new name takes the slot');
+  const g2 = deserialize(serialize(g)); assert.equal(g2.handed, 1); assert.deepEqual(g2.jailed[home.id], [w.id]); assert.ok(!board(g2).some((q) => q.id === w.id), 'survives a save');
+});
+test('bounty: killing pays the dead rate, killing an ALIVE-only target pays nothing and costs standing', async () => {
+  const { step } = await import('../src/rules/game.js'); const { wanted } = await import('../src/rules/hunt.js');
+  const find = (q) => { for (let i = 0; i < 40; i++) { const w = wanted(SEED, i); if (w.kind === 'foot' && q(w)) return w; } };
+  const kill = async (w) => { const g = newGame(SEED); g.weapons.axe = true; g.weapon = 'axe'; const h = await placed(g, w); walkTo(g, h.x - 1.5, h.z); for (let i = 0; i < 60 * 12 && h.st !== 'killed'; i++) { g.foot.yaw = Math.atan2(h.z - g.foot.z, h.x - g.foot.x); step(g, { attack: true }, 1 / 60); g.hp = g.maxHp; } return { g, h }; };
+  const a = find((w) => !w.aliveOnly), r = await kill(a); assert.equal(r.h.st, 'killed'); assert.equal(r.g.gold, 500 + a.dead); assert.equal(r.g.bountyGold, 0, 'a lawful kill is no crime'); assert.ok(r.g.rep.world > 0);
+  const b = find((w) => w.aliveOnly), r2 = await kill(b); assert.equal(r2.g.gold, 500); assert.ok(r2.g.rep.world < 0);
+});
+test('bounty: a wanted man fights back and can beat you senseless (you wake in the street, a tenth poorer)', async () => {
+  const { step } = await import('../src/rules/game.js'); const { board } = await import('../src/rules/hunt.js');
+  const w = board(newGame(SEED)).find((q) => q.kind === 'foot'), g = newGame(SEED), h = await placed(g, w); walkTo(g, h.x - 1.2, h.z); g.gold = 1000;
+  for (let i = 0; i < 60 * 60 && g.gold === 1000; i++) step(g, {}, 1 / 60);
+  assert.ok(g.gold < 1000 && g.hp > 0, 'beaten senseless, lighter');
+});
+test('bounty: sinking a wanted raider captain at sea pays the reward', async () => {
+  const { step } = await import('../src/rules/game.js'); const { wanted } = await import('../src/rules/hunt.js');
+  const w = [3, 7, 11, 15].map((i) => wanted(SEED, i)).find((q) => q.kind === 'ship'); assert.ok(w, 'a ship target is on an early board');
+  const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; buyShip(g, home); buyFood(g, 15); g.mode = 'ship'; g.ship.x = w.x - 60; g.ship.z = w.z; g.ship.sail = 0; g.hunts = {};
+  for (let i = 0; i < 4; i++) step(g, {}, 1 / 60);
+  const e = g.enemies.get(w.enemyId); assert.ok(e, 'the captain is in his sector'); const gold0 = g.gold; e.hp = 0; step(g, {}, 1 / 60);
+  assert.equal(g.hunts[w.id].st, 'killed'); assert.ok(g.gold >= gold0 + w.dead);
+});
+test('bounty: the notice board lists the wanted; the guard station panel opens for everyone', async () => {
+  const { newsFor } = await import('../src/rules/news.js'); const { dialog } = await import('../src/rules/quests.js'); const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0];
+  assert.ok(newsFor(g, home).items.some((i) => i.tag === 'Wanted'));
+  assert.equal(dialog(g, { kind: 'guard' }).panel, 'guard');
+});
+
+// ---------------------------------------------------------------- boarding other ships
+const sail = async (kind) => {
+  const { step } = await import('../src/rules/game.js'); const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; buyShip(g, home); buyFood(g, 15); g.mode = 'ship';
+  let e = null; for (let sx = -3; sx <= 3 && !e; sx++) for (let sz = -3; sz <= 3 && !e; sz++) e = sectorEnemies(SEED, sx, sz).find((q) => q.kind === kind);
+  assert.ok(e, 'a ' + kind + ' exists'); g.ship.x = e.x - 14; g.ship.z = e.z; g.ship.sail = 0; g.ship.speed = 0; g.hunts = {};
+  for (let i = 0; i < 4; i++) step(g, {}, 1 / 60); return { g, e: g.enemies.get(e.id), step };
+};
+const fightOn = (g, step, who = 'axe') => { g.weapons[who] = true; g.weapon = who; for (let i = 0; i < 60 * 90 && !g.deck.won && g.deck; i++) { const d = g.deck.defs.filter((q) => q.st === 'free').sort((a, b) => Math.hypot(a.x - g.foot.x, a.z - g.foot.z) - Math.hypot(b.x - g.foot.x, b.z - g.foot.z))[0]; if (!d) break; g.foot.yaw = Math.atan2(d.z - g.foot.z, d.x - g.foot.x); step(g, { attack: true, yaw: g.foot.yaw, mz: Math.hypot(d.x - g.foot.x, d.z - g.foot.z) > 1.6 ? 1 : 0 }, 1 / 60); if (g.hp < 40) g.hp = g.maxHp; } };
+test('boarding: grapple only within range, you land on the deck, ships stay put, the deck is walkable and bounded', async () => {
+  const { g, e, step } = await sail('raider'); const { grapple, prompt, canStand, groundAt } = await import('../src/rules/game.js');
+  g.ship.x = e.x - 80; assert.equal(grapple(g).type, 'none'); g.ship.x = e.x - 14;
+  assert.match(prompt(g) || '', /Grapple/); assert.equal(grapple(g).type, 'deck'); assert.ok(g.deck && g.mode === 'foot' && e.grappled);
+  assert.ok(canStand(g, g.foot.x, g.foot.z, g.foot.y) && groundAt(g, g.foot.x, g.foot.z) > 0.5, 'standing on the deck'); assert.ok(!canStand(g, e.x + 40, e.z + 40, g.foot.y), 'the sea is not walkable');
+  const x0 = e.x, z0 = e.z; for (let i = 0; i < 300; i++) step(g, { mz: 1, yaw: g.foot.yaw }, 1 / 60); assert.ok(g.deck && Math.hypot(g.foot.x - e.x, g.foot.z - e.z) < 20, 'walked, never left the deck'); assert.equal(e.x, x0); assert.equal(e.z, z0);
+  assert.ok(g.bountyGold === 0, 'a raider is a lawful target');
+});
+test('boarding: defenders fight back, you beat the crew, the captain surrenders, and you choose loot, claim or scuttle', async () => {
+  const { g, e, step } = await sail('raider'); const { grapple, prizeInfo, finishBoarding } = await import('../src/rules/game.js'); const gold0 = g.gold, n0 = g.killsBy.raider || 0;
+  grapple(g); assert.ok(g.deck.defs.length >= 3 && g.deck.defs.some((d) => d.captain)); fightOn(g, step);
+  assert.ok(g.deck.won, 'won the deck'); assert.ok(g.deck.defs.every((d) => d.st !== 'free'));
+  const P = prizeInfo(g); assert.ok(P.gold > 0 && P.claim === P.gold * 2); assert.ok(finishBoarding(g, 'claim')); assert.equal(g.mode, 'ship'); assert.equal(g.deck, null); assert.ok(g.gold >= gold0 + P.claim); assert.equal(g.killsBy.raider, n0 + 1); assert.ok(!g.enemies.has(e.id));
+  const s2 = deserialize(serialize(g)); assert.equal(s2.deck, null);
+});
+test('boarding: losing the deck fight throws you back on your own ship a tenth poorer, retreat works, and the ship is not lost', async () => {
+  const { g, e, step } = await sail('raider'); const { grapple, interact } = await import('../src/rules/game.js'); g.gold = 1000; grapple(g); g.hp = 1; for (let i = 0; i < 600 && g.deck; i++) step(g, {}, 1 / 60);
+  assert.equal(g.deck, null); assert.equal(g.mode, 'ship'); assert.ok(g.gold < 1000 && g.hp > 0); assert.ok(g.enemies.has(e.id) && !e.grappled);
+  assert.equal(grapple(g).type, 'deck'); assert.equal(interact(g).type, 'board'); assert.equal(g.mode, 'ship', 'F cuts the grapples');
+});
+test('boarding: a peaceful ship is piracy; a wanted captain can be subdued, bound and handed in; a save mid-fight loads at sea', async () => {
+  const { g, e, step } = await sail('trader'); const { grapple, interact, handIn } = await import('../src/rules/game.js'); const { board } = await import('../src/rules/hunt.js'); const wr0 = g.rep.world; grapple(g);
+  assert.ok(g.bountyGold >= 150 && g.rep.world === wr0 - 10, 'piracy'); const s2 = deserialize(serialize(g)); assert.equal(s2.mode, 'ship'); assert.equal(s2.deck, null);
+  // wanted captain: use a raider whose captain is on the board
+  const w = board(newGame(SEED)).find((q) => q.kind === 'ship'); if (!w) return; const q = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; buyShip(q, home); q.mode = 'ship'; q.hunts = {};
+  q.ship.x = w.x - 14; q.ship.z = w.z; q.ship.sail = 0; for (let i = 0; i < 4; i++) step(q, {}, 1 / 60); const re = q.enemies.get(w.enemyId); assert.ok(re); q.ship.x = re.x - 14; q.ship.z = re.z; assert.equal(grapple(q).type, 'deck'); assert.equal(q.deck.wid, w.id);
+  q.weapons.sword = true; q.weapon = 'sword'; const cap = q.deck.defs.find((d) => d.captain); for (const d of q.deck.defs) if (!d.captain) d.st = 'dead';
+  cap.aggro = true; for (let i = 0; i < 60 * 30 && cap.st === 'free'; i++) { q.foot.yaw = Math.atan2(cap.z - q.foot.z, cap.x - q.foot.x); step(q, { attack: true, yaw: q.foot.yaw, mz: Math.hypot(cap.x - q.foot.x, cap.z - q.foot.z) > 1.5 ? 1 : 0 }, 1 / 60); q.hp = q.maxHp; }
+  assert.equal(cap.st, 'sub'); assert.equal(interact(q).type, 'bind'); assert.equal(q.prisoner, w.id); assert.ok(q.deck.defs.every((d) => d.st !== 'free'));
+  step(q, {}, 1 / 60); assert.ok(q.deck.won); const gold0 = q.gold; const { finishBoarding } = await import('../src/rules/game.js'); finishBoarding(q, 'loot'); assert.equal(q.mode, 'ship'); step(q, {}, 1 / 60); assert.ok(q.hunts[w.id].aboard, 'the captain is in the hold');
+  const pay = handIn(q, home); assert.equal(pay, w.reward); assert.ok(q.gold >= gold0 + pay);
+});
+
+// ---------------------------------------------------------------- ship parts and special shot
+test('parts: fitted one at a time for gold, only with a ship, they change speed, hull, hold, rowing and cannon damage, and survive a trade-up and a save', async () => {
+  const P = await import('../src/rules/parts.js'); const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0];
+  assert.ok(!P.fitPart(g, 'sails'), 'no ship, no parts'); buyShip(g, home); g.gold = 20000; const hull0 = g.maxHull, hold0 = g.hold;
+  assert.ok(P.fitPart(g, 'plating')); assert.equal(g.maxHull, hull0 + 25); assert.equal(g.hull, g.maxHull); assert.ok(P.fitPart(g, 'hold')); assert.equal(g.hold, hold0 + 10);
+  for (let i = 0; i < 3; i++) assert.ok(P.fitPart(g, 'sails')); assert.ok(!P.fitPart(g, 'sails'), 'max level'); assert.ok(Math.abs(P.speedMul(g) - 1.24) < 1e-9);
+  P.fitPart(g, 'guns'); assert.ok(Math.abs(P.gunMul(g) - 1.15) < 1e-9); P.fitPart(g, 'oars'); assert.equal(P.rowMul(g), 1.25);
+  const g2 = newGame(SEED); buyShip(g2, home); g2.gold = 20000; for (let i = 0; i < 3; i++) P.fitPart(g, 'sails'); // same wind, same heading: fitted sails are faster
+  const run = (q) => { q.mode = 'ship'; q.ship.x = 400; q.ship.z = 400; q.ship.sail = 1; q.ship.yaw = 1.0 + Math.PI; q.t = 0; q.food = 20; for (let i = 0; i < 1200; i++) step(q, {}, 1 / 60); return q.ship.speed; };
+  assert.ok(run(g) > run(g2) * 1.15, 'the fitted ship is faster');
+  g.gold = 99999; g.ship.x = home.port.berth.x; g.ship.z = home.port.berth.z; assert.ok(buyShip(g, home, 'cutter')); assert.equal(g.maxHull, 140 + 25); assert.equal(g.hold, 28 + 10); assert.equal(P.level(g, 'sails'), 3);
+  const g3 = deserialize(serialize(g)); assert.equal(P.level(g3, 'plating'), 1); assert.deepEqual(g3.ammo, g.ammo);
+});
+test('special shot: chain slows, fire burns, round is plain, ammo is used up, round shot is the fallback, swivel guns only shoot hostiles', async () => {
+  const P = await import('../src/rules/parts.js'); const { grapple } = await import('../src/rules/game.js');
+  const { g, e, step } = await sail('raider'); g.gold = 5000; g.hunts = {}; g.ship.x = e.x - 30; g.ship.z = e.z; g.ship.yaw = 0; e.yaw = 0; e.speed = 0;
+  assert.ok(!P.setShot(g, 'chain'), 'none bought'); assert.equal(P.buyAmmo(g, 'chain', 10), 10); assert.equal(g.gold, 5000 - 80); assert.ok(P.setShot(g, 'chain')); assert.equal(P.shotNow(g), 'chain');
+  g.ship.yaw = -Math.PI / 2; // broadside on to the enemy lying ahead of the bow... aim by teleporting: put the raider on the starboard beam
+  g.ship.x = e.x; g.ship.z = e.z - 25; g.ship.yaw = 0; e.hp = 38; const hp0 = e.hp;
+  step(g, { fireR: true }, 1 / 60); for (let i = 0; i < 90; i++) step(g, {}, 1 / 60); assert.equal(g.ammo.chain, 9, 'one shot used'); assert.ok(e.slow > g.t - 9, 'rigging torn'); assert.ok(e.hp < hp0 && e.hp > hp0 - 12 * 0.6 - 1 + 0, 'chain does 60%');
+  P.buyAmmo(g, 'fire', 5); P.setShot(g, 'fire'); g.ship.cd = [0, 0]; e.hp = 38; step(g, { fireR: true }, 1 / 60); for (let i = 0; i < 200; i++) step(g, {}, 1 / 60); assert.ok(e.burn > 0 && e.hp < 38 - 4, 'burning: more damage than the hit alone');
+  g.ammo.chain = 0; g.shot = 'chain'; assert.equal(P.shotNow(g), 'round');
+  // swivel
+  const { g: q, e: te, step: st } = await sail('raider'); q.gold = 5000; P.fitPart(q, 'swivel'); q.ship.x = te.x - 20; q.ship.z = te.z; const h0 = te.hp; for (let i = 0; i < 180; i++) st(q, {}, 1 / 60); assert.ok(te.hp < h0, 'swivels hit a raider');
+  const { g: r, e: tr, step: sr } = await sail('trader'); r.gold = 5000; P.fitPart(r, 'swivel'); r.ship.x = tr.x - 20; r.ship.z = tr.z; const t0 = tr.hp; for (let i = 0; i < 180; i++) sr(r, {}, 1 / 60); assert.equal(tr.hp, t0, 'never at a peaceful ship'); assert.equal(r.bountyGold, 0);
+});
+
+// ---------------------------------------------------------------- hidden fighters and the hunting navy
+test('hidden fighters: a small share of people fight back when hit, the rest do not, and nothing shows it', async () => {
+  const { fighterOf, npcAlive } = await import('../src/rules/game.js'); let n = 0, f = 0, pick = null;
+  for (const isl of allIslands(3)) if (isl.port) for (const v of townsfolk(isl)) { n++; const id = `v${isl.id}:${v.seed}`; if (fighterOf(SEED, id, 'villager')) { f++; pick ||= { isl, v, id }; } }
+  assert.ok(f / n > 0.02 && f / n < 0.15, `fighters ${f}/${n}`); assert.ok(pick);
+  const home = sectorIslands(SEED, 0, 0)[0], hv = townsfolk(home);
+  const trial = (v, isl = home) => { const g = newGame(SEED); g.weapons.sword = true; g.weapon = 'sword'; const pos = folkPos(v, 0), id = `v${isl.id}:${v.seed}`; g.foot.x = pos.x - 2.5; g.foot.z = pos.z; g.foot.y = groundAt(g, g.foot.x, g.foot.z); g.foot.yaw = 0; step(g, { attack: true, yaw: 0 }, 1 / 60); return { g, id }; };
+  const isF = (v) => fighterOf(SEED, `v${home.id}:${v.seed}`, 'villager'), town0 = islandTown(home), lone = (c) => { const a = folkPos(c, 0); return [...hv.filter((o) => o !== c).map((o) => folkPos(o, 0)), ...town0.npcs].every((o) => Math.hypot(o.x - a.x, o.z - a.z) > 9); }, calm = hv.find((v) => !isF(v) && lone(v)), hard = hv.find((v) => isF(v) && lone(v));
+  { const { g, id } = trial(calm); assert.equal(g.foes.length, 0, 'a harmless one does not fight'); assert.ok(g.npcs[id]); }
+  { const { g, id } = trial(pick.v, pick.isl); assert.equal(g.foes.length, 1); assert.ok(!npcAlive(g, id), 'the stroller is replaced by the fighter'); const hp0 = g.hp; for (let i = 0; i < 360; i++) { step(g, {}, 1 / 60); if (g.hp < hp0) break; } assert.ok(g.hp < hp0, 'it hurts you'); }
+});
+test('hidden fighters: killing one ends the fight and leaves a body; one that has been hit comes at a rich or wanted player; a save drops them', async () => {
+  const { fighterOf, npcAlive } = await import('../src/rules/game.js');
+  let pick = null; for (const isl of allIslands(2)) if (isl.port && !pick) for (const v of townsfolk(isl)) if (fighterOf(SEED, `v${isl.id}:${v.seed}`, 'villager')) { pick = { isl, v }; break; }
+  const g = newGame(SEED); g.weapons.axe = true; g.weapon = 'axe'; const { isl, v } = pick, id = `v${isl.id}:${v.seed}`, p = folkPos(v, 0);
+  g.foot.x = p.x - 2; g.foot.z = p.z; g.foot.y = groundAt(g, g.foot.x, g.foot.z);
+  for (let i = 0; i < 60 * 20 && !g.npcs[id]?.dead; i++) { const o = g.foes[0]; const tx = o ? o.x : p.x, tz = o ? o.z : p.z; g.foot.yaw = Math.atan2(tz - g.foot.z, tx - g.foot.x); step(g, { attack: true, yaw: g.foot.yaw }, 1 / 60); g.hp = g.maxHp; }
+  assert.ok(g.npcs[id].dead, 'killed'); step(g, {}, 1 / 60); assert.equal(g.foes.length, 0);
+  const q = newGame(SEED); q.gold = 5000; const hm = sectorIslands(SEED, 0, 0)[0]; const near = pick.v;
+  { const pp = folkPos(near, 0); q.foot.x = pp.x - 3; q.foot.z = pp.z; q.foot.y = groundAt(q, q.foot.x, q.foot.z); q.t = 0.2; for (let i = 0; i < 120 && !q.foes.length; i++) step(q, {}, 1 / 60); assert.ok(q.foes.length, 'a rich visitor is mugged'); const s2 = deserialize(serialize(q)); assert.deepEqual(s2.foes, []); assert.ok(Object.values(s2.npcs).every((o) => !o.away)); }
+});
+test('navy hunters: nobody hunts a clean or slightly bad record, a big bounty brings navy ships that chase you, more as it grows, and paying clears them', async () => {
+  const { hunterCount, payBounty } = await import('../src/rules/game.js'); const { g, step } = await sail('trader'); g.hunts = {};
+  g.ship.x = 400; g.ship.z = 400; g.bountyGold = 250; assert.equal(hunterCount(g), 0); for (let i = 0; i < 60 * 60; i++) step(g, {}, 1 / 60); assert.ok(![...g.enemies.values()].some((e) => e.hunter), 'not right away');
+  g.bountyGold = 700; assert.equal(hunterCount(g), 2);
+  for (let i = 0; i < 60 * 80; i++) { g.hull = 100; step(g, {}, 1 / 60); } const hs = [...g.enemies.values()].filter((e) => e.hunter); assert.equal(hs.length, 2, 'two hunters'); assert.ok(hs.every((e) => e.kind === 'navy' && Math.hypot(e.x - g.ship.x, e.z - g.ship.z) < 700), 'they come to you');
+  assert.ok(g.hull < 100 || hs.some((e) => Math.hypot(e.x - g.ship.x, e.z - g.ship.z) < 300), 'and they close in');
+  g.gold = 5000; payBounty(g); assert.equal(hunterCount(g), 0); step(g, {}, 1 / 60); assert.ok(![...g.enemies.values()].some((e) => e.hunter), 'cleared with the bounty');
+});
+
+// ---------------------------------------------------------------- bombarding towns
+test('bombardment: off by default (shot flies over towns); on, balls wear the town down through damaged, burning and pillaged; crime follows; it heals when left alone', async () => {
+  const G = await import('../src/rules/game.js'); const { newsFor } = await import('../src/rules/news.js');
+  const home = sectorIslands(SEED, 0, 0)[0], b = islandTown(home).buildings[0], mk = () => { const g = newGame(SEED); buyShip(g, home); g.mode = 'ship'; g.ship.x = b.x; g.ship.z = b.z - 60; g.ship.speed = 0; return g; };
+  const ball = (g, dmg = 20) => g.shots.push({ x: b.x, z: b.z, vx: 0, vz: 0, life: 1, owner: 'player', dmg, kind: 'round' });
+  const g = mk(); ball(g); step(g, {}, 1 / 60); assert.deepEqual(g.towns, {}); assert.equal(g.bountyGold, 0, 'off: nothing happens');
+  assert.equal(g.bombard, false); G.toggleBombard(g); assert.ok(g.bombard); G.toggleBombard(g); G.toggleBombard(g);
+  const states = new Set(); let gold0 = g.gold; for (let i = 0; i < 60; i++) { ball(g); step(g, {}, 1 / 60); states.add(G.townState(g, home.id)); }
+  assert.ok([1, 2, 3].every((x) => states.has(x)), 'passes through every state: ' + [...states]); assert.ok(g.bountyGold > 300 && g.bounty >= 1 && g.rep.local[home.id] < 0 && g.alert[home.id] > g.t, 'a crime');
+  assert.ok(g.gold > gold0, 'plundered once'); const pl = g.gold; for (let i = 0; i < 5; i++) { ball(g); step(g, {}, 1 / 60); } assert.equal(g.gold, pl, 'only once per pillage');
+  assert.ok(newsFor(g, home).items.some((i) => i.head === 'After the shelling'));
+  // a burning town shuts its shops and empties its streets; a calm one does not
+  const f = newGame(SEED), n = islandTown(home).npcs.find((q) => q.kind === 'merchant'); f.foot.x = n.x; f.foot.z = n.z + 2.5; f.foot.y = n.y;
+  assert.equal(G.interact(f).panel, 'market'); f.towns = { [home.id]: { hp: 20, max: 400, t: f.t } }; assert.equal(G.townState(f, home.id), 2); assert.equal(G.interact(f).panel, null, 'shop shut');
+  const vs = townsfolk(home).map((v) => `v${home.id}:${v.seed}`); assert.ok(vs.every((id) => !G.npcAlive(f, id)), 'streets empty'); f.towns[home.id].hp = 250; assert.equal(G.townState(f, home.id), 1); assert.ok(vs.some((id) => G.npcAlive(f, id)) && vs.some((id) => !G.npcAlive(f, id)), 'half indoors');
+  // healing and saves
+  const h = newGame(SEED); h.towns = { [home.id]: { hp: 1, max: 400, t: 0 } }; for (let i = 0; i < 60 * 700; i++) step(h, {}, 1 / 60); assert.deepEqual(h.towns, {}, 'healed after ten minutes'); h.towns = { a: { hp: 10, max: 100, t: 0 } };
+  const s2 = deserialize(serialize(h)); assert.equal(s2.towns.a.hp, 10);
+});
+
+// ---------------------------------------------------------------- crew and recruitment
+test('crew: hired in a tavern within the ship capacity and for the fee, wages are paid on pay day, effects follow the roles, a bad name or no ship blocks hiring, saves keep the crew', async () => {
+  const C = await import('../src/rules/crew.js'); const home = sectorIslands(SEED, 0, 0)[0], g = newGame(SEED); g.gold = 20000;
+  const cs = C.candidates(g, home); assert.equal(cs.length, 3); assert.deepEqual(C.candidates(newGame(SEED), home).map((c) => c.id), cs.map((c) => c.id), 'stable within the day'); assert.ok(!C.hire(g, home, cs[0]), 'no ship, no crew');
+  buyShip(g, home); assert.equal(C.capacity(g), 1); const gold0 = g.gold; assert.ok(C.hire(g, home, cs[0])); assert.equal(g.gold, gold0 - cs[0].fee); assert.ok(!C.hire(g, home, cs[1]), 'sailboat holds one'); assert.ok(!C.hire(g, home, cs[0]), 'not twice');
+  g.gold = 20000; g.rep.local[home.id] = -80; assert.ok(!C.hire(newGame(SEED), home, cs[2])); const bad = newGame(SEED); buyShip(bad, home); bad.gold = 9999; bad.rep.local[home.id] = -80; assert.ok(!C.hire(bad, home, cs[2]), 'a hated customer is refused');
+  // roles
+  const q = newGame(SEED); buyShip(q, home); q.gold = 99999; q.crew = [{ id: 'a', name: 'A', role: 'gunner', wage: 7, morale: 70, seed: 1 }, { id: 'b', name: 'B', role: 'gunner', wage: 7, morale: 70, seed: 2 }, { id: 'c', name: 'C', role: 'navigator', wage: 9, morale: 70, seed: 3 }, { id: 'd', name: 'D', role: 'carpenter', wage: 6, morale: 70, seed: 4 }, { id: 'e', name: 'E', role: 'sailor', wage: 4, morale: 70, seed: 5 }];
+  assert.ok(Math.abs(C.reloadMul(q) - 0.84) < 1e-9); assert.equal(C.trimFloor(q), 0.85); assert.ok(Math.abs(C.sailorMul(q) - 1.03) < 1e-9); assert.equal(C.wages(q), 33);
+  q.hull = 50; q.hitT = -99; q.t = 0; for (let i = 0; i < 600; i++) step(q, {}, 1 / 60); assert.ok(q.hull > 50 + 3, 'the carpenter mends the hull'); const before = q.hull; q.hitT = q.t; for (let i = 0; i < 120; i++) step(q, {}, 1 / 60); assert.equal(q.hull, before, 'not under fire');
+  // pay day
+  const p = newGame(SEED); buyShip(p, home); p.gold = 1000; p.crew = q.crew.map((c) => ({ ...c })); p.payT = 119.9; step(p, {}, 0.2); assert.equal(p.gold, 1000 - 33); assert.ok(p.crew.every((c) => c.morale === 76));
+  p.gold = 10; p.payT = 119.9; step(p, {}, 0.2); assert.ok(p.crew.every((c) => c.morale === 46)); for (let i = 0; i < 2; i++) { p.gold = 10; p.payT = 119.9; step(p, {}, 0.2); } assert.equal(p.crew.length, 0, 'unpaid crews desert');
+  const s2 = deserialize(serialize(q)); assert.equal(s2.crew.length, 5); assert.equal(C.dismiss(q, 'a'), true); assert.equal(q.crew.length, 4);
+});
+test('crew: your hands fight beside you on a boarded deck, can fall, and cheer up after a win', async () => {
+  const { g, e, step } = await sail('raider'); const { grapple } = await import('../src/rules/game.js'); const C = await import('../src/rules/crew.js');
+  g.crew = [0, 1, 2].map((i) => ({ id: 'm' + i, name: 'Hand ' + i, role: 'sailor', wage: 4, morale: 50, seed: i })); g.shipClass = 'galleon'; grapple(g); assert.equal(g.deck.allies.length, 3);
+  g.weapons.axe = true; g.weapon = 'axe'; fightOn(g, step); assert.ok(g.deck.won, 'won with help'); assert.ok(g.crew.every((c) => c.morale > 50), 'cheered');
+  const n = g.crew.length; const f = await sail('raider'); f.g.crew = [{ id: 'x', name: 'Doomed', role: 'sailor', wage: 4, morale: 50, seed: 9 }]; grapple(f.g); f.g.deck.allies[0].hp = 1; f.g.hp = 100; for (let i = 0; i < 60 * 20 && f.g.crew.length; i++) f.step(f.g, {}, 1 / 60); assert.equal(f.g.crew.length, 0, 'a hand is killed'); assert.ok(n === 3);
+});
+
+// ---------------------------------------------------------------- the world map
+test('map: you only know what you have seen; walking and sailing uncover it, saves keep it, visited places are remembered by name', async () => {
+  const M = await import('../src/rules/map.js'); const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0];
+  assert.equal(M.stateAt(g, 'terra', 5000, 5000), M.UNKNOWN); step(g, {}, 1 / 60);
+  assert.equal(M.stateAt(g, 'terra', g.foot.x, g.foot.z), M.KNOWN, 'where you stand'); assert.equal(M.stateAt(g, 'terra', g.foot.x + 3000, g.foot.z), M.UNKNOWN, 'far away stays dark');
+  assert.equal(M.mapOf(g).visited[home.id], home.port.name, 'a port you stand in is named');
+  const n0 = Object.keys(M.mapOf(g).cells.terra).length; buyShip(g, home); g.mode = 'ship'; g.ship.x = 1500; g.ship.z = 0; step(g, {}, 1 / 60); assert.ok(Object.keys(M.mapOf(g).cells.terra).length > n0 + 8, 'a ship sees further than a walker'); assert.equal(M.stateAt(g, 'terra', 1500, 0), M.KNOWN);
+  const g2 = deserialize(serialize(g)); assert.equal(M.stateAt(g2, 'terra', 1500, 0), M.KNOWN); assert.equal(M.mapOf(g2).visited[home.id], home.port.name);
+  assert.equal(M.realmState(g, 'terra'), M.KNOWN); assert.equal(M.realmState(g, 'asgard'), M.UNKNOWN);
+});
+test('map: NPCs give charts and rumours once each, quests open the map, and the worlds are hinted in order', async () => {
+  const M = await import('../src/rules/map.js'); const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0], t = islandTown(home).npcs; g.flags.crossed = true;
+  const talk = (kind) => { const n = t.find((q) => q.kind === kind); g.foot.x = n.x; g.foot.z = n.z + 2.5; g.foot.y = n.y; const r = interact(g); return r.lines; };
+  const l1 = talk('merchant'); assert.ok(l1.some((x) => /chart/.test(x)), 'the merchant marks a chart'); const hinted = Object.values(M.mapOf(g).cells.terra).filter((v) => v === M.HINTED).length; assert.ok(hinted > 5, 'a faint sketch appears');
+  assert.ok(!talk('merchant').some((x) => /chart/.test(x)), 'only once');
+  const first = talk('tavern'); assert.ok(first.some((x) => /updated/.test(x)), 'a tavern gives a chart or a rumour: ' + first.at(-1));
+  // more taverns: the next one rumours a world, in order Asgard, Atlantis, Olympus
+  const fake = (id, kind) => M.learn(g, { id, kind }, home); const seen = []; for (let i = 0; i < 12 && seen.length < 3; i++) { fake('tv' + i, 'tavern'); for (const r of ['asgard', 'atlantis', 'olympus']) if (M.realmState(g, r) === M.HINTED && !seen.includes(r)) seen.push(r); }
+  assert.deepEqual(seen, ['asgard', 'atlantis', 'olympus']); assert.equal(M.nextUnhinted(g), null); assert.ok(g.map.heard['tv0'] && M.learn(g, { id: 'tv0', kind: 'tavern' }, home) === null);
+  // quests
+  const q = newGame(SEED); const gate = q.targets.gate; assert.equal(M.stateAt(q, 'terra', gate.x * 0.97, gate.z * 0.97), M.UNKNOWN); M.learnQuest(q, 'frost'); assert.equal(M.stateAt(q, 'terra', gate.x * 0.97, gate.z * 0.97), M.HINTED);
+  const q2 = newGame(SEED), f = q2.targets.frost; assert.equal(M.stateAt(q2, 'terra', f.x, f.z), M.UNKNOWN); M.learnQuest(q2, 'sailor'); assert.equal(M.stateAt(q2, 'terra', f.x, f.z), M.HINTED); assert.equal(M.stateAt(q, 'terra', f.x, f.z), M.HINTED); assert.ok(/World map/.test((q.flags.crossed = true, M.learnQuest(q, 'wall')))); assert.equal(M.realmState(q, 'asgard'), M.HINTED);
+});
+test('map: scalable, a new world is one registry entry and shows up on the grand map without touching anything else; objectives never appear', async () => {
+  const M = await import('../src/rules/map.js'); const g = newGame(SEED), size = 600, base = M.worldLayout(g, size);
+  assert.deepEqual(base.realms.map((r) => r.id), ['terra', 'asgard', 'atlantis', 'olympus']); assert.ok(base.realms.filter((r) => !r.home).every((r) => r.state === M.UNKNOWN), 'hidden until heard of');
+  for (const r of base.realms) assert.ok(r.x >= 0 && r.x <= size && r.y >= 0 && r.y <= size, r.id + ' fits on the map');
+  M.REALMS.push({ id: 'testland', name: 'Testland', planned: true, grand: { ang: 3.9, dist: 2.1, size: 0.5 }, color: [200, 50, 50], rumour: 'a place for tests' });
+  try { const l2 = M.worldLayout(g, size); assert.equal(l2.realms.length, 5); M.hint(g, 'testland'); assert.equal(M.worldLayout(g, size).realms.at(-1).state, M.HINTED); const o = l2.realms.at(-1); assert.ok(o.x > 0 && o.x < size && o.y > 0 && o.y < size);
+    assert.equal(M.nextUnhinted(newGame(SEED)).id, 'asgard'); M.visitRealm(g, 'testland'); assert.equal(M.realmState(g, 'testland'), M.KNOWN); } finally { M.REALMS.pop(); }
+  const keys = Object.keys(JSON.parse(serialize(g)).map).sort(); assert.deepEqual(keys, ['cells', 'heard', 'realms', 'visited'], 'the map stores only what was discovered: no quest targets, no objectives');
+  const p = M.grandPoint(M.worldLayout(g, size), 0, 0); assert.ok(Math.abs(p.x - size / 2) < 1e-9 && Math.abs(p.y - size / 2) < 1e-9, 'the middle of Terra is the middle of the grand map');
+});
+
+test('map: you cannot read the map until you break through the ice, but discovery is recorded meanwhile and the NPC lines do not mention a map', async () => {
+  const M = await import('../src/rules/map.js'); const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; assert.equal(M.mapAvailable(g), false);
+  const n = islandTown(home).npcs.find((q) => q.kind === 'merchant'); g.foot.x = n.x; g.foot.z = n.z + 2.5; g.foot.y = n.y; const lines = interact(g).lines.join(' '); assert.ok(/commit it to memory/.test(lines) && !/Map updated/.test(lines), lines);
+  step(g, {}, 1 / 60); const known = Object.keys(M.mapOf(g).cells.terra).length; assert.ok(known > 10, 'still recorded in the background');
+  g.flags.crossed = true; assert.equal(M.mapAvailable(g), true); assert.equal(Object.keys(M.mapOf(g).cells.terra).length, known, 'unlocking shows what was already found');
+});
+
+// ---------------------------------------------------------------- fleets
+const withCrew = (g, n = 2) => { g.shipClass = 'galleon'; g.crew = Array.from({ length: n }, (_, i) => ({ id: 'h' + i, name: 'Hand ' + i, role: 'sailor', wage: 4, morale: 70, seed: i })); };
+const takePrize = async (kind = 'raider') => {
+  const r = await sail(kind); const G = await import('../src/rules/game.js'); withCrew(r.g); G.grapple(r.g); r.g.weapons.axe = true; r.g.weapon = 'axe'; fightOn(r.g, r.step); assert.ok(r.g.deck.won); return { ...r, G };
+};
+test('fleet: a boarded ship can be kept under a spare hand, captains do not count aboard, upkeep is paid, the fleet is capped, saves keep it, and she can be sold', async () => {
+  const F = await import('../src/rules/fleet.js'); const C = await import('../src/rules/crew.js');
+  const { g, e, G } = await takePrize(); const P = G.prizeInfo(g); assert.ok(P.keep && !P.fleetFull); const gold0 = g.gold;
+  assert.ok(G.finishBoarding(g, 'keep')); assert.equal(g.fleet.length, 1); assert.equal(g.mode, 'ship'); assert.ok(!g.enemies.has(e.id)); assert.ok(g.fleet[0].hp < g.fleet[0].maxHp, 'a damaged prize');
+  const cap = g.crew.find((c) => c.captain); assert.ok(cap && cap.captain === g.fleet[0].id); assert.equal(C.aboard(g).length, 1); assert.equal(C.count(g, 'sailor'), 1, 'captains do not trim your sails'); assert.ok(!C.dismiss(g, cap.id), 'a captain cannot just be dismissed');
+  assert.ok(g.gold >= gold0, 'keeping her pays nothing but costs nothing');
+  assert.equal(F.canKeep(g), true); assert.ok(F.spareHand(g) && F.spareHand(g).id !== cap.id);
+  // upkeep on pay day: wages of both hands plus 10 for the ship
+  g.gold = 1000; g.payT = 119.9; step(g, {}, 0.2); assert.equal(g.gold, 1000 - 8 - 10);
+  const s2 = deserialize(serialize(g)); assert.equal(s2.fleet.length, 1); assert.equal(s2.fleet[0].captain, cap.id);
+  g.fleet[0].hp = g.fleet[0].maxHp; const sell = F.sellValue(g.fleet[0]); const gold1 = g.gold; assert.equal(F.sellShip(g, g.fleet[0].id), sell); assert.equal(g.gold, gold1 + sell); assert.equal(g.fleet.length, 0); assert.ok(!g.crew.some((c) => c.captain), 'the captain is back aboard');
+  // cap of three and no spare hand
+  const q = newGame(SEED); withCrew(q, 5); for (let i = 0; i < 5; i++) F.addPrize(q, { id: 'x' + i, kind: 'raider', seed: i, name: 'S' + i, x: 0, z: 0, yaw: 0, maxHp: 38 }); assert.equal(q.fleet.length, 3, 'three at most'); assert.equal(F.canKeep(q), false);
+  const n = newGame(SEED); withCrew(n, 0); assert.equal(F.canKeep(n), false, 'nobody to captain her');
+});
+test('fleet: ships follow you at sea, hold position when ordered to guard, hunt hostile ships when ordered to attack, take enemy fire, and go down with their captain', async () => {
+  const F = await import('../src/rules/fleet.js'); const { g, e, G, step } = await takePrize(); G.finishBoarding(g, 'keep'); const f = g.fleet[0]; f.hp = f.maxHp;
+  // follow: you sail away, she keeps up (and is brought to you if you outrun her)
+  g.ship.x = 200; g.ship.z = 200; f.x = 200 - 60; f.z = 200; g.ship.sail = 1; g.ship.yaw = 0; g.auto = false; g.fleetOrder = 'follow'; for (let i = 0; i < 60 * 40; i++) { g.hull = 100; step(g, { sail: 1 }, 1 / 60); } assert.ok(Math.hypot(f.x - g.ship.x, f.z - g.ship.z) < 220, 'she keeps up: ' + Math.hypot(f.x - g.ship.x, f.z - g.ship.z));
+  // guard: she stays put while you leave
+  g.fleetOrder = 'follow'; F.cycleOrder(g, () => {}); F.cycleOrder(g, () => {}); F.cycleOrder(g, () => {}); assert.equal(g.fleetOrder, 'guard'); const gx = f.x, gz = f.z; g.ship.speed = 12; for (let i = 0; i < 60 * 20; i++) { g.hull = 100; step(g, { sail: 1 }, 1 / 60); } assert.ok(Math.hypot(f.x - gx, f.z - gz) < 80, 'holds her station');
+  // attack: she goes for a hostile raider and hurts it
+  const r = await sail('raider'); const G2 = r.G || G; withCrew(r.g); r.g.fleet = [{ id: 'f9', kind: 'navy', seed: 5, name: 'Mine', x: r.e.x - 120, z: r.e.z, yaw: 0, speed: 0, hp: 75, maxHp: 75, captain: 'h0', cd: 0, ax: 0, az: 0 }]; r.g.crew[0].captain = 'f9'; r.g.fleetOrder = 'attack'; r.g.ship.x = r.e.x - 300; r.g.ship.z = r.e.z + 400; r.e.speed = 0; const hp0 = r.e.hp;
+  for (let i = 0; i < 60 * 90 && r.g.enemies.has(r.e.id) && r.e.hp > 0; i++) { r.g.hull = 100; r.step(r.g, {}, 1 / 60); } assert.ok(r.e.hp < hp0 || !r.g.enemies.has(r.e.id), 'her guns tell');
+  // enemy fire hits her, and when she sinks the captain goes with her
+  const t = await sail('raider'); withCrew(t.g); const ff = { id: 'f8', kind: 'raider', seed: 2, name: 'Doomed', x: t.e.x + 30, z: t.e.z, yaw: 0, speed: 0, hp: 5, maxHp: 38, captain: 'h0', cd: 99, ax: 0, az: 0 }; t.g.fleet = [ff]; t.g.crew[0].captain = 'f8'; t.g.fleetOrder = 'guard';
+  t.g.shots.push({ x: ff.x, z: ff.z, vx: 0, vz: 0, life: 1, owner: 'enemy', dmg: 20, kind: 'round' }); t.step(t.g, {}, 1 / 60); t.step(t.g, {}, 1 / 60); assert.equal(t.g.fleet.length, 0, 'sunk'); assert.ok(!t.g.crew.some((c) => c.id === 'h0'), 'the captain is lost with her'); assert.ok(t.g.sinking.some((k) => k.id === 'f8'));
+});

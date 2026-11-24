@@ -1,9 +1,15 @@
 // Game rules, stepped at a fixed rate with no drawing code, so they run (and are tested) in plain Node.
 // Two modes: 'foot' (first person, on land) and 'ship' (third person, at sea).
-import { SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS } from '../gen/world.js';
+import { GOODS, SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS } from '../gen/world.js';
 import { sailEfficiency, windAt, windAngle, polar, pointOfSail } from './sea.js';
 import { weaponOf, equip, WEAPON_ORDER } from './weapons.js';
-import { deed, forgive, shunned, localRep, addLocal as addLocalRep } from './rep.js';
+import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } from './rep.js';
+import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
+import { shipParams } from '../gen/mesh.js';
+import { explore, visit, learn } from './map.js';
+import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
+import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
+import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
 import { cargoCount } from './trade.js';
 import { shipOf } from './ships.js';
 import { advanceQuests, dialog, currentQuest } from './quests.js';
@@ -22,7 +28,7 @@ export function newGame(seed = 1717) {
   const targets = questWorld(seed), home = sectorIslands(seed, 0, 0)[0], plaza = islandTown(home).plaza;
   const s = {
     seed, t: 0, mode: 'foot', gold: 500, food: 0, hull: 100, maxHull: 100, hold: 20, cargo: {}, upgrades: {}, flags: {}, found: new Set(), dead: new Set(),
-    kills: 0, killsBy: {}, npcs: {}, murders: 0, rep: { world: 0, local: {} }, bounty: 0, bountyGold: 0, weapon: 'fists', weapons: {}, jailUntil: -1, hp: 100, maxHp: 100, hurtT: -99, guards: [], sinking: [], fx: [], hitT: -99, alert: {}, guardT: {}, score: 0, quest: 0, targets, ship: null, foodT: 0, msgT: 0,
+    kills: 0, killsBy: {}, npcs: {}, murders: 0, rep: { world: 0, local: {} }, bounty: 0, bountyGold: 0, weapon: 'fists', weapons: {}, jailUntil: -1, fleet: [], fleetOrder: 'follow', crew: [], payT: 0, towns: {}, bombard: false, foes: [], parts: {}, ammo: { chain: 0, fire: 0 }, shot: 'round', deck: null, hunts: {}, handed: 0, jailed: {}, prisoner: null, hp: 100, maxHp: 100, hurtT: -99, guards: [], sinking: [], fx: [], hitT: -99, alert: {}, guardT: {}, score: 0, quest: 0, targets, ship: null, foodT: 0, msgT: 0,
     foot: { x: plaza.x, z: plaza.z, y: plaza.y, yaw: 0, vy: 0 }, wind: windAt(0), enemies: new Map(), shots: [], log: [], events: [], over: false, ending: false,
   };
   const sw = islandTown(home).npcs.find((n) => n.kind === 'shipwright'); if (sw) s.foot.yaw = Math.atan2(sw.z - plaza.z, sw.x - plaza.x);
@@ -54,7 +60,7 @@ export const nearbyIslands = (s, x, z, rad = 1) => {
   return out;
 };
 const islandsAt = (s, x, z) => nearbyIslands(s, x, z, 1).filter((i) => Math.hypot(i.x - x, i.z - z) < i.r * 1.7 + 20);
-export const groundAt = (s, x, z) => { let h = -4; for (const i of islandsAt(s, x, z)) h = Math.max(h, walkHeight(i, x, z)); return h; };
+export const groundAt = (s, x, z) => { if (s.deck && onDeck(s, x, z)) return DECK_Y; let h = -4; for (const i of islandsAt(s, x, z)) h = Math.max(h, walkHeight(i, x, z)); return h; };
 // is the camera at (x,y,z) inside terrain or a building? (used to pull the chase camera in)
 export const camBlocked = (s, x, y, z) => { for (const i of islandsAt(s, x, z)) { if (y < islandHeight(i, x, z) + 1.2) return true; for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1 && y < b.pad + b.h + 4) return true; } return false; };
 const PAD = 0.5; // body radius against walls
@@ -87,16 +93,16 @@ function unstickShip(s) {
 const hitIsland = (s, x, z) => { for (const i of islandsAt(s, x, z)) if (i.r * 1.5 > Math.hypot(i.x - x, i.z - z) && islandHeight(i, x, z) > -0.2) return i; return null; };
 
 // ---------------------------------------------------------------- on foot
-export const canStand = (s, x, z, fromY) => { const h = groundAt(s, x, z); return h >= 0.3 && Math.abs(h - fromY) < 1.6 && !blocked(s, x, z); };
+export const canStand = (s, x, z, fromY) => { if (s.deck) return onDeck(s, x, z, 0.35) && Math.abs(fromY - DECK_Y) < 1.6; const h = groundAt(s, x, z); return h >= 0.3 && Math.abs(h - fromY) < 1.6 && !blocked(s, x, z); };
 // ---------------------------------------------------------------- people can be hurt and killed. Nothing stops you: every deed is remembered (murders feed the reputation system later).
 // A dead shopkeeper's shop is shut until a relative takes over (REOPEN seconds), so the story can never be locked by a murder.
 export const REOPEN = 240, PLAYER_HIT = 10;
 export const npcMax = (kind) => (kind === 'villager' ? 20 : kind === 'warden' ? 80 : 45);
-export const npcAlive = (s, id) => { const q = s.npcs?.[id]; if (!q || !q.dead) return true; if (s.t - q.t >= REOPEN) { delete s.npcs[id]; return true; } return false; };
+export const npcAlive = (s, id) => { if (s.towns && id[0] === 'v') { const c = id.indexOf(':'); if (c > 0 && s.towns[id.slice(1, c)]) { const st = townState(s, id.slice(1, c)); if (st >= 2 || (st === 1 && (+id.slice(c + 1) & 1))) return false; } } const q = s.npcs?.[id]; if (q?.away && !q.dead) return false; if (!q || !q.dead) return true; if (s.t - q.t >= REOPEN) { delete s.npcs[id]; return true; } return false; };
 export const CORPSE_S = 9; // how long a body lies where it fell before it is gone
 function hurtNpc(s, id, kind, name, seed, dmg, isl, px = 0, pz = 0) {
   s.npcs ||= {}; const was = (s.npcs[id] || {}).dead; deed(s, 'hurt', isl?.id); crime(s, isl, 5, false); const q = (s.npcs[id] ||= { hp: npcMax(kind) }); q.hp -= dmg; q.hit = s.t;
-  if (q.hp > 0) { if (kind !== 'villager' && s.t - (s.callT || -99) > 6) { s.callT = s.t; say(s, name + ': "Stop! Someone help!"'); } return; }
+  if (q.hp > 0) { if (isl && fighterOf(s.seed, id, kind) && !q.away) { spawnFoe(s, id, kind, name, seed, isl, px, pz, false); return; } if (kind !== 'villager' && s.t - (s.callT || -99) > 6) { s.callT = s.t; say(s, name + ': "Stop! Someone help!"'); } return; }
   deed(s, kind === 'villager' ? 'killVillager' : kind === 'warden' ? 'killWarden' : 'killShopkeeper', isl?.id); crime(s, isl, kind === 'villager' ? 60 : kind === 'warden' ? 200 : 120, true); if (shunned(s, isl?.id)) say(s, 'The whole town turns against you.');
   q.dead = true; q.t = s.t; q.x = px; q.z = pz; q.y = groundAt(s, px, pz); q.kind = kind; q.seed = seed; spray(s, px, q.y + 1.2, pz, 8, 1.2); s.murders = (s.murders || 0) + 1; const loot = kind === 'villager' ? 3 + (seed % 8) : kind === 'warden' ? 60 : 20 + (seed % 40); s.gold += loot;
   say(s, `You killed ${name}. You take ${loot} gold from the body.`); if (kind !== 'villager') say(s, 'The shop is shut. Someone will take it over in time.'); s.events.push({ type: 'kill' });
@@ -132,7 +138,7 @@ export function payBounty(s) {
   s.gold -= pay; s.bountyGold = Math.max(0, s.bountyGold - pay); if (s.bountyGold <= 0) { s.bountyGold = 0; s.bounty = 0; s.alert = {}; s.guards = []; } return pay;
 }
 function arrest(s, isl) {
-  let jailed = false; const pay = payBounty(s); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false;
+  freePrisoner(s, 'The prisoner slips away while you are locked up.'); let jailed = false; const pay = payBounty(s); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false;
   if (isl) { addLocalRep(s, isl.id, Math.max(0, -10 - localRep(s, isl.id)) ); jailed = placeAtPlaza(s, isl); }
   s.foot.vy = 0; s.events.push({ type: 'arrest', yaw: s.foot.yaw }); say(s, `You were beaten and arrested and thrown in ${jailed ? 'the cell at the guard station' : 'the street'}. You paid ${pay} gold in fines${s.bountyGold > 0 ? `, and still owe ${s.bountyGold}` : ''}.`);
 }
@@ -156,6 +162,212 @@ function stepGuards(s, dt) {
   }
   if (s.hp <= 0) arrest(s, isl);
 }
+
+
+
+// ---------------------------------------------------------------- bombarding towns from the sea: a toggle (B), off by default so a ship fight beside a port never hurts it. With it on, cannonballs that land on a building
+// wear the town down: calm -> damaged (half the villagers run indoors) -> burning (fires, shops shut, nobody on the streets) -> pillaged (your crew plunder it once). Towns heal when left alone.
+export const TOWN_MAX = { village: 100, town: 200, city: 400 }, TOWN_REGEN_AFTER = 30, TOWN_HEAL_S = 600, PLUNDER = { village: 150, town: 300, city: 600 };
+export const townState = (s, id) => { const t = s.towns?.[id]; if (!t) return 0; const f = t.hp / t.max; return f > 0.75 ? 0 : f > 0.4 ? 1 : f > 0 ? 2 : 3; };
+export const TOWN_STATE = ['calm', 'damaged', 'burning', 'pillaged'];
+export function toggleBombard(s) { if (s.mode !== 'ship' || !s.ship) return; s.bombard = !s.bombard; say(s, s.bombard ? 'Bombardment ON: your cannonballs will hit town buildings. Ports will not forgive it.' : 'Bombardment off: shot passes harmlessly over the towns.'); }
+const townHit = (s, x, z) => { for (const i of islandsAt(s, x, z)) if (i.port && Math.hypot(i.x - x, i.z - z) < i.r * 1.5) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + 1.5 && Math.abs(b.z - z) < b.d / 2 + 1.5) return { isl: i, b }; return null; };
+function bombardTown(s, isl, b, dmg, x, z) {
+  const t = (s.towns ||= {})[isl.id] ||= { hp: TOWN_MAX[isl.tier] || 100, max: TOWN_MAX[isl.tier] || 100, t: s.t }, before = townState(s, isl.id);
+  t.hp = Math.max(0, t.hp - dmg * 1.5); t.t = s.t; puff(s, 'flash', x, 4, z, 0.3, { sc: 2.2 }); puff(s, 'smoke', x, 4, z, 1.6, { vy: 2, sc: 2 });
+  crime(s, isl, 15, true); deed(s, 'bombard', isl.id); s.alert[isl.id] = s.t + ALERT_S; const st = townState(s, isl.id);
+  if (st !== before) say(s, st === 1 ? `${isl.port.name}: buildings are scorched and people run indoors.` : st === 2 ? `${isl.port.name} is burning! The shops are shut and the streets empty.` : `${isl.port.name} is pillaged. ${t.plundered ? '' : 'Your crew plunder what is left.'}`);
+  if (st === 3 && !t.plundered) { t.plundered = true; const g = PLUNDER[isl.tier] || 150; s.gold += g; s.score += g; s.bountyGold += 300; addWorld(s, -10); s.events.push({ type: 'coin' }); }
+}
+function stepTowns(s, dt) {
+  if (!s.towns) return; const p = s.mode === 'ship' && s.ship ? s.ship : s.foot, tick = Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2);
+  for (const id in s.towns) { const t = s.towns[id]; if (t.hp < t.max && s.t - t.t > TOWN_REGEN_AFTER) { t.hp = Math.min(t.max, t.hp + (t.max / TOWN_HEAL_S) * dt); if (t.hp > t.max * 0.5) t.plundered = false; } if (t.hp >= t.max) { delete s.towns[id]; continue; }
+    if (tick && townState(s, id) >= 2) { const isl = nearbyIslands(s, p.x, p.z, 1).find((i) => i.id === id); if (isl && Math.hypot(isl.x - p.x, isl.z - p.z) < 500) { const bs = islandTown(isl).buildings, b = bs[hash(s.seed, Math.floor(s.t * 2), 41) % bs.length]; if (b) { puff(s, 'flash', b.x + (hash(b.x | 0, Math.floor(s.t * 2)) % 5) - 2, b.pad + b.h, b.z, 0.35, { sc: 1.6 }); puff(s, 'smoke', b.x, b.pad + b.h + 1, b.z, 2.4, { vy: 2.5, sc: 2.6 }); } } } }
+}
+// ---------------------------------------------------------------- hidden fighters: a few people (no visual tell) carry a weapon and fight back when hit, or even strike first if you look rich or wanted
+export const FOE_HIT = 8, FOE_SPEED = 3.2;
+const strHash = (str) => { let h = 7; for (let i = 0; i < str.length; i++) h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0; return h >>> 0; };
+export const fighterOf = (seed, id, kind) => kind === 'warden' ? false : (hash(seed, strHash(String(id)), 77) % 1000) < (kind === 'villager' ? 70 : 110);
+function spawnFoe(s, id, kind, name, seed, isl, x, z, pre) {
+  if (s.foes.some((f) => f.id === id)) return; const q = (s.npcs[id] ||= { hp: npcMax(kind) }); q.away = true;
+  s.foes.push({ id, kind, name, seed, isl: isl.id, x, z, y: groundAt(s, x, z), cd: 0.6 }); s.events.push({ type: 'hit' });
+  say(s, pre ? `${name[0].toUpperCase() + name.slice(1)} pulls a blade and comes for your purse!` : `${name[0].toUpperCase() + name.slice(1)} was not as harmless as they looked. They fight back!`);
+}
+function stepFoes(s, dt) {
+  const f = s.foot; if (s.mode !== 'foot') { for (const o of s.foes) { const q = s.npcs[o.id]; if (q) q.away = false; } s.foes = []; return; }
+  s.foes = s.foes.filter((o) => { const q = s.npcs[o.id]; if (!q || q.dead || Math.hypot(o.x - f.x, o.z - f.z) > 70) { if (q) q.away = false; return false; } return true; });
+  for (const o of s.foes) { const q = s.npcs[o.id], d = Math.hypot(f.x - o.x, f.z - o.z); o.face = Math.atan2(f.z - o.z, f.x - o.x); o.cd = Math.max(0, o.cd - dt); if (s.jailUntil > s.t) continue; if (d > 1.9) walkToward(s, o, f.x, f.z, FOE_SPEED * dt); else if (o.cd <= 0) { o.cd = 1.2; o.atk = s.t; s.hp -= FOE_HIT; s.hurtT = s.t; s.events.push({ type: 'hit' }); } void q; }
+  if ((s.gold >= 1500 || s.bountyGold > 0) && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2) && s.t - (s.foeT || -99) > 20) { // the rich and the wanted attract it
+    for (const isl of islandsAt(s, f.x, f.z)) if (isl.port) for (const v of townsfolk(isl)) { const id = `v${isl.id}:${v.seed}`, p = folkPos(v, s.t); if (npcAlive(s, id) && fighterOf(s.seed, id, 'villager') && Math.hypot(p.x - f.x, p.z - f.z) < 6) { s.foeT = s.t; spawnFoe(s, id, 'villager', 'a villager', v.seed, isl, p.x, p.z, true); return; } }
+  }
+}
+// ---------------------------------------------------------------- bounty missions (the law's side): wanted people hide on islands; kill them, or subdue and bind them and hand them in at any guard station
+export const huntOf = (s, w) => ((s.hunts ||= {})[w.id] ||= { st: 'free', hp: w.hp });
+export const HUNT_HIT = 5, HUNT_SPEED = 3.4, PRISONER_SPEED = 4.6;
+function placeTarget(s, w, h) {
+  const isl = w.island, pl = isl.port ? islandTown(isl).plaza : isl.landing, r = rngFor(s.seed, 8400 + w.i);
+  for (let k = 0; k < 160; k++) { const a = r() * TAU, d = isl.port ? 9 + r() * Math.max(6, isl.r * 0.45) : 5 + r() * 10, x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, g = groundAt(s, x, z); if (g >= 0.8 && canStand(s, x, z, g) && roomy(s, x, z)) { h.x = x; h.z = z; h.y = g; return; } }
+  const sp = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 6, 22); if (sp) { h.x = sp.x; h.z = sp.z; } else { h.x = pl.x + 6; h.z = pl.z; } h.y = groundAt(s, h.x, h.z);
+}
+function walkToward(s, e, tx, tz, sp) {
+  const base = Math.atan2(tz - e.z, tx - e.x);
+  for (const m of [0, 0.5, 1, 1.6, 2.2]) for (const sg of m ? [e.side || 1, -(e.side || 1)] : [1]) { const an = base + m * sg, mx = Math.cos(an) * sp, mz = Math.sin(an) * sp; if (canStand(s, e.x + mx, e.z + mz, e.y ?? 0)) { e.x += mx; e.z += mz; if (m) e.side = sg; e.y = groundAt(s, e.x, e.z); e.walk = (e.walk || 0) + sp; e.face = base; return true; } }
+  return false;
+}
+function claimKill(s, w, isl) {
+  const h = huntOf(s, w); h.st = 'killed'; h.deadT = s.t; h.seed = w.seed;
+  if (w.aliveOnly) { addWorld(s, -6); if (isl) addLocalRep(s, isl.id, -10); say(s, `${w.name} was wanted ALIVE. The realm pays nothing for a corpse, and notes it.`); }
+  else { const g = Math.round(w.dead * payBonus(s.handed || 0)); s.gold += g; s.score += g; deed(s, 'lawKill', isl?.id); say(s, `${w.name} is dead. Bounty collected: ${g} gold.`); }
+  if (s.prisoner === w.id) s.prisoner = null; s.events.push({ type: 'kill' });
+}
+function hitTarget(s, w, h, dmg, isl) {
+  h.hitT = s.t; spray(s, h.x, (h.y || 0) + 1.3, h.z, 4);
+  if (h.st === 'sub') return claimKill(s, w, isl); // a blow on a beaten man finishes him
+  h.hp -= dmg; if (h.hp <= 0) return claimKill(s, w, isl);
+  if (h.hp <= w.hp * SUBDUED_AT) { h.st = 'sub'; say(s, `${w.name} drops, beaten. Walk up and press F to bind them, or finish the job.`); }
+}
+function freePrisoner(s, msg) { if (!s.prisoner) return; const h = s.hunts[s.prisoner]; if (h) { h.st = 'free'; h.aboard = false; h.hp = Math.max(h.hp || 0, 12); } s.prisoner = null; say(s, msg); }
+export const nearSub = (s) => { if (s.mode !== 'foot') return null; if (s.deck?.wid) { const c = s.deck.defs.find((d) => d.captain && d.st === 'sub'); if (c && Math.hypot(c.x - s.foot.x, c.z - s.foot.z) < 3.4) return byId(s, s.deck.wid); } for (const t of board(s)) { const h = s.hunts[t.id]; if (t.kind === 'foot' && h && h.st === 'sub' && h.x !== undefined && Math.hypot(h.x - s.foot.x, h.z - s.foot.z) < 3.4) return t; } return null; };
+export function handIn(s, isl) {
+  const w = byId(s, s.prisoner); if (!w) return 0; const h = huntOf(s, w), pay = Math.round(w.reward * payBonus(s.handed || 0));
+  const before = rankOf(s.handed || 0); s.gold += pay; s.score += pay; s.handed = (s.handed || 0) + 1; deed(s, 'handIn', isl?.id);
+  h.st = 'jailed'; h.isl = isl?.id; h.aboard = false; if (isl) (s.jailed[isl.id] ||= []).push(w.id); s.prisoner = null;
+  say(s, `${w.name} is locked in the cell. The realm pays you ${pay} gold.`); const after = rankOf(s.handed); if (after !== before) say(s, `You are made ${after}.`); s.events.push({ type: 'coin' });
+  return pay;
+}
+function stepHunts(s, dt) {
+  const f = s.foot, pr = s.prisoner && s.hunts[s.prisoner];
+  if (pr) {
+    if (s.mode !== 'foot') pr.aboard = true;
+    else {
+      if (pr.aboard || pr.x === undefined || Math.hypot(f.x - pr.x, f.z - pr.z) > 30) { pr.aboard = false; const sp = freeSpotNear(s, f.x, f.z, f.x - Math.cos(f.yaw), f.z - Math.sin(f.yaw), 1.6, 6); pr.x = sp ? sp.x : f.x; pr.z = sp ? sp.z : f.z; pr.y = groundAt(s, pr.x, pr.z); }
+      else if (Math.hypot(f.x - pr.x, f.z - pr.z) > 2.6) walkToward(s, pr, f.x, f.z, PRISONER_SPEED * dt);
+    }
+  }
+  if (s.mode !== 'foot') return;
+  const here = islandsAt(s, f.x, f.z);
+  for (const w of board(s)) {
+    if (w.kind !== 'foot') continue; const h = huntOf(s, w); if (h.st !== 'free' && h.st !== 'sub') continue;
+    const isl = here.find((i) => i.id === w.island.id); if (!isl) continue; if (h.x === undefined) placeTarget(s, w, h);
+    if (h.st !== 'free') continue;
+    const d = Math.hypot(f.x - h.x, f.z - h.z); h.face = Math.atan2(f.z - h.z, f.x - h.x); h.cd = Math.max(0, (h.cd ?? 0.8) - dt);
+    if (s.jailUntil > s.t || (d > 16 && h.hp >= w.hp)) continue; // a wanted man minds his own business until you come close or hit him
+    if (d > 1.9) walkToward(s, h, f.x, f.z, HUNT_SPEED * dt);
+    else if (h.cd <= 0) { h.cd = 1.2; h.atk = s.t; s.hp -= HUNT_HIT; s.hurtT = s.t; s.events.push({ type: 'hit' }); }
+  }
+  if (s.hp <= 0 && !s.guards.length && !s.deck) { for (const o of s.foes) { if (s.npcs[o.id]) s.npcs[o.id].away = false; } s.foes = []; // knocked senseless by a wanted man or a hidden fighter: you wake in the street, lighter in the purse
+    const isl = here.find((i) => i.port), lost = Math.floor(s.gold * 0.1); s.gold -= lost; s.hp = s.maxHp * 0.5; freePrisoner(s, 'Your prisoner escapes while you lie senseless.');
+    for (const w of board(s)) { const h = s.hunts[w.id]; if (h && h.st === 'free') { h.hp = w.hp; h.x = undefined; } }
+    const pl = isl ? islandTown(isl).plaza : f, sp = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 4.8, 14); if (sp) s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: f.yaw, vy: 0 };
+    say(s, `You were beaten senseless. You wake in the street, ${lost} gold lighter.`); s.events.push({ type: 'arrest', yaw: s.foot.yaw });
+  }
+}
+
+// ---------------------------------------------------------------- boarding: grapple a ship alongside, fight on her deck on foot, then loot, claim or scuttle her. A wanted captain can be subdued and bound like any outlaw.
+export const GRAPPLE_RANGE = 22, DECK_Y = 0.95, DEF_HP = 25, CAPTAIN_HP = 60;
+const NDEF = { trader: 2, raider: 4, navy: 5, ghost: 4 };
+const deckShip = (s) => (s.deck ? s.enemies.get(s.deck.id) : null);
+const dims = (e) => { const p = shipParams(e.seed, e.kind); return { L: p.L, B: p.B }; };
+const toLocal = (e, x, z) => { const c = Math.cos(e.yaw), sn = Math.sin(e.yaw), dx = x - e.x, dz = z - e.z; return [dx * c + dz * sn, -dx * sn + dz * c]; };
+const toWorld = (e, u, v) => { const c = Math.cos(e.yaw), sn = Math.sin(e.yaw); return [e.x + u * c - v * sn, e.z + u * sn + v * c]; };
+const inDeck = (e, u, v, pad) => { const { L, B } = dims(e); return u > -0.78 * L + pad && u < 0.82 * L - pad && Math.abs(v) < 0.6 * B - pad * 0.4; };
+const mastU = (e) => { const p = shipParams(e.seed, e.kind), L = p.L; return p.masts === 1 ? [0.1 * L] : Array.from({ length: p.masts }, (_, k) => (-0.35 + 0.85 * (k / (p.masts - 1))) * L); };
+export const onDeck = (s, x, z, pad = 0) => { const e = deckShip(s); if (!e) return false; const [u, v] = toLocal(e, x, z); return inDeck(e, u, v, pad) && (pad === 0 || !mastU(e).some((m) => Math.hypot(u - m, v) < 0.55 + pad * 0.3)); };
+const nearestShip = (s) => { let best = null, bd = GRAPPLE_RANGE; if (!s.ship) return null; for (const e of s.enemies.values()) { if (e.hp <= 0) continue; const d = Math.hypot(e.x - s.ship.x, e.z - s.ship.z); if (d < bd) { bd = d; best = e; } } return best; };
+export function grapple(s) {
+  if (s.mode !== 'ship' || !s.ship || s.deck || s.sunkT !== undefined) return { type: 'none' };
+  const e = nearestShip(s); if (!e) { say(s, 'No ship close enough to grapple. Come alongside (within ' + GRAPPLE_RANGE + ').'); return { type: 'none' }; }
+  const k = KINDS[e.kind], lawful = isHostile(s, e), { L, B } = dims(e), c = shipOf(s), p = s.ship;
+  if (!lawful) { s.bounty = Math.max(s.bounty, 1); s.bountyGold = (s.bountyGold || 0) + 150; deed(s, 'piracy'); say(s, 'Piracy! Boarding a peaceful ship is a crime.'); } else deed(s, 'boardHostile');
+  const [, pv] = toLocal(e, p.x, p.z), side = pv < 0 ? -1 : 1, off = 0.6 * B + c.B + 1.6, [wx, wz] = toWorld(e, 0, side * off);
+  p.x = wx; p.z = wz; p.yaw = e.yaw; p.speed = 0; e.speed = 0; e.grappled = true; s.auto = false;
+  const [fx, fz] = toWorld(e, -0.66 * L, 0), w = board(s).find((t) => t.kind === 'ship' && t.enemyId === e.id), n = NDEF[e.kind] || 3, defs = [];
+  for (let i = 0; i < n; i++) defs.push({ id: i, seed: hash(e.seed, i, 5), hp: DEF_HP, max: DEF_HP, u: -0.1 * L + (0.55 * L * i) / Math.max(1, n - 1), v: (i % 2 ? 1 : -1) * 0.18 * B, cd: 1 + i * 0.3, st: 'free' });
+  defs.push({ id: n, captain: true, seed: hash(e.seed, 99, 5), hp: CAPTAIN_HP, max: CAPTAIN_HP, u: 0.62 * L, v: 0, cd: 1, st: 'free', name: w ? w.name : e.captain });
+  for (const d of defs) { const [x, z] = toWorld(e, d.u, d.v); d.x = x; d.z = z; d.y = DECK_Y; }
+  if (w) { const h = huntOf(s, w); if (h.st === 'free') h.hp = CAPTAIN_HP; }
+  const allies = crewOf(s).filter((c) => !c.captain).slice(0, ALLY_MAX).map((c, i) => ({ cid: c.id, name: c.name, seed: c.seed, hp: 30, max: 30, u: -0.6 * L - 0.1 * i, v: (i % 2 ? 1 : -1) * 0.22 * B, cd: 1, st: 'free' }));
+  for (const a of allies) { const [x, z] = toWorld(e, a.u, a.v); a.x = x; a.z = z; a.y = DECK_Y; }
+  s.deck = { id: e.id, defs, allies, wid: w ? w.id : null, won: false, lawful, t0: s.t };
+  s.mode = 'foot'; s.foot = { x: fx, z: fz, y: DECK_Y, yaw: e.yaw, vy: 0 };
+  say(s, `Grapples thrown! You leap aboard the ${k.label.toLowerCase()} ${e.name}. Captain ${s.deck.defs[n].name} and ${n} crew.`); s.events.push({ type: 'grapple', yaw: e.yaw });
+  return { type: 'deck' };
+}
+function leaveDeck(s) { s.deck = null; s.mode = 'ship'; if (s.ship) s.ship.speed = 0; s.foot.vy = 0; }
+export function retreat(s) {
+  const e = deckShip(s); if (e) e.grappled = false; leaveDeck(s); say(s, 'You cut the grapples and swing back to your ship.'); return { type: 'board' };
+}
+function hitDefender(s, d, dmg) {
+  d.hp -= dmg; d.hitT = s.t; d.aggro = true; spray(s, d.x, DECK_Y + 1.3, d.z, 4);
+  if (d.hp > 0) { if (d.captain && d.hp <= d.max * SUBDUED_AT) { d.st = 'sub'; say(s, `Captain ${d.name} drops his sword and surrenders.${s.deck.wid ? ' Press F to bind him, or finish the job.' : ''}`); } return; }
+  if (d.captain && s.deck.wid) { const w = byId(s, s.deck.wid); if (w) claimKill(s, w, null); }
+  d.st = 'dead'; d.deadT = s.t; s.events.push({ type: 'kill' });
+}
+function stepDeck(s, dt) {
+  const D = s.deck; if (!D) return; const e = deckShip(s); if (!e) { leaveDeck(s); return; }
+  const f = s.foot, [pu, pv] = toLocal(e, f.x, f.z); e.speed = 0;
+  const live = D.defs.filter((d) => d.st === 'free');
+  for (const d of D.defs) {
+    if (d.st === 'free') {
+      d.cd = Math.max(0, d.cd - dt); let tg = { u: pu, v: pv, a: null }, tgd = Math.hypot(pu - d.u, pv - d.v); for (const a of D.allies) if (a.st === 'free') { const dd = Math.hypot(a.u - d.u, a.v - d.v); if (dd < tgd) { tgd = dd; tg = { u: a.u, v: a.v, a }; } }
+      const du = tg.u - d.u, dv = tg.v - d.v, dist = Math.hypot(du, dv) || 1, others = live.filter((q) => q !== d && !q.captain).length;
+      if (!d.captain || d.aggro || dist < 6 || others === 0) {
+        if (dist > 1.7) { let nu = d.u + (du / dist) * 3 * dt, nv = d.v + (dv / dist) * 3 * dt; for (const q of live) if (q !== d && Math.hypot(q.u - nu, q.v - nv) < 0.8) { nu = d.u; nv = d.v; break; } if (inDeck(e, nu, nv, 0.3)) { d.u = nu; d.v = nv; } d.walk = (d.walk || 0) + 3 * dt; }
+        else if (d.cd <= 0) { d.cd = 1.2; d.atk = s.t; const dm = e.kind === 'navy' || d.captain ? 6 : 5; if (tg.a) { tg.a.hp -= dm; tg.a.hitT = s.t; if (tg.a.hp <= 0) { tg.a.st = 'dead'; lose(s, tg.a.cid, say); } } else { s.hp -= dm; s.hurtT = s.t; s.events.push({ type: 'hit' }); } }
+      }
+      d.face = Math.atan2(f.z - d.z, f.x - d.x);
+    }
+    const [x, z] = toWorld(e, d.u, d.v); d.x = x; d.z = z; d.y = DECK_Y;
+  }
+  for (const a of D.allies) { // your hands fight beside you: each goes for the nearest crewman (the captain last)
+    if (a.st === 'free') { a.cd = Math.max(0, a.cd - dt); let tg = null, td = 1e9; for (const d of D.defs) if (d.st === 'free') { const dd = Math.hypot(d.u - a.u, d.v - a.v) + (d.captain ? 50 : 0); if (dd < td) { td = dd; tg = d; } }
+      if (tg) { const du = tg.u - a.u, dv = tg.v - a.v, dist = Math.hypot(du, dv) || 1; if (dist > 1.7) { const nu = a.u + (du / dist) * 3 * dt, nv = a.v + (dv / dist) * 3 * dt; if (inDeck(e, nu, nv, 0.3)) { a.u = nu; a.v = nv; } a.walk = (a.walk || 0) + 3 * dt; } else if (a.cd <= 0) { a.cd = 1.2; a.atk = s.t; hitDefender(s, tg, 6); } a.face = Math.atan2(tg.z - a.z, tg.x - a.x); } }
+    const [x, z] = toWorld(e, a.u, a.v); a.x = x; a.z = z; a.y = DECK_Y;
+  }
+  if (s.hp <= 0) { // beaten back: you wake aboard your own ship, a tenth poorer, the fight is over for now
+    const lost = Math.floor(s.gold * 0.1); s.gold -= lost; s.hp = s.maxHp * 0.5; e.grappled = false; freePrisoner(s, 'Your prisoner is lost in the scramble.'); leaveDeck(s); say(s, `They throw you back onto your own deck, ${lost} gold lighter.`); s.events.push({ type: 'arrest', yaw: s.foot.yaw }); return;
+  }
+  if (!D.won && !D.defs.some((d) => d.st === 'free')) { D.won = true; cheer(s); say(s, 'The deck is yours! Press F to decide her fate.'); s.events.push({ type: 'won' }); }
+}
+
+// ---------------------------------------------------------------- fleet ships: your captured prizes sail with you under one fleet-wide order (T cycles it)
+export function stepFleet(s, dt) {
+  const fl = s.fleet; if (!fl || !fl.length) return; const p = s.mode === 'ship' && s.ship ? s.ship : null, order = s.fleetOrder || 'follow';
+  for (let i = fl.length - 1; i >= 0; i--) {
+    const f = fl[i]; const k = KINDS[f.kind];
+    if (f.hp <= 0) { s.sinking.push({ id: f.id, kind: f.kind, seed: f.seed, x: f.x, z: f.z, yaw: f.yaw, speed: f.speed || 0, t0: s.t }); puff(s, 'flash', f.x, 4, f.z, 0.4, { sc: 4 }); fl.splice(i, 1); const c = crewOf(s).find((m) => m.captain === f.id); if (c) { delete c.captain; lose(s, c.id, say); } say(s, 'Your ship ' + f.name + ' goes down with all hands.'); s.events.push({ type: 'sunk' }); continue; }
+    if (!p) { f.speed *= 1 - Math.min(1, dt); continue; } // you are ashore: she rides at anchor
+    f.cd = Math.max(0, (f.cd || 0) - dt);
+    const slotA = p.yaw + Math.PI + (i % 2 ? 1 : -1) * (0.55 + 0.3 * Math.floor(i / 2)), slotD = 40 + 18 * i, sx = p.x + Math.cos(slotA) * slotD, sz = p.z + Math.sin(slotA) * slotD;
+    if (Math.hypot(f.x - p.x, f.z - p.z) > 1000) { f.x = sx; f.z = sz; f.yaw = p.yaw; f.speed = 0; }
+    let tg = null, td = order === 'attack' ? 400 : order === 'escort' || order === 'guard' ? 180 : 0;
+    if (td) for (const e of s.enemies.values()) { if (e.hp <= 0 || !isHostile(s, e)) continue; const d = Math.hypot(e.x - f.x, e.z - f.z); if (d < td) { td = d; tg = e; } }
+    let want, spd;
+    if (tg) { const a = Math.atan2(tg.z - f.z, tg.x - f.x); want = td < 70 ? a + (Math.sin(a - f.yaw) >= 0 ? -Math.PI / 2 : Math.PI / 2) : a; spd = Math.min(k.speed * 2.4, 11); }
+    else if (order === 'guard') { const d = Math.hypot(f.ax - f.x, f.az - f.z); want = Math.atan2(f.az - f.z, f.ax - f.x); spd = d > 50 ? k.speed * 1.5 : 0; }
+    else { const d = Math.hypot(sx - f.x, sz - f.z); want = Math.atan2(sz - f.z, sx - f.x); spd = d > 12 ? Math.min(k.speed * 3.2, 3 + d * 0.25, 13) : Math.max(0, p.speed * 0.9); }
+    f.yaw = wrapPi(f.yaw + Math.max(-0.5 * dt, Math.min(0.5 * dt, wrapPi(want - f.yaw))));
+    f.speed += (spd - f.speed) * Math.min(1, dt * 0.6);
+    const ox = f.x, oz = f.z; f.x += Math.cos(f.yaw) * f.speed * dt; f.z += Math.sin(f.yaw) * f.speed * dt; const hh = HULL[f.kind] || HULL.trader;
+    if (hullHit(s, f.x, f.z, f.yaw, hh[0], hh[1]) || Math.hypot(f.x, f.z) > WALL_R - 60) { f.x = ox; f.z = oz; f.yaw += 1.2 * dt * 6; f.speed *= 0.5; }
+    if (tg && f.cd <= 0 && td < CANNON_RANGE) { const a = Math.atan2(tg.z - f.z, tg.x - f.x), dA = wrapPi(a - f.yaw); if (Math.abs(Math.abs(dA) - Math.PI / 2) < 0.5) { fire(s, 'player', f, dA > 0 ? 1 : -1, tg, k.dmg * 1.2); f.cd = CANNON_CD * 1.5; } }
+  }
+}
+export function prizeInfo(s) {
+  const e = deckShip(s); if (!e) return null; const k = KINDS[e.kind], gold = k.gold[0] + (e.seed % (k.gold[1] - k.gold[0])), room = Math.max(0, s.hold - cargoCount(s)), n = Math.min(room, 3 + (e.seed % 5)), g = GOODS[e.seed % 6];
+  return { name: e.name, kind: e.kind, label: k.label, gold, claim: Math.round(gold * 2), scuttle: Math.round(gold * 0.5), good: g, n, lawful: s.deck.lawful, captain: s.deck.defs.find((d) => d.captain), keep: canKeep(s), fleetFull: fleetOf(s).length >= 3 };
+}
+export function finishBoarding(s, how) {
+  const e = deckShip(s), P = prizeInfo(s); if (!e || !P || !s.deck.won) return false;
+  const gold = how === 'claim' ? P.claim : how === 'scuttle' ? P.scuttle : P.gold; s.gold += gold; s.score += gold;
+  if (how !== 'scuttle' && P.n) s.cargo[P.good] = (s.cargo[P.good] || 0) + P.n;
+  if (how === 'keep') { if (!canKeep(s)) return false; addPrize(s, e); s.gold -= gold; s.score -= gold; if (!P.lawful) { s.bountyGold = (s.bountyGold || 0) + 300; s.bounty = Math.max(s.bounty, 1); } s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1; if (P.lawful) deed(s, 'sunkHostile'); s.dead.add(e.id); s.enemies.delete(e.id); say(s, `${e.name} joins your fleet under ${s.crew.find((c) => c.captain)?.name || 'a new captain'}. Press T to give the fleet orders.`); leaveDeck(s); s.events.push({ type: 'coin' }); return true; }
+  if (how === 'claim' && !P.lawful) { s.bountyGold = (s.bountyGold || 0) + 300; s.bounty = Math.max(s.bounty, 1); }
+  if (how === 'scuttle') s.sinking.push({ id: e.id, kind: e.kind, seed: e.seed, x: e.x, z: e.z, yaw: e.yaw, speed: 0, t0: s.t });
+  s.enemies.delete(e.id); s.dead.add(e.id); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1; if (P.lawful) deed(s, 'sunkHostile');
+  say(s, `${how === 'claim' ? 'Prize crew take her' : how === 'scuttle' ? 'You scuttle her' : 'You strip her hold'}: +${gold} gold${how !== 'scuttle' && P.n ? `, ${P.n} ${P.good}` : ''}.`);
+  leaveDeck(s); s.events.push({ type: 'coin' }); return true;
+}
 // a sword swing: hits the nearest person in front of you within reach
 function swing(s) {
   const w = weaponOf(s), f = s.foot, fx = Math.cos(f.yaw), fz = Math.sin(f.yaw); let best = null, bd = 1e9;
@@ -163,8 +375,11 @@ function swing(s) {
   for (const isl of islandsAt(s, f.x, f.z)) { const b0 = bd;
     for (const n of islandTown(isl).npcs) if (npcAlive(s, n.id)) consider(n.x, n.z, n.id, n.kind, n.name, n.seed);
     for (const v of townsfolk(isl)) { const id = `v${isl.id}:${v.seed}`; if (npcAlive(s, id)) { const p = folkPos(v, s.t); consider(p.x, p.z, id, 'villager', 'the villager', v.seed); } }
+    for (const o of s.foes) if (o.isl === isl.id) consider(o.x, o.z, o.id, o.kind, o.name, o.seed);
     if (bd < b0) bi = isl;
   }
+  for (const t of board(s)) { const h = s.hunts[t.id]; if (t.kind !== 'foot' || !h || h.x === undefined || (h.st !== 'free' && h.st !== 'sub')) continue; const dx = h.x - f.x, dz = h.z - f.z, d = Math.hypot(dx, dz); if (d < w.reach && d < bd && (dx * fx + dz * fz) / (d || 1) > w.cone * 0.6) { hitTarget(s, t, h, w.dmg, islandsAt(s, f.x, f.z).find((i) => i.id === t.island.id)); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; } }
+  if (s.deck && !s.deck.won) for (const d of s.deck.defs) { if (d.st !== 'free') continue; const dx = d.x - f.x, dz = d.z - f.z, dd = Math.hypot(dx, dz); if (dd < w.reach && dd < bd && (dx * fx + dz * fz) / (dd || 1) > w.cone * 0.6) { hitDefender(s, d, w.dmg); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; } }
   for (const g of s.guards) { const dx = g.x - f.x, dz = g.z - f.z, d = Math.hypot(dx, dz); if (d < w.reach && d < bd && (dx * fx + dz * fz) / (d || 1) > w.cone * 0.6) { bd = d; g.hp -= w.dmg; g.hitT = s.t; spray(s, g.x, g.y + 1.3, g.z, 4); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); if (g.hp <= 0) { deed(s, 'killWarden', g.isl, 0.5); s.bountyGold += 150; s.bounty = Math.max(s.bounty, 1); say(s, 'You cut down a guard.'); s.events.push({ type: 'kill' }); } return; } }
   if (w.ranged) s.events.push({ type: 'cannon', x: f.x, z: f.z });
   if (best) { spray(s, bx, groundAt(s, bx, bz) + 1.3, bz, 4); hurtNpc(s, ...best, w.dmg, bi, bx, bz); } s.events.push({ type: 'slash', hit: !!best, w: s.weapon, swing: true });
@@ -213,7 +428,7 @@ function manageEnemies(s) {
     const far = Math.hypot((+m[1] + 0.5) * SECTOR - s.ship.x, (+m[2] + 0.5) * SECTOR - s.ship.z) > SECTOR * 0.9;
     if (far) { s.dead.delete(id); delete s.deadAt[id]; }
   }
-  ensureRaiders(s);
+  ensureRaiders(s); manageHunters(s);
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const e of sectorEnemies(s.seed, cx + i, cz + j)) {
     want.add(e.id);
     if (!s.enemies.has(e.id) && !s.dead.has(e.id)) s.enemies.set(e.id, { ...e, gen: true, speed: 0, hp: KINDS[e.kind].hp, maxHp: KINDS[e.kind].hp, cd: [1, 1] });
@@ -221,14 +436,25 @@ function manageEnemies(s) {
   for (const [id, e] of s.enemies) if (e.gen && !want.has(id)) s.enemies.delete(id);
   for (const [id, e] of s.enemies) if (!e.gen && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) > 1200) s.enemies.delete(id); // story-spawned ships do not pile up behind you
 }
-const isHostile = (s, e) => { const h = KINDS[e.kind].hostile; return h === true || (h === 'bounty' && s.bounty > 0); };
-function fire(s, owner, ship, side, target, dmg) {
+const isHostile = (s, e) => { const h = KINDS[e.kind].hostile; return h === true || (h === 'bounty' && s.bounty > 0) || (e.hunter && s.bountyGold > 0); };
+// the navy hunts a bad record, but not right away: from HUNT_AT gold of bounty, hunters appear round you (more and more as the record worsens) and vanish when it is cleared
+export const HUNT_AT = 300, HUNT_RANGE = 650;
+export const hunterCount = (s) => ((s.bountyGold || 0) >= HUNT_AT ? Math.min(4, 1 + Math.floor((s.bountyGold - HUNT_AT) / 300)) : 0);
+function manageHunters(s) {
+  const p = s.ship, want = hunterCount(s); let n = 0;
+  for (const [id, e] of s.enemies) if (e.hunter) { if (!want || Math.hypot(e.x - p.x, e.z - p.z) > 1500) s.enemies.delete(id); else n++; }
+  if (n >= want || s.t < (s.hunterT || 0) || Math.hypot(p.x, p.z) > WALL_R - 400) return;
+  s.hunterT = s.t + 25; s.hunterN = (s.hunterN || 0) + 1; const r = rngFor(s.seed, 6000 + s.hunterN);
+  for (let k = 0; k < 14; k++) { const a = r() * TAU, d = 300 + r() * 120, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (hitIsland(s, x, z) || Math.hypot(x, z) > WALL_R - 150) continue; const sr = rngFor(s.seed, 6500 + s.hunterN);
+    s.enemies.set('n' + s.hunterN, { id: 'n' + s.hunterN, seed: hash(s.seed, 6600 + s.hunterN), kind: 'navy', hunter: true, x, z, yaw: a + Math.PI, name: shipName(sr), captain: captainName(sr), gen: false, speed: 0, hp: KINDS.navy.hp, maxHp: KINDS.navy.hp, cd: [1, 1] }); if (!n) say(s, 'Navy sails on the horizon: they are hunting you.'); return; }
+}
+function fire(s, owner, ship, side, target, dmg, kind = 'round') {
   const v = 38, aim = Math.atan2(target.z - ship.z, target.x - ship.x);
   // the player's guns aim themselves a little: if an enemy is inside the broadside cone, the shot leads it
   let pa = ship.yaw + (side * Math.PI) / 2;
-  if (owner === 'player' && target.kind) { const T = Math.hypot(target.x - ship.x, target.z - ship.z) / v, ax = Math.atan2(target.z + Math.sin(target.yaw) * target.speed * T - ship.z, target.x + Math.cos(target.yaw) * target.speed * T - ship.x), dA = wrapPi(ax - pa); if (Math.abs(dA) < 0.6) pa += dA; }
+  if (owner === 'player' && target.kind) { const T = Math.max(0.3, Math.hypot(target.x - ship.x, target.z - ship.z) / v), lx = target.x + Math.cos(target.yaw) * target.speed * T, lz = target.z + Math.sin(target.yaw) * target.speed * T, wx = (lx - ship.x) / T - Math.cos(ship.yaw) * ship.speed, wz = (lz - ship.z) / T - Math.sin(ship.yaw) * ship.speed, ax = Math.atan2(wz, wx), dA = wrapPi(ax - pa); if (Math.abs(dA) < 0.6) pa += dA; } // the guns lead the target and allow for your own way (a moving ship throws her shot sideways)
   const ang = owner === 'player' ? pa : aim + ((hash(s.seed, Math.floor(s.t * 10)) / 4294967296) - 0.5) * 0.22;
-  s.shots.push({ x: ship.x, z: ship.z, vx: Math.cos(ang) * v + Math.cos(ship.yaw) * ship.speed, vz: Math.sin(ang) * v + Math.sin(ship.yaw) * ship.speed, life: 2.2, owner, dmg });
+  s.shots.push({ x: ship.x, z: ship.z, vx: Math.cos(ang) * v + Math.cos(ship.yaw) * ship.speed, vz: Math.sin(ang) * v + Math.sin(ship.yaw) * ship.speed, life: 2.2, owner, dmg, kind });
   { const mx = ship.x + Math.cos(ang) * 5, mz = ship.z + Math.sin(ang) * 5; puff(s, 'flash', mx, 3.2, mz, 0.2, { sc: 1.6 }); puff(s, 'smoke', mx, 3.2, mz, 1.2, { vy: 1.5, sc: 1.3 }); }
   s.events.push({ type: 'cannon', x: ship.x, z: ship.z });
 }
@@ -265,9 +491,9 @@ function stepShip(s, inp, dt) {
   p.sail = Math.min(1, Math.max(0, p.sail + sailIn * 0.5 * dt));
   const cls = shipOf(s);
   p.yaw = wrapPi(p.yaw + rudder * cls.turn * (0.3 + 0.55 * Math.min(1, Math.abs(p.speed) / 5)) * dt);
-  const trimMul = trimQuality(p.trim, bestTrim(p.yaw, s.wind, p.trim)); // a badly trimmed sail spills the wind
+  const trimMul = Math.max(trimFloor(s), trimQuality(p.trim, bestTrim(p.yaw, s.wind, p.trim))); // a badly trimmed sail spills the wind
   if (windAngle(p.yaw, s.wind) < 0.5 && p.sail > 0.2 && !s.row && s.t - (s.irT || -99) > 14) { s.irT = s.t; say(s, 'Head to wind: the sail flaps and you stall. Turn away from the wind, or take the oars.'); }
-  const target = Math.max(s.row ? ROW_SPEED * cls.row : 0, MAX_SPEED * cls.speed * p.sail * trimMul * sailEfficiency(p.yaw, s.wind)) * (1 - 0.35 * (1 - s.hull / s.maxHull)) * (1 - cargoCount(s) * 0.01);
+  const target = Math.max(s.row ? ROW_SPEED * cls.row * rowMul(s) * sailorMul(s) : 0, MAX_SPEED * cls.speed * speedMul(s) * sailorMul(s) * p.sail * trimMul * sailEfficiency(p.yaw, s.wind)) * (1 - 0.35 * (1 - s.hull / s.maxHull)) * (1 - cargoCount(s) * 0.01);
   p.speed += (target - p.speed) * Math.min(1, dt * 0.8);
   const ox = p.x, oz = p.z;
   p.x += Math.cos(p.yaw) * p.speed * dt; p.z += Math.sin(p.yaw) * p.speed * dt;
@@ -282,7 +508,7 @@ function stepShip(s, inp, dt) {
   const d = Math.hypot(p.x, p.z);
   if (d > WALL_R - 12) {
     const gd = Math.abs(wrapPi(Math.atan2(p.z, p.x) - gate.angle)) * WALL_R;
-    if (gd < GATE_HALF && s.upgrades.ram && p.speed > 3.2) { s.flags.crossed = true; s.ending = true; p.speed = 0; say(s, 'The ram shatters the ice. Beyond the Wall, a new world...'); }
+    if (gd < GATE_HALF && s.upgrades.ram && p.speed > 3.2) { s.flags.crossed = true; s.ending = true; p.speed = 0; say(s, 'The ram shatters the ice. Beyond the Wall, a new world... Your charts take shape: the map is yours now (M).'); }
     else {
       p.x = ox; p.z = oz; p.speed = -Math.abs(p.speed) * 0.3;
       if (s.t - s.msgT > 6) { s.msgT = s.t; say(s, gd < GATE_HALF ? (s.upgrades.ram ? 'Not fast enough! Back off, drop cargo or wait for a fair wind, and charge the gate (oars help).' : 'The gate is sealed with ice. You need an icebreaker ram.') : 'A sheer wall of ice. Find the gate.'); }
@@ -294,23 +520,28 @@ function stepShip(s, inp, dt) {
   manageEnemies(s);
   let near = null, nd = 1e9;
   for (const e of s.enemies.values()) { const dd = Math.hypot(e.x - p.x, e.z - p.z); if (dd < nd) { nd = dd; near = e; } }
-  for (const [side, key, i] of [[-1, 'fireL', 0], [1, 'fireR', 1]]) if (inp[key] && p.cd[i] <= 0) { fire(s, 'player', p, side, near || { x: p.x, z: p.z }, cls.dmg); p.cd[i] = CANNON_CD * cls.cd; }
+  for (const [side, key, i] of [[-1, 'fireL', 0], [1, 'fireR', 1]]) if (inp[key] && p.cd[i] <= 0) { const sh = shotNow(s); if (sh !== 'round') { ammoOf(s)[sh]--; if (!ammoOf(s)[sh]) say(s, AMMO[sh].name + ' is spent: back to round shot.'); } fire(s, 'player', p, side, near || { x: p.x, z: p.z }, cls.dmg * gunMul(s) * AMMO[sh].dmg, sh); p.cd[i] = CANNON_CD * cls.cd * reloadMul(s); }
   for (const e of s.enemies.values()) {
-    const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < 240;
+    const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < (e.hunter ? HUNT_RANGE : 240);
     const want = chase ? Math.atan2(dz, dx) + (dist < 60 ? Math.PI / 2 : 0) : e.yaw + Math.sin(s.t * 0.1 + e.seed) * 0.05;
     e.yaw += Math.max(-0.4 * dt, Math.min(0.4 * dt, wrapPi(want - e.yaw)));
-    const tgt = (chase ? kind.speed : kind.speed * 0.55) * Math.max(0.35, sailEfficiency(e.yaw, s.wind));
+    const tgt = (chase ? kind.speed : kind.speed * 0.55) * Math.max(0.35, sailEfficiency(e.yaw, s.wind)) * (e.slow > s.t ? 0.4 : 1);
+    if (e.burn > s.t) { e.hp -= 3 * dt; if (Math.floor(s.t * 4) !== Math.floor((s.t - dt) * 4)) { puff(s, 'flash', e.x + (hash(e.seed, Math.floor(s.t * 4)) % 5) - 2, 4, e.z, 0.3, { sc: 1.4 }); puff(s, 'smoke', e.x, 4.5, e.z, 1.2, { vy: 2, sc: 1.6 }); } }
     e.speed += (tgt - e.speed) * Math.min(1, dt * 0.5);
     const ex = e.x, ez = e.z; e.x += Math.cos(e.yaw) * e.speed * dt; e.z += Math.sin(e.yaw) * e.speed * dt;
     const hh = HULL[e.kind] || HULL.trader; if (hullHit(s, e.x, e.z, e.yaw, hh[0], hh[1]) || Math.hypot(e.x, e.z) > WALL_R - 60) { e.x = ex; e.z = ez; e.yaw += 1.4 * dt * 10; }
     e.cd[0] = Math.max(0, e.cd[0] - dt);
     const rel = Math.abs(wrapPi(Math.atan2(dz, dx) - e.yaw));
     if (hostile && dist < CANNON_RANGE && Math.abs(rel - Math.PI / 2) < 0.5 && e.cd[0] <= 0) { fire(s, 'enemy', e, 1, p, kind.dmg); e.cd[0] = CANNON_CD * 1.6; }
+    if (hostile && e.cd[0] <= 0) for (const f of s.fleet) { const fx = f.x - e.x, fz = f.z - e.z; if (Math.hypot(fx, fz) < CANNON_RANGE && Math.abs(Math.abs(wrapPi(Math.atan2(fz, fx) - e.yaw)) - Math.PI / 2) < 0.5) { fire(s, 'enemy', e, 1, f, kind.dmg); e.cd[0] = CANNON_CD * 1.6; break; } }
   }
+  if (level(s, 'swivel')) { p.sw = Math.max(0, (p.sw || 0) - dt); if (p.sw <= 0) { let te = null, td = SWIVEL_RANGE; for (const e of s.enemies.values()) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (e.hp > 0 && d < td && isHostile(s, e)) { td = d; te = e; } } if (te) { p.sw = SWIVEL_CD; te.hp -= SWIVEL_DMG; te.hitT = s.t; puff(s, 'flash', (te.x + p.x) / 2, 3, (te.z + p.z) / 2, 0.15, { sc: 0.8 }); } } }
   for (const b of s.shots) {
     b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt;
+    if (b.owner !== 'player' && b.life > 0) for (const f of s.fleet) if (Math.hypot(f.x - b.x, f.z - b.z) < 5) { b.life = 0; b.hit = true; f.hp -= b.dmg; f.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); break; }
     if (b.owner === 'player') {
-      for (const e of s.enemies.values()) if (Math.hypot(e.x - b.x, e.z - b.z) < 6 && b.life > 0) { b.life = 0; b.hit = true; e.hp -= b.dmg; e.hitT = s.t; puff(s, 'flash', b.x, 3.5, b.z, 0.25, { sc: 2 }); puff(s, 'smoke', b.x, 3.5, b.z, 1.4, { vy: 2, sc: 1.6 }); puff(s, 'splash', b.x, 0.4, b.z, 0.7, { sc: 1.4 }); if (!isHostile(s, e) && KINDS[e.kind].dmg > 0) s.bounty = Math.max(s.bounty, 1); }
+      if (s.bombard && b.life > 0) { const th = townHit(s, b.x, b.z); if (th) { b.life = 0; b.hit = true; bombardTown(s, th.isl, th.b, b.dmg, b.x, b.z); continue; } }
+      for (const e of s.enemies.values()) if (Math.hypot(e.x - b.x, e.z - b.z) < 6 && b.life > 0) { b.life = 0; b.hit = true; e.hp -= b.dmg; e.hitT = s.t; if (b.kind === 'chain') { e.slow = s.t + 8; puff(s, 'splash', b.x, 3, b.z, 0.5, { sc: 1 }); } if (b.kind === 'fire') e.burn = s.t + 6; puff(s, 'flash', b.x, 3.5, b.z, 0.25, { sc: 2 }); puff(s, 'smoke', b.x, 3.5, b.z, 1.4, { vy: 2, sc: 1.6 }); puff(s, 'splash', b.x, 0.4, b.z, 0.7, { sc: 1.4 }); if (!isHostile(s, e) && KINDS[e.kind].dmg > 0) s.bounty = Math.max(s.bounty, 1); }
     } else if (Math.hypot(p.x - b.x, p.z - b.z) < 4.5 && b.life > 0) { b.life = 0; b.hit = true; s.hull -= b.dmg; s.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); say(s, 'We are hit!'); s.events.push({ type: 'hit' }); }
   }
   for (const b of s.shots) if (b.life <= 0 && !b.hit) puff(s, 'splash', b.x, 0.3, b.z, 0.6, { sc: 1.1 }); // a miss throws up a splash
@@ -318,7 +549,7 @@ function stepShip(s, inp, dt) {
   for (const e of [...s.enemies.values()]) if (e.hp <= 0) {
     const k = KINDS[e.kind];
     s.sinking.push({ id: e.id, kind: e.kind, seed: e.seed, x: e.x, z: e.z, yaw: e.yaw, speed: e.speed || 0, t0: s.t }); puff(s, 'flash', e.x, 4, e.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', e.x + q * 2 - 2, 4, e.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 });
-    s.enemies.delete(e.id); s.dead.add(e.id); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1;
+    s.enemies.delete(e.id); s.dead.add(e.id); for (const t of board(s)) if (t.kind === 'ship' && t.enemyId === e.id) claimKill(s, t, null); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1;
     if (!k.hostile) { s.bounty++; s.bountyGold += 150; deed(s, 'sunkPeaceful'); } else deed(s, 'sunkHostile');
     const gold = k.gold[0] + (e.seed % (k.gold[1] - k.gold[0])), room = Math.max(0, s.hold - cargoCount(s)), n = Math.min(room, 3), g = ['rum', 'sugar', 'timber', 'cannon', 'spice', 'silk'][e.seed % 6];
     s.gold += gold; s.cargo[g] = (s.cargo[g] || 0) + n; s.score += gold; say(s, `Sank ${e.name}! +${gold} gold${n ? `, ${n} ${g}` : ''}.`);
@@ -327,6 +558,7 @@ function stepShip(s, inp, dt) {
 }
 
 // input: { rudder, sail, fireL, fireR } at sea; { mx, mz, run, yaw } on foot
+function stepMap(s) { const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing)) visit(s, isl); } }
 export function step(s, input, dt = DT) {
   if (s.over || s.ending) return;
   s.t += dt;
@@ -337,7 +569,7 @@ export function step(s, input, dt = DT) {
     if (a >= SINK_S) s.over = true; return;
   }
   if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
-  advanceQuests(s, say); stepGuards(s, dt); updateFx(s, dt);
+  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepHunts(s, dt); stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
 }
@@ -368,7 +600,9 @@ export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
 
 // what pressing F would do right now (for the on-screen prompt)
 export function prompt(s) {
-  if (s.mode === 'ship') return findLand(s) ? 'F  Dock and go ashore' : null;
+  if (s.mode === 'ship') { const g = nearestShip(s); return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
+  if (s.deck && !nearSub(s)) return s.deck.won ? 'F  Decide the ship\'s fate' : 'F  Cut the grapples and retreat';
+  const sb = nearSub(s); if (sb) return s.prisoner ? 'You are already holding a prisoner' : `F  Bind ${sb.name} (${sb.crime})`;
   const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.kind})`;
   for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
@@ -379,15 +613,19 @@ export function prompt(s) {
 // returns what happened, so the UI can react: { type: 'npc'|'ashore'|'board'|'dig'|'none', ... }
 export function interact(s) {
   if (s.over || s.ending) return { type: 'none' };
+  if (s.deck && !nearSub(s)) return s.deck.won ? { type: 'prize' } : retreat(s);
   if (s.mode === 'ship') {
     const l = findLand(s); if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
     unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, 'Ashore.'); return { type: 'ashore' };
   }
-  const n = nearNpc(s); if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; return { type: 'npc', npc: n, island: isl, ...dialog(s, n) }; }
+  const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
+  const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; }
+  if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; const dl = dialog(s, n), tip = learn(s, n, isl); if (tip) dl.lines = [...dl.lines, tip]; return { type: 'npc', npc: n, island: isl, ...dl }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
   const t = nearTreasure(s);
   if (t) { s.found.add(t.id); s.gold += t.treasure.gold; s.score += t.treasure.gold; say(s, `Buried treasure! ${t.treasure.gold} gold.`); s.events.push({ type: 'coin' }); return { type: 'dig' }; }
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) { s.mode = 'ship'; s.ship.speed = 0; s.ship.trim = bestTrim(s.ship.yaw, s.wind, 0); say(s, 'Aboard! W lets the sail out; Z and C swing the boom.'); return { type: 'board' }; }
   return { type: 'none' };
 }
+export { cycleOrder };
 export { SECTOR };

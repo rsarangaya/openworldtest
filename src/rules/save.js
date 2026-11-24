@@ -3,11 +3,11 @@ import { newGame } from './game.js';
 import { questWorld } from '../gen/world.js';
 
 const KEY = 'pirate.save.v1';
-export const serialize = (s) => JSON.stringify({ ...s, found: [...s.found], dead: [...s.dead], enemies: undefined, guards: [], sinking: [], fx: [], sunkT: undefined, sunkSplash: undefined, shots: [], events: [], targets: undefined });
+export const serialize = (s) => JSON.stringify({ ...s, ...(s.deck ? { mode: 'ship' } : {}), deck: null, found: [...s.found], dead: [...s.dead], enemies: undefined, guards: [], foes: [], sinking: [], fx: [], sunkT: undefined, sunkSplash: undefined, shots: [], events: [], targets: undefined });
 export function deserialize(json) {
   const o = JSON.parse(json), base = newGame(o.seed);
   const s = { ...base, ...o, found: new Set(o.found), dead: new Set(o.dead), enemies: new Map(), shots: [], events: [], targets: questWorld(o.seed) };
-  s.over = false; s.guards = []; s.sinking = []; s.fx = []; s.alerted = false; s.ending = !!o.ending;
+  s.over = false; s.deck = null; s.foes = []; for (const q of Object.values(s.npcs || {})) delete q.away; s.guards = []; s.sinking = []; s.fx = []; s.alerted = false; s.ending = !!o.ending;
   return s;
 }
 export const hasSave = () => { try { return !!localStorage.getItem(KEY); } catch { return false; } };

@@ -3,6 +3,7 @@ import { GOODS, portPrice } from '../gen/world.js';
 
 import { buyMult, sellMult, deed } from './rep.js';
 import { SHIPS, SHIP_ORDER, TRADE_IN } from './ships.js';
+import { hullBonus, holdBonus } from './parts.js';
 export const SHIP_PRICE = 300, RAM_PRICE = 500, FOOD_PRICE = 5, MAX_FOOD = 40;
 export const cargoCount = (s) => GOODS.reduce((n, g) => n + (s.cargo[g] || 0), 0);
 export const buyPrice = (s, port, g) => Math.round(portPrice(port, g, s.seed) * buyMult(s, port.iid));
@@ -37,7 +38,7 @@ export function buyShip(s, isl, id = 'sailboat') {
   if (s.ship && Math.hypot(s.ship.x - isl.port.berth.x, s.ship.z - isl.port.berth.z) > 45) return false; // she must be here to be traded in
   const p = isl.port; s.gold -= shipQuote(s, id);
   s.ship = { x: p.berth.x, z: p.berth.z, yaw: p.berth.yaw, speed: 0, sail: 0.5, cd: [0, 0] };
-  s.shipClass = id; s.maxHull = c.hull; s.hold = c.hold; s.hull = c.hull; return true;
+  s.shipClass = id; s.maxHull = c.hull + hullBonus(s); s.hold = c.hold + holdBonus(s); s.hull = s.maxHull; return true;
 }
 export function buyRam(s) {
   if (s.upgrades.ram || s.gold < RAM_PRICE) return false;

@@ -276,14 +276,14 @@ export function paintPerson(g, P, dir, fr) {
   // legs and boots
   for (const s of [-1, 1]) { const o = s * step, lx = front || back ? s * 0.25 : -s * step * 1.6; cel(g, rr(lx - 0.2, -1.05, 0.4, 0.86 + o * 0.3, 0.12), P.pants, { lw: 0.08 }); cel(g, rr(lx - 0.23 + (front || back ? 0 : 0.06), -0.34 + o * 0.3, 0.46, 0.34, 0.1), LEATHER, { lw: 0.08 }); }
   if (K === 'warden' || K === 'merchant') cel(g, poly(-0.62, -1.95, 0.62, -1.95, 0.78, -0.3, -0.78, -0.3), dark(cl, 0.2), { lw: 0.08 }); // long coat / robe skirt behind the arms
-  const wide = front || back;
+  const wide = front || back, atk = fr >= 3 && front; // frames 3 and 4 are the attack: wind-up, then the blow
   // arms (behind the torso on the side view)
   const arm = (x, o) => { cel(g, rr(x - 0.13, -1.9, 0.26, 0.95 + o * 0.25, 0.1), dark(cl, 0.12), { lw: 0.07 }); fillPath(g, ell(x, -0.92 + o * 0.25, 0.13, 0.13), rgb(sk)); };
   if (!wide) arm(0.0 - step * 0.8, -step * 0.5);
   // torso: tunic with a belt
   cel(g, rr(wide ? -0.52 : -0.4, -2.0, wide ? 1.04 : 0.8, 1.05, 0.16), cl, { lw: 0.08 });
   line(g, wide ? -0.5 : -0.38, -1.2, wide ? 0.5 : 0.38, -1.2, 0.1, rgb(LEATHER)); if (front) cel(g, rr(-0.09, -1.28, 0.18, 0.16, 0.03), [0.8, 0.68, 0.3], { lw: 0.04 });
-  if (wide) { arm(-0.67, step * 0.6); arm(0.67, -step * 0.6); }
+  if (wide) { arm(-0.67, step * 0.6); if (!atk) arm(0.67, -step * 0.6); }
   // trade gear on the body
   if (K === 'tavern' && !back) cel(g, rr(-0.4, -1.5, 0.8, 1.1, 0.06), [0.9, 0.88, 0.8], { lw: 0.06 });
   else if (K === 'shipwright' && !back) cel(g, rr(-0.4, -1.55, 0.8, 1.15, 0.05), [0.5, 0.35, 0.2], { lw: 0.06 });
@@ -313,11 +313,22 @@ export function paintPerson(g, P, dir, fr) {
   else if (K === 'smith') cel(g, rr(-0.38, hy - 0.4, 0.76, 0.2, 0.08), [0.22, 0.2, 0.2], { lw: 0.07 }); // a sooty headband
   else if (K === 'guard') { cel(g, (p) => { p.moveTo(-0.42, hy + 0.02); p.bezierCurveTo(-0.44, hy - 0.62, 0.44, hy - 0.62, 0.42, hy + 0.02); p.closePath(); }, [0.6, 0.63, 0.7], { lw: 0.07 }); line(g, 0, hy - 0.5, 0, hy - 0.1, 0.07, rgb([0.45, 0.48, 0.55])); } // a helmet
   else if (K === 'sailor') { cel(g, (p) => { p.moveTo(-0.4, hy - 0.08); p.bezierCurveTo(-0.4, hy - 0.6, 0.4, hy - 0.6, 0.4, hy - 0.08); p.closePath(); }, [0.62, 0.2, 0.18], { lw: 0.07 }); if (!front) line(g, -0.3, hy - 0.2, -0.62, hy - 0.05, 0.1, '#9c3028'); }
-  else if (K === 'warden') { cel(g, (p) => { p.moveTo(-0.5, hy + 0.35); p.bezierCurveTo(-0.62, hy - 0.7, 0.62, hy - 0.7, 0.5, hy + 0.35); p.lineTo(0.36, hy + 0.1); p.bezierCurveTo(0.34, hy - 0.3, -0.34, hy - 0.3, -0.36, hy + 0.1); p.closePath(); }, [0.9, 0.92, 0.95], { lw: 0.07 }); if (front) { line(g, 0.95, -0.3, 0.95, -2.85, 0.1, '#5a3c22'); fillPath(g, ell(0.95, -2.95, 0.16, 0.24), '#9fe6f5'); fillPath(g, ell(0.95, -2.95, 0.36, 0.4), 'rgba(160,230,245,0.22)'); } }
+  else if (K === 'warden') { cel(g, (p) => { p.moveTo(-0.5, hy + 0.35); p.bezierCurveTo(-0.62, hy - 0.7, 0.62, hy - 0.7, 0.5, hy + 0.35); p.lineTo(0.36, hy + 0.1); p.bezierCurveTo(0.34, hy - 0.3, -0.34, hy - 0.3, -0.36, hy + 0.1); p.closePath(); }, [0.9, 0.92, 0.95], { lw: 0.07 }); if (front && !atk) { line(g, 0.95, -0.3, 0.95, -2.85, 0.1, '#5a3c22'); fillPath(g, ell(0.95, -2.95, 0.16, 0.24), '#9fe6f5'); fillPath(g, ell(0.95, -2.95, 0.36, 0.4), 'rgba(160,230,245,0.22)'); } }
   else if (K === 'player') cel(g, rr(-0.38, hy - 0.46, 0.76, 0.26, 0.1), dark(cl, 0.2), { lw: 0.07 });
   else if (P.extra === 0) cel(g, (p) => { p.moveTo(-0.45, hy + 0.2); p.bezierCurveTo(-0.55, hy - 0.7, 0.55, hy - 0.7, 0.45, hy + 0.2); p.lineTo(0.3, hy + 0.05); p.bezierCurveTo(0.3, hy - 0.3, -0.3, hy - 0.3, -0.3, hy + 0.05); p.closePath(); }, dark(cl, 0.1), { lw: 0.07 }); // hood
   // held tools
   if (K === 'shipwright' && front) { line(g, -0.82, -1.0, -0.82, -1.7, 0.07, '#5a3c22'); cel(g, rr(-0.98, -1.82, 0.34, 0.2, 0.04), [0.45, 0.46, 0.5], { lw: 0.05 }); }
+  if (atk) { // the weapon arm: raised and cocked back, then swung across the body with a white slash arc
+    const blade = K === 'villager' ? [0.55, 0.38, 0.22] : [0.88, 0.9, 0.94], sleeve = dark(cl, 0.12);
+    if (fr === 3) {
+      cel(g, poly(0.5, -1.9, 0.82, -1.9, 1.02, -2.7, 0.78, -2.78), sleeve, { lw: 0.07 }); fillPath(g, ell(0.92, -2.8, 0.16, 0.16), rgb(sk));
+      line(g, 0.92, -2.8, 1.08, -3.08, 0.26, '#07080c'); line(g, 0.92, -2.8, 1.08, -3.08, 0.14, rgb(blade)); line(g, 0.78, -2.84, 1.06, -2.74, 0.1, '#5a3c22');
+    } else {
+      line(g, 0.62, -1.85, 0.05, -1.3, 0.34, '#07080c'); line(g, 0.62, -1.85, 0.05, -1.3, 0.24, rgb(sleeve)); fillPath(g, ell(0.02, -1.26, 0.16, 0.16), rgb(sk));
+      line(g, 0.02, -1.26, -0.98, -0.4, 0.26, '#07080c'); line(g, 0.02, -1.26, -0.98, -0.4, 0.14, rgb(blade)); line(g, 0.18, -1.2, -0.12, -1.42, 0.1, '#5a3c22');
+      g.save(); g.lineCap = 'round'; g.lineWidth = 0.13; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.moveTo(1.08, -2.6); g.quadraticCurveTo(0.9, -0.9, -1.0, -0.2); g.stroke(); g.restore();
+    }
+  }
   g.restore();
 }
 

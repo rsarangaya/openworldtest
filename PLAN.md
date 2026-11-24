@@ -147,6 +147,7 @@ Goal: the player can be a lawman as easily as an outlaw. Nothing is gated; the s
 - **Build on:** the ship classes and hulls (`rules/ships.js`, `hullHit`), the foot combat and weapons (`rules/weapons.js`, `swing`), enemy kinds and health (`KINDS`), the sinking and fx system (`s.sinking`, `puff`), and the jail and bounty systems for prisoners.
 - **Steps:** (1) approach and grapple (ships lock together, wind/steering locked); (2) a deck arena built from the ship's length with a few defenders; (3) win/lose rules and loot; (4) capture options (prize ship, prisoner); (5) enemy boarding parties against the player.
 
+
 ### Build order (revised)
 3 reputation (done) · 4 governments, guards, bounties, jail (done: guards, arrest, a real guard station with a cell) · **4b bounty missions + hand-in anywhere (cop path)** · **5b boarding other ships** (needs 4b for prisoners) · 5 ship parts and weapons (independent) · 6 crew, fleets, mercenaries · 7 storms, contracts, underwater, big land battles.
 
@@ -156,3 +157,18 @@ Goal: the player can be a lawman as easily as an outlaw. Nothing is gated; the s
 - **Attack towns from the ship with a toggle.** When near a town the player can switch "bombard towns" on or off (key shown in the prompt/HUD). Off by default: cannonballs pass over town buildings so fights with ships near a port never hurt it by accident. On: cannons damage buildings and people, which raises local and world bounty, alerts guards and can close the port to you. Build on the cannon projectile code in `game.js` and `crime()` / `addLocal`.
 - **Town states (status, not territory), for sieges and pillaging.** Each town/city has a health pool and a status that changes as it is bombarded from the sea: calm -> damaged (some buildings scorched, people flee indoors) -> burning (fires and smoke on buildings, guards and shops panic or shut, production and prices suffer) -> pillaged / ruined (shops closed, people gone or hostile, loot available, slow recovery over time). Thresholds on town HP drive the visuals (flat fire/smoke sprites on buildings through the existing `fx` system) and the gameplay (shops closed, fewer NPCs, guards fight, reputation and bounty hit). Later states can also come from events (blockade, plague, festival) so a town's status is one shared field. Build on the bombardment toggle above, `islandTown` buildings, `alert`, `rep.js` and `s.fx`.
 - **Wind favours the objective (done, 2026-11-24).** The wind comes in 150 s spells; each spell has an 80% chance of blowing roughly toward the current objective (within about 0.45 rad), otherwise it is the old free random drift. Spells blend over 40 s. `windAt(t, goal)` in `rules/sea.js`.
+
+### World map (done 2026-11-24)
+M opens a map that only shows what the player has found out (visits, NPC charts, quests). Grand map = every realm in REALMS (src/rules/map.js); add a world by adding one entry. Planned worlds: Asgard, Atlantis, Olympus (hinted by rumours in that order; reaching them still needs the realm loader of phase 6).
+
+## Where the plan stands (end of 2026-11-24)
+**Done:** 1 polish, 2 foot combat and killable NPCs, 3 reputation, 4 governments/guards/bounties/jail, 4b bounty missions (cop path), 5b boarding ships (steps 1-4), 5 ship parts and weapons (no ram variants), hidden fighters, hunting navy, bombardment toggle and town states, 6 crew and recruitment, 6 fleets, the world map (locked until the Wall breaks; registry-based so Asgard, Atlantis, Olympus are single entries).
+
+**Still open, in the order I would do them:**
+1. **Contracts board in every port** (deliver cargo X to Y, escort a merchant with your fleet, hunt a named pirate; pays by reputation). Gives goals beyond the main story and uses fleets, reputation and bounties.
+2. **Mercenary companies** (hire or join; contracts from employers; ties to reputation) and **fleet trade routes**. Finishes step 6.
+3. **Storms and day/night** (shared tech: lightning, wind shifts, lamps, night raids, fog banks).
+4. **Navy/raiders boarding you**, rival bounty hunters, rescues of prisoners (finishes 4b and 5b), a small ship attack animation.
+5. **Underwater travel and salvage**, then **land battles at scale** (raids on towns, mercenaries, shells hurting people).
+6. **Realm loader and the first new world** (Asgard, Atlantis or Olympus): per-realm palette, terrain, spawn table, edge rule, carry-over state, then fill the grand map. Needs the contracts, weather and underwater pieces to be worth it.
+7. Smaller ideas: sea monsters and wrecks, smuggling, island events as town states (blockade, plague, festival), ship customisation and visible parts, explored-area extras on the map.

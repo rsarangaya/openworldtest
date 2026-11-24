@@ -1,6 +1,7 @@
 // The story: a chain of quests from "buy a ship" to "break through the ice wall".
 // Quests are data. done(s) is checked every step; target(s) is what the compass points at.
 import { deed } from './rep.js';
+import { learnQuest } from './map.js';
 import { cargoCount } from './trade.js';
 import { sectorOf, sectorIslands } from '../gen/world.js';
 // where the player is, on foot or afloat
@@ -55,7 +56,7 @@ export function advanceQuests(s, say) {
     s.gold += q.reward; s.score += q.reward; s.quest++;
     say(s, `Quest complete: ${q.title}${q.reward ? ` (+${q.reward} gold)` : ''}`);
     const n = QUESTS[s.quest]; if (n) say(s, `New quest: ${n.title}`);
-    deed(s, 'quest'); s.events.push({ type: 'quest' });
+    deed(s, 'quest'); s.events.push({ type: 'quest' }); const lq = learnQuest(s, q.id); if (lq) say(s, lq);
   }
 }
 
@@ -66,7 +67,7 @@ export function dialog(s, npc) {
     case 'shipwright':
       return { lines: s.ship ? ['A fine boat you have there. Mind the rocks.'] : ['Looking for a ship? I have a few ships on the slip, from a handy sailboat to a galleon. They all float, most days.', 'The sailboat is three hundred gold and she is yours.'], panel: 'shipyard' };
     case 'merchant': return { lines: ['Provisions, powder, rum. Whatever your hold can carry.'], panel: 'market' };
-    case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', 'Folk say there are other worlds past the Wall. Folk say a lot of things.'], panel: null };
+    case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', 'Folk say there are other worlds past the Wall. Folk say a lot of things.', s.ship ? 'Some hands in the corner are looking for a berth, if you need a crew.' : 'Get yourself a ship first, then come and talk about hands.'], panel: 'tavern' };
     case 'sailor':
       s.flags.sailor = true;
       return { lines: ['You are asking about the Wall? I have seen it. A cliff of ice taller than any mast, all the way round the world.', 'There is a gate in it, but it is sealed. The Warden at Frostwatch, out on the rim, knows how to break it.', 'Keep a hand on your guns. The black sails have been busy.'], panel: null };
@@ -74,7 +75,7 @@ export function dialog(s, npc) {
       s.flags.warden = true;
       return { lines: s.upgrades.ram ? ['That ram will do it. Make for the gate and do not slow down.'] : ['So the stories got you here. The gate is thin ice, but only an icebreaker ram will crack it.', 'I can fit one to your ship. Five hundred gold.'], panel: 'warden' };
     case 'smith': return { lines: !s.weapon || s.weapon === 'fists' ? ['Bare hands? That is no way to cross the sea, or to walk a strange town.', 'Have a look at what I have. A good blade pays for itself.'] : ['Keep it sharp. Anything else you need?'], panel: 'arms' };
-    case 'guard': return { lines: s.bountyGold > 0 ? ['You are wanted. Pay what you owe and the matter is closed.'] : ['Keep the peace in this town and we will get along. Break it and you will see our cell.'], panel: s.bountyGold > 0 ? 'guard' : null };
+    case 'guard': return { lines: s.bountyGold > 0 ? ['You are wanted. Pay what you owe and the matter is closed.'] : s.prisoner ? ['You have someone with you. Let us have a look.'] : ['Keep the peace in this town and we will get along. Break it and you will see our cell.', 'The wanted list is here if you want honest work.'], panel: 'guard' };
     default: return { lines: ['...'], panel: null };
   }
 }

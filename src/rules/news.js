@@ -5,6 +5,8 @@ import { rngFor, pick } from '../gen/rng.js';
 import { captainName, shipName, islandName } from '../gen/names.js';
 import { GOODS, islandTown } from '../gen/world.js';
 import { SHIPS } from './ships.js';
+import { board } from './hunt.js';
+import { townState, TOWN_STATE } from './game.js';
 
 const cap = (w) => w[0].toUpperCase() + w.slice(1);
 export const ISSUE_LEN = 420;
@@ -40,7 +42,7 @@ const PLAYER = [
   [(s) => (s.bounty || 0) > 0, (s, t) => ['Notice', `The navy asks for word on the captain of a blue-striped ship, accused of firing on a peaceful vessel. A bounty may follow.`]],
   [(s) => s.upgrades.ram, (s, t) => ['An icebreaker', `A ship has been fitted with an icebreaker ram at Frostwatch. Whoever it is, they mean to try the Wall.`]],
   [(s) => s.gold >= 2500, (s, t) => ['Rich', `The captain of the blue stripe is said to be rich enough to buy the pier. Several pier owners are being polite.`]],
-  [(s) => (s.crew || 0) > 0, (s, t) => ['A crew', `The blue-striped ship now sails with ${s.crew} hands. ${t.know}`]],
+  [(s) => (s.crew || []).length > 0, (s, t) => ['A crew', `The blue-striped ship now sails with ${s.crew.length} hands. ${t.know}`]],
 ];
 
 const EGGS = [
@@ -68,6 +70,8 @@ export function newsFor(s, isl) {
   town.know = isl.port?.home ? 'It all happened right here in our harbour.' : fame >= 3 ? `People in ${isl.name} talk about little else.` : `Word of it reached ${isl.name} a few days ago.`;
   if (isl.port) { items.push({ tag: 'Prices', head: 'Harbourmaster', body: `${cap(isl.port.cheap)} is plentiful and cheap here this week. ${cap(isl.port.dear)} is short and dear. Buy and sell accordingly.` }); }
   for (const f of [pick(r, LOCAL)]) { const [h, b] = f(town, r); items.push({ tag: 'Local', head: h, body: b }); }
+  if (isl.port) for (const w of board(s).slice(0, 2)) items.push({ tag: 'Wanted', head: w.name, body: `${w.crime}. Last heard of ${w.kind === 'ship' ? 'sailing the lanes in the ' + w.ship : 'near ' + w.where}. ${w.aliveOnly ? 'Wanted ALIVE only.' : 'Dead or alive.'} Reward ${w.reward} gold.` });
+  if (isl.port && townState(s, isl.id)) items.push({ tag: 'Harbour', head: 'After the shelling', body: ['', 'Cannon fire from the sea has scorched the waterfront. Half the town is indoors and the council wants a name.', 'The town is burning. Shops are shut and the streets are empty. Somebody will answer for this.', 'The town has been pillaged. What the shells missed, the boarding parties took.'][townState(s, isl.id)] });
   const crews = rivalCrews(s.seed), a = crews[(n + isl.seed) % 3], b = crews[(n + isl.seed + 1) % 3];
   for (const c of [a, b]) { const rr = rngFor(s.seed, 6200 + c.id, n), [h, body] = BEATS[(n + c.id * 2 + (isl.seed % 3)) % BEATS.length](c, n, rr, pick(rr, GOODS)); items.push({ tag: c.name, head: h, body }); }
   const own = PLAYER.filter(([f]) => f(s)).map(([, g]) => g); // what the towns have heard about the player: up to two items, rotating through the issues

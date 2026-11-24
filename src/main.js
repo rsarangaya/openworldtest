@@ -5,8 +5,12 @@ import { SHIPS } from './rules/ships.js';
 import { islandMesh, wallMesh, shipMesh, shipParams, ballMesh, wakeMesh } from './gen/mesh.js';
 import { islandProps } from './gen/props.js';
 import { createSprites } from './render/sprites.js';
-import { sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
+import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
+import { board, byId } from './rules/hunt.js';
+import { handIn, grapple, DECK_Y, fighterOf, toggleBombard, cycleOrder } from './rules/game.js';
+import { setShot, AMMO } from './rules/parts.js';
+import { mapAvailable } from './rules/map.js';
 import { newGame, step, interact, prompt, standingOn, nearbyIslands, say, camBlocked, toggleAuto, toggleRow, DT } from './rules/game.js';
 import { wave, setCalm } from './rules/sea.js';
 import { saveGame, loadGame, hasSave, loadOptions, saveOptions } from './rules/save.js';
@@ -35,6 +39,8 @@ function bb(sp, x, y, z, sc) { // one billboard instance: anchor + scale, quad e
 }
 const FIXED = { bar: 0.2, cellrail: 2, bunk: 0.9, desk: 1.1, keys: 0.7, notices: 0.9, rack: 1.5, anvil: 0.7, forge: 0.9, board: 2, stall: 1.9, bench: 0.9, counter: 2.2, shelf: 2.6 }; // wide props: half-width; drawn square-on, never turning with the camera
 const key = (x, z) => `${x},${z}`;
+// which sprite frame an attacker shows: 4 = the blow (for a moment after it lands), 3 = the wind-up (the last third of a second before it, when you are in reach), else the walk frame
+const atkFrame = (e, near, walk) => { const la = s.t - (e.atk ?? -9); if (la >= 0 && la < 0.28) return 4; if (near && e.cd > 0 && e.cd < 0.32) return 3; return walk; };
 // a sector is created empty and its meshes are built one at a time within a few ms per frame, so sailing never hitches
 function queueSector(sx, sz) {
   const k = key(sx, sz); sectors.set(k, { sx, sz, objs: [] });
@@ -74,7 +80,7 @@ const shipMat = (x, z, yaw, t, heel = 0, sink = 0) => {
   const stp = (v, q) => Math.round(v / q) * q;
   return model(x, stp(h0 * 1.0 - 0.15 - 9 * sink ** 1.4, 0.05), z, yaw, stp(Math.atan2(hf - hb, 8) * 1.15 + sink * 0.5, 0.015), stp(Math.atan2(hs - hp, 5) * 1.1 + heel + sink * 0.9 + Math.sin(t * 1.3 + x * 0.05) * 0.03, 0.015));
 };
-const poseFoot = () => ({ x: s.foot.x, y: s.foot.y + 1.7, z: s.foot.z, yaw: view.yaw, pitch: view.pitch });
+const poseFoot = () => ({ x: s.foot.x, y: s.foot.y + 1.7 + (s.deck ? wave(s.foot.x, s.foot.z, T) - 0.15 : 0), z: s.foot.z, yaw: view.yaw, pitch: view.pitch });
 function poseShip() {
   const p = s.ship, yaw = p.yaw + orbit.yaw, cp = Math.cos(orbit.pitch), fx = cp * Math.cos(yaw), fy = Math.sin(orbit.pitch), fz = cp * Math.sin(yaw), D = 15 + (SHIPS[s.shipClass] || SHIPS.sailboat).L * 1.3;
   const tx = p.x, ty = 4 + wave(p.x, p.z, T) * 0.6, tz = p.z; // the camera rises and falls with the swell
@@ -127,10 +133,16 @@ function render(t) {
       const a = (s.t - q.t) / CORPSE_S, fade = a > 0.8 ? 1 - (a - 0.8) / 0.2 : 1, pop = Math.min(1, (s.t - q.t) / 0.25); // it topples over in a quarter second
       bb(sprites?.fallen(q.kind, q.seed), q.x - 0.9 * (1 - pop), q.y + 0.05 + 0.5 * Math.sin(pop * Math.PI), q.z, sprites.PERSON_SCALE * Math.max(0.05, fade));
     }
+    for (const f of s.fleet || []) { const fm = shipMat(f.x, f.z, f.yaw, t), flash = s.t - (f.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(f.seed, f.kind), mat: fm, tint: flash ? [1.6, 0.6, 0.55] : [0.8, 0.95, 1.35] }); if (Math.hypot(f.x - cam.x, f.z - cam.z) < 400) wake(objects, fm, enemyLen(f), f.speed, t); const fd = Math.hypot(f.x - cam.x, f.z - cam.z); if (fd < 300 && sprites) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((f.hp / f.maxHp) * 10)))), f.x, 15 + wave(f.x, f.z, t) * 0.9, f.z, Math.max(1, Math.min(3.2, fd / 40))); } // your fleet: tinted blue so you can tell them from the enemy
     for (const k of s.sinking) { const a = Math.min(1, (s.t - k.t0) / SINK_S); objects.push({ m: shipGpu(k.seed, k.kind), mat: shipMat(k.x, k.z, k.yaw, t, 0, a), tint: [1 - a * 0.5, 1 - a * 0.5, 1 - a * 0.4] }); } // a sunk ship rolls over and slips under, then is gone
     for (const f of s.fx) { const p = (s.t - f.t0) / f.life, sc = f.sc * (f.k === 'flash' ? 1 - p * 0.6 : f.k === 'smoke' ? 0.5 + p * 0.9 : f.k === 'hurt' ? 0.18 : 0.6 + p * 0.6) * (1 - p ** 3 * 0.7); bb(sprites?.fx(f.k), f.x, f.y, f.z, sc); }
     if (s.shots.length) { ballGpu ||= renderer.upload(ballMesh()); for (const b of s.shots) objects.push({ m: ballGpu, mat: model(b.x, 2.5 + Math.sin(b.life * 3) * 0.3, b.z), tint: [1, 1, 1] }); }
+    if (s.deck) for (const d of s.deck.defs) { const hv = wave(d.x, d.z, t) - 0.15, y = DECK_Y + hv; if (d.st === 'dead') { if (s.t - d.deadT < CORPSE_S) bb(sprites.fallen('sailor', d.seed), d.x, y + 0.05, d.z, sprites.PERSON_SCALE); continue; } if (d.st === 'taken') continue; const la = s.t - (d.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; if (d.st === 'sub') bb(sprites.fallen('sailor', d.seed), d.x, y + 0.05, d.z, sprites.PERSON_SCALE); else bb(sprites.person(d.captain || s.deck.id.length && s.enemies.get(s.deck.id)?.kind === 'navy' ? 'warden' : 'sailor', d.seed, 'down', atkFrame(d, Math.hypot(d.x - s.foot.x, d.z - s.foot.z) < 2.6, 1 + (((d.walk || 0) * 1.4 | 0) & 1))), d.x + Math.cos(d.face || 0) * lu * 0.7, y, d.z + Math.sin(d.face || 0) * lu * 0.7, sprites.PERSON_SCALE); if (d.st === 'free' && s.t - (d.hitT ?? -99) < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((d.hp / d.max) * 10)))), d.x, y + 2.9, d.z, 0.5); }
+    if (s.deck) for (const a of s.deck.allies || []) { if (a.st !== 'free') continue; const hv = wave(a.x, a.z, t) - 0.15, y = DECK_Y + hv, la = s.t - (a.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person('sailor', a.seed, 'down', atkFrame(a, Math.hypot(a.x - s.foot.x, a.z - s.foot.z) < 2.6, 1 + (((a.walk || 0) * 1.4 | 0) & 1))), a.x + Math.cos(a.face || 0) * lu * 0.7, y, a.z + Math.sin(a.face || 0) * lu * 0.7, sprites.PERSON_SCALE); if (s.t - (a.hitT ?? -99) < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((a.hp / a.max) * 10)))), a.x, y + 2.9, a.z, 0.5); }
+    const pw = s.prisoner && s.hunts[s.prisoner], pww = pw && byId(s, s.prisoner); if (pw && !pw.aboard && pww && pw.x !== undefined) bb(sprites.person('sailor', pww.seed, 'down', 1 + (((pw.walk || 0) * 1.4 | 0) & 1)), pw.x, pw.y ?? groundAt(s, pw.x, pw.z), pw.z, sprites.PERSON_SCALE); // the bound prisoner walks behind you
+    for (const [id, h] of Object.entries(s.hunts || {})) if (h.st === 'killed' && s.t - h.deadT < CORPSE_S && h.x !== undefined && Math.hypot(h.x - cam.x, h.z - cam.z) < 220) { const k = byId(s, id); if (k?.seed !== undefined) bb(sprites.fallen('sailor', k.seed), h.x, (h.y || 0) + 0.05, h.z, sprites.PERSON_SCALE * Math.max(0.05, 1 - Math.max(0, (s.t - h.deadT) / CORPSE_S - 0.8) / 0.2)); }
     const px = s.mode === 'foot' ? s.foot.x : s.ship.x, pz = s.mode === 'foot' ? s.foot.z : s.ship.z;
+    const bd = board(s); // once a frame, not once per island
     for (const isl of nearbyIslands(s, px, pz, 1)) if (Math.hypot(isl.x - px, isl.z - pz) < isl.r * 1.7 + 60) {
       const kb = (q, x, z) => { const a = q ? s.t - q.hit : 9; if (!(a < 0.28)) return [x, z, 1]; const f = Math.sin((a / 0.28) * Math.PI), dx = x - px, dz = z - pz, d = Math.hypot(dx, dz) || 1; return [x + (dx / d) * 0.5 * f, z + (dz / d) * 0.5 * f, 1 - 0.14 * f]; }; // a hit person is knocked back and squashes
       const hpBar = (id, kind, x, y, z) => { const q = s.npcs?.[id]; if (q && !q.dead && s.t - q.hit < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((q.hp / npcMax(kind)) * 10)))), x, y + 2.9, z, 0.5); };
@@ -142,10 +154,16 @@ function render(t) {
         const [kx, kz, ks] = kb(s.npcs?.[`v${isl.id}:${f.seed}`], vx2, vz2);
         bb(sprites.person('villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
       }
+      for (const o of s.foes) if (o.isl === isl.id) { const la = s.t - (o.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person(o.kind, o.seed, 'down', atkFrame(o, Math.hypot(o.x - s.foot.x, o.z - s.foot.z) < 2.6, 1 + (((o.walk || 0) * 1.4 | 0) & 1))), o.x + Math.cos(o.face || 0) * lu * 0.7, o.y, o.z + Math.sin(o.face || 0) * lu * 0.7, sprites.PERSON_SCALE); hpBar(o.id, o.kind, o.x, o.y, o.z); } // a hidden fighter, now revealed
       for (const g of s.guards) if (g.isl === isl.id) { // a guard lunges at you when it strikes and flinches when you hit it
         const la = s.t - (g.atk ?? -9), fa = s.t - (g.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
-        bb(sprites.person('warden', g.seed, 'down', 1 + (((g.walk || 0) * 5 | 0) & 1)), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 + lu * 0.2 - fl * 0.12));
+        bb(sprites.person('warden', g.seed, 'down', atkFrame(g, Math.hypot(g.x - s.foot.x, g.z - s.foot.z) < 2.6, 1 + (((g.walk || 0) * 5 | 0) & 1))), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 - fl * 0.12));
       }
+      const hunt = (w, h, id) => { const fr = 1 + (((h.walk || 0) * 1.4 | 0) & 1), x = h.x, z = h.z, y = h.y ?? groundAt(s, x, z);
+        if (h.st === 'sub') bb(sprites.fallen('sailor', w.seed), x, y + 0.05, z, sprites.PERSON_SCALE); else { const la = s.t - (h.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person('sailor', w.seed, 'down', h.st === 'bound' ? 1 : atkFrame(h, Math.hypot(h.x - s.foot.x, h.z - s.foot.z) < 2.6, fr)), x + Math.cos(h.face || 0) * lu * 0.7, y, z + Math.sin(h.face || 0) * lu * 0.7, sprites.PERSON_SCALE); }
+        if (h.st !== 'bound' && s.t - (h.hitT ?? -99) < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((h.hp / w.hp) * 10)))), x, y + 2.9, z, 0.5); };
+      for (const w of bd) { const h = s.hunts?.[w.id]; if (w.kind === 'foot' && h && h.x !== undefined && (h.st === 'free' || h.st === 'sub') && w.island.id === isl.id) hunt(w, h); } // wanted people hide on their island; a beaten one lies down
+      for (const id of s.jailed?.[isl.id] || []) { const w = byId(s, id), k = s.jailed[isl.id].indexOf(id); const b = islandTown(isl).buildings.find((q) => q.jail); if (w && b && k < 3) bb(sprites.person('sailor', w.seed, 'down', 0), b.jail.spawn.x - 0.9 * k, b.pad, b.jail.spawn.z + 0.4 * (k % 2), sprites.PERSON_SCALE); } // prisoners you handed in sit in the cell
       if (s.jailUntil > s.t) for (const b of islandTown(isl).buildings) if (b.jail) bb(sprites.gate(), (b.jail.gate[0] + b.jail.gate[1]) / 2, b.pad, (b.jail.gate[2] + b.jail.gate[3]) / 2, -1); // the cell gate is shut: bars across it
       let props = propCache.get(isl.seed); if (!props) { props = islandProps(isl); for (const p of props) { const h = (x) => islandHeight(isl, x, p.z); p.y = dockDist(isl, p.x, p.z) < 1.8 ? Math.max(h(p.x), DOCK_Y) : FIXED[p.k] ? Math.min(h(p.x - FIXED[p.k]), h(p.x), h(p.x + FIXED[p.k])) - 0.05 : h(p.x); } propCache.set(isl.seed, props); if (propCache.size > 60) propCache.delete(propCache.keys().next().value); }
       // nothing turns with the camera: wide props face one way, round ones are two crossed quads
@@ -192,10 +210,17 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && phase === 'paused' && !e.repeat) { ($('pR') || $('oB'))?.click(); return; } // Esc again resumes (or backs out of Options)
   if (e.repeat) { keys.add(e.code); return; }
   keys.add(e.code);
-  if (phase === 'panel' && e.code === 'Escape') { ui.closePanel(); phase = 'play'; return; }
+  if (phase === 'panel' && e.code === 'KeyM' && document.getElementById('mapc')) { document.getElementById('mC').click(); return; }
+  if (phase === 'panel' && e.code === 'Escape') { ui.closePanel(); phase = 'play'; lock(); return; } // Esc closes any panel and takes the mouse back
   if (phase !== 'play') return;
   if (/^Digit[1-5]$/.test(e.code) && s?.mode === 'foot') wsel = +e.code[5];
+  else if (/^Digit[1-3]$/.test(e.code) && s?.mode === 'ship') { const id = ['round', 'chain', 'fire'][+e.code[5] - 1]; if (setShot(s, id)) say(s, AMMO[id].name + ' loaded.'); else say(s, 'You have no ' + AMMO[id].name.toLowerCase() + '. Buy some at the shipwright.'); }
   else if (e.code === 'KeyF') onInteract();
+  else if (e.code === 'KeyG' && s?.mode === 'ship') { const r = grapple(s); if (r.type === 'deck') { view.yaw = s.foot.yaw; view.pitch = 0; } }
+  else if (e.code === 'KeyB') toggleBombard(s);
+  else if (e.code === 'KeyT' && s?.mode === 'ship') cycleOrder(s, say);
+  else if (e.code === 'KeyM' && !mapAvailable(s)) say(s, 'You have no map. Nobody has charted past the Wall; perhaps whoever breaks through will.');
+  else if (e.code === 'KeyM') { phase = 'panel'; unlock(); ui.map(s, () => { phase = 'play'; lock(); }); }
   else if (e.code === 'KeyR') toggleAuto(s);
   else if (e.code === 'KeyO') toggleRow(s);
   else if (e.code === 'Tab') { phase = 'panel'; unlock(); ui.questLog(s, () => { phase = 'play'; lock(); }); }
@@ -225,6 +250,7 @@ function onInteract() {
   if (r.type === 'npc') {
     phase = 'panel'; unlock();
     ui.dialog(s, r, { island: standingOn(s), audio, say: (m) => say(s, m), onChange: () => saveGame(s), onClose: () => { phase = 'play'; lock(); saveGame(s); } });
+  } else if (r.type === 'prize') { phase = 'panel'; unlock(); ui.prize(s, () => { phase = 'play'; lock(); saveGame(s); });
   } else if (r.type === 'news') { phase = 'panel'; unlock(); ui.news(s, r.island, () => { phase = 'play'; lock(); saveGame(s); });
   } else if (r.type === 'ashore') { view.yaw = s.foot.yaw; view.pitch = 0; saveGame(s); }
   else if (r.type === 'board') { orbit.yaw = 0; orbit.pitch = -0.22; orbit.idle = 0; saveGame(s); }
@@ -282,7 +308,7 @@ function loop(now) {
     }
     for (const ev of s.events) {
       if (ev.type === 'cannon') audio.boom(1 / (1 + Math.hypot(ev.x - (s.ship?.x || 0), ev.z - (s.ship?.z || 0)) / 60));
-      else if (ev.type === 'slash') { audio.slash(ev.hit); ui.slash(ev.w, ev.hit); } else if (ev.type === 'kill') audio.boom(0.25); else if (ev.type === 'arrest') { view.yaw = s.foot.yaw = ev.yaw; view.pitch = 0; mouseDown = false; keys.clear(); }
+      else if (ev.type === 'slash') { audio.slash(ev.hit); ui.slash(ev.w, ev.hit); } else if (ev.type === 'kill') audio.boom(0.25); else if (ev.type === 'grapple') { view.yaw = ev.yaw; view.pitch = 0; audio.boom(0.5); } else if (ev.type === 'won') { audio.quest(); phase = 'panel'; unlock(); ui.prize(s, () => { phase = 'play'; lock(); saveGame(s); }); } else if (ev.type === 'arrest') { view.yaw = s.foot.yaw = ev.yaw; view.pitch = 0; mouseDown = false; keys.clear(); }
       else if (ev.type === 'hit') { audio.hit(); if (s.mode === 'foot') ui.hurt(); } else if (ev.type === 'coin' || ev.type === 'sunk') audio.coin(); else if (ev.type === 'quest') { audio.quest(); saveGame(s); }
     }
     s.events.length = 0;
@@ -308,7 +334,7 @@ function loop(now) {
     renderer = await createRenderer(canvas); sprites = createSprites(renderer);
   } catch (e) { ui.error(e.message); return; }
   audio.setVolume(opts.volume); resize();
-  window.__pk = { home: homeIsland, town: islandTown, get s() { return s; }, get phase() { return phase; }, cam, view, opts, sectors, newGame: () => startPlay(newGame(SEED)), updateSectors, interact: onInteract, T: () => T };
+  window.__pk = { home: homeIsland, town: islandTown, get s() { return s; }, get phase() { return phase; }, cam, view, opts, sectors, newGame: () => startPlay(newGame(SEED)), updateSectors, interact: onInteract, T: () => T, step, board, handIn, fighterOf, townsfolk, sectorIslands, folkPos, islandProps };
   updateSectors(homeIsland().x, homeIsland().z, true); // warm the sea behind the menu
   showMenu(); requestAnimationFrame(loop);
 })();
