@@ -4,7 +4,8 @@ import { GOODS } from './gen/world.js';
 import { WEAPONS, WEAPON_ORDER, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
 import { buyWeapon, equip } from './rules/weapons.js';
-import { trimInfo, payBounty, handIn, prizeInfo, finishBoarding } from './rules/game.js';
+import { trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract } from './rules/game.js';
+import { active as contractList, describe as contractText, quote as quoteContract, MAX_ACTIVE } from './rules/contracts.js';
 import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
 import { newsFor, markRead } from './rules/news.js';
 import { SHIPS, SHIP_ORDER, TRADE_IN } from './rules/ships.js';
@@ -210,13 +211,19 @@ export function createUI() {
   };
   // the town notice board
   ui.news = (s, isl, onClose) => {
-    const el = $('panel'), n = newsFor(s, isl); markRead(s, isl);
-    el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto"><h2>${esc(n.title)}</h2><div class=npc>Issue ${n.issue}${n.fresh ? ' · <span class=gold>new notices pinned</span>' : ' · nothing new since you last looked'}</div>${n.items.map((i) => `<p><small class=gold>${esc(i.tag)}</small><br><b>${esc(i.head)}</b><br>${esc(i.body)}</p>`).join('')}<button id=nC>Step away</button></div>`;
-    $('nC').onclick = () => { on('panel', false); onClose?.(); }; on('panel', true);
+    const el = $('panel'), n = newsFor(s, isl); markRead(s, isl); settleBoard(s, isl);
+    const draw = () => {
+      const offs = contractsFor(s, isl), mine = contractList(s);
+      const jobs = `<p><b class=gold>Contracts</b> <small>(${mine.length}/${MAX_ACTIVE} carried)</small></p>` + (mine.length ? '<table>' + mine.map((c) => `<tr><td>${esc(contractText(s, c))}</td><td class=n><button class=small data-k="x:${c.id}">Drop</button></td></tr>`).join('') + '</table>' : '') + (offs.length ? '<table>' + offs.map((o) => `<tr><td>${esc(o.text)}<br><small>${Math.round(o.window / 60)} min</small></td><td class=n><button class=small data-k="a:${o.id}">${quoteContract(s, o)}g · Sign</button></td></tr>`).join('') + '</table>' : '<p class=hint>No more work posted this issue.</p>');
+      el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto"><h2>${esc(n.title)}</h2><div class=npc>Issue ${n.issue}${n.fresh ? ' · <span class=gold>new notices pinned</span>' : ' · nothing new since you last looked'}</div>${jobs}${n.items.map((i) => `<p><small class=gold>${esc(i.tag)}</small><br><b>${esc(i.head)}</b><br>${esc(i.body)}</p>`).join('')}<button id=nC>Step away</button></div>`;
+      $('nC').onclick = () => { on('panel', false); onClose?.(); };
+      el.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { const [a, id] = b.dataset.k.split(':'), k = b.dataset.k.slice(2); if (a === 'a') { const o = offs.find((q) => q.id === k); if (o) signContract(s, o); } else dropContract(s, k); draw(); }));
+    };
+    draw(); on('panel', true);
   };
   ui.questLog = (s, onClose) => {
     const el = $('panel');
-    el.innerHTML = `<div class=box><h2>Quest log</h2>${QUESTS.map((q, i) => `<p style="opacity:${i > s.quest ? 0.4 : 1}"><b class="${i < s.quest ? '' : 'gold'}">${i < s.quest ? '✔ ' : i === s.quest ? '➤ ' : ''}${esc(q.title)}</b><br><small>${i <= s.quest ? esc(questText(s, q)) : '???'}</small></p>`).join('')}<button id=qC>Close</button></div>`;
+    el.innerHTML = `<div class=box><h2>Quest log</h2>${QUESTS.map((q, i) => `<p style="opacity:${i > s.quest ? 0.4 : 1}"><b class="${i < s.quest ? '' : 'gold'}">${i < s.quest ? '✔ ' : i === s.quest ? '➤ ' : ''}${esc(q.title)}</b><br><small>${i <= s.quest ? esc(questText(s, q)) : '???'}</small></p>`).join('')}${contractList(s).length ? '<p><b class=gold>Contracts</b></p>' + contractList(s).map((c) => `<p><small>${esc(contractText(s, c))}</small></p>`).join('') : ''}<button id=qC>Close</button></div>`;
     $('qC').onclick = () => { on('panel', false); onClose?.(); }; on('panel', true);
   };
 

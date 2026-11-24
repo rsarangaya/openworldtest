@@ -7,6 +7,7 @@ import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } f
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
 import { shipParams } from '../gen/mesh.js';
 import { explore, visit, learn } from './map.js';
+import { stepContracts, offers as contractOffers, accept as acceptContract, settle as settleContracts, abandon as abandonContract } from './contracts.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
 import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
@@ -569,7 +570,7 @@ export function step(s, input, dt = DT) {
     if (a >= SINK_S) s.over = true; return;
   }
   if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
-  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepHunts(s, dt); stepGuards(s, dt); updateFx(s, dt);
+  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepHunts(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) stepContracts(s, say); stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
 }
@@ -627,5 +628,9 @@ export function interact(s) {
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) { s.mode = 'ship'; s.ship.speed = 0; s.ship.trim = bestTrim(s.ship.yaw, s.wind, 0); say(s, 'Aboard! W lets the sail out; Z and C swing the boom.'); return { type: 'board' }; }
   return { type: 'none' };
 }
+export const contractsFor = (s, isl) => contractOffers(s, isl, nearbyIslands(s, isl.x, isl.z, 3).filter((i) => i.port && i.id !== isl.id));
+export const signContract = (s, o) => acceptContract(s, o, say);
+export const settleBoard = (s, isl) => settleContracts(s, isl, say);
+export const dropContract = (s, id) => abandonContract(s, id, say);
 export { cycleOrder };
 export { SECTOR };

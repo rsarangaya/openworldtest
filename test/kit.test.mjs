@@ -806,3 +806,32 @@ test('fleet: ships follow you at sea, hold position when ordered to guard, hunt 
   const t = await sail('raider'); withCrew(t.g); const ff = { id: 'f8', kind: 'raider', seed: 2, name: 'Doomed', x: t.e.x + 30, z: t.e.z, yaw: 0, speed: 0, hp: 5, maxHp: 38, captain: 'h0', cd: 99, ax: 0, az: 0 }; t.g.fleet = [ff]; t.g.crew[0].captain = 'f8'; t.g.fleetOrder = 'guard';
   t.g.shots.push({ x: ff.x, z: ff.z, vx: 0, vz: 0, life: 1, owner: 'enemy', dmg: 20, kind: 'round' }); t.step(t.g, {}, 1 / 60); t.step(t.g, {}, 1 / 60); assert.equal(t.g.fleet.length, 0, 'sunk'); assert.ok(!t.g.crew.some((c) => c.id === 'h0'), 'the captain is lost with her'); assert.ok(t.g.sinking.some((k) => k.id === 'f8'));
 });
+
+test('contracts: offers are stable, signing is capped, deliver and cull pay, deadlines cost standing, saves keep them', async () => {
+  const { contractsFor, signContract, settleBoard, dropContract } = await import('../src/rules/game.js');
+  const { active, progress } = await import('../src/rules/contracts.js');
+  const { localRep } = await import('../src/rules/rep.js');
+  const g = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0];
+  const o = contractsFor(g, home); assert.ok(o.length >= 2 && o.some((q) => q.type === 'deliver') && o.some((q) => q.type === 'cull'));
+  assert.deepEqual(contractsFor(g, home).map((q) => q.id), o.map((q) => q.id), 'stable within an issue');
+  const dl = o.find((q) => q.type === 'deliver'), cl = o.find((q) => q.type === 'cull');
+  // a bad name in the posting town is refused
+  g.rep.local[home.id] = -70; assert.equal(signContract(g, dl), null); g.rep.local[home.id] = 0;
+  assert.ok(signContract(g, dl) && signContract(g, cl)); assert.equal(active(g).length, 2);
+  assert.ok(!contractsFor(g, home).some((q) => q.id === dl.id), 'a signed job leaves the board');
+  // deliver: nothing paid at the wrong board, paid at the right one
+  const dest = [...sectorIslands(SEED, 0, 0), ...sectorIslands(SEED, 1, 0), ...sectorIslands(SEED, 0, 1), ...sectorIslands(SEED, -1, 0), ...sectorIslands(SEED, 0, -1), ...sectorIslands(SEED, 1, 1), ...sectorIslands(SEED, -1, -1)].find((i) => i.id === dl.to.id) || { id: dl.to.id };
+  const gold0 = g.gold; assert.equal(settleBoard(g, home), 0); assert.equal(g.gold, gold0);
+  const sv = deserialize(serialize(g)); assert.equal(active(sv).length, 2, 'saved'); assert.equal(sv.contracts[0].id, dl.id);
+  settleBoard(g, dest); assert.equal(g.gold, gold0 + active(sv)[0].pay, 'paid on delivery'); assert.ok(localRep(g, home.id) > 0);
+  // cull: not ready until enough raiders are sunk, then paid at the posting board
+  assert.equal(progress(g, active(g)[0]), 0); settleBoard(g, home); assert.equal(active(g).length, 1);
+  g.killsBy.raider = (g.killsBy.raider || 0) + cl.n; const g1 = g.gold; settleBoard(g, home); assert.equal(active(g).length, 0); assert.ok(g.gold > g1);
+  // a missed deadline costs standing; drop also costs; the id is never offered again
+  const o2 = contractsFor(g, home); const x = signContract(g, o2[0]); const rep0 = localRep(g, home.id);
+  for (let i = 0; i < 60 * (x.window + 5); i += 60) step(g, {}, 1); // fast: one-second steps
+  assert.equal(active(g).length, 0, 'expired'); assert.ok(localRep(g, home.id) < rep0);
+  assert.ok(!contractsFor(g, home).some((q) => q.id === x.id));
+  const y = signContract(g, contractsFor(g, home)[0]); dropContract(g, y.id); assert.equal(active(g).length, 0);
+  for (let k = 0; k < 4; k++) { g.t += 700; const l = contractsFor(g, home); assert.ok(l.length); for (const q of l) signContract(g, q); assert.ok(active(g).length <= 3); }
+});

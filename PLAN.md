@@ -165,7 +165,7 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 **Done:** 1 polish, 2 foot combat and killable NPCs, 3 reputation, 4 governments/guards/bounties/jail, 4b bounty missions (cop path), 5b boarding ships (steps 1-4), 5 ship parts and weapons (no ram variants), hidden fighters, hunting navy, bombardment toggle and town states, 6 crew and recruitment, 6 fleets, the world map (locked until the Wall breaks; registry-based so Asgard, Atlantis, Olympus are single entries).
 
 **Still open, in the order I would do them:**
-1. **Contracts board in every port** (deliver cargo X to Y, escort a merchant with your fleet, hunt a named pirate; pays by reputation). Gives goals beyond the main story and uses fleets, reputation and bounties.
+1. **(Done, R44: deliver and cull; escort still open) Contracts board in every port** (deliver cargo X to Y, escort a merchant with your fleet, hunt a named pirate; pays by reputation). Gives goals beyond the main story and uses fleets, reputation and bounties.
 2. **Mercenary companies** (hire or join; contracts from employers; ties to reputation) and **fleet trade routes**. Finishes step 6.
 3. **Storms and day/night** (shared tech: lightning, wind shifts, lamps, night raids, fog banks).
 4. **Navy/raiders boarding you**, rival bounty hunters, rescues of prisoners (finishes 4b and 5b), a small ship attack animation.

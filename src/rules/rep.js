@@ -9,7 +9,7 @@ export const worldRep = (s) => repOf(s).world;
 export function addLocal(s, id, d) { const r = repOf(s); if (id !== undefined && id !== null) r.local[id] = clamp((r.local[id] || 0) + d); }
 export function addWorld(s, d) { const r = repOf(s); r.world = clamp(r.world + d); }
 // deeds and their weight: [local, world]
-export const DEEDS = { hurt: [-2, -0.5], killVillager: [-25, -4], killShopkeeper: [-40, -8], killWarden: [-60, -15], trade: [0.4, 0.1], quest: [4, 5], sunkHostile: [0, 3], sunkPeaceful: [0, -12], helpedPort: [3, 1], lawKill: [2, 3], bombard: [-3, -1], piracy: [0, -10], boardHostile: [0, 2], handIn: [8, 6] };
+export const DEEDS = { hurt: [-2, -0.5], killVillager: [-25, -4], killShopkeeper: [-40, -8], killWarden: [-60, -15], trade: [0.4, 0.1], quest: [4, 5], sunkHostile: [0, 3], sunkPeaceful: [0, -12], helpedPort: [3, 1], lawKill: [2, 3], bombard: [-3, -1], piracy: [0, -10], boardHostile: [0, 2], handIn: [8, 6], contract: [4, 1], contractFail: [-6, -1] };
 export function deed(s, name, islandId, scale = 1) { const [l, w] = DEEDS[name]; if (l) addLocal(s, islandId, l * scale); if (w) addWorld(s, w * scale); }
 // the heal over time; called once a second
 export function forgive(s, dt) { const r = repOf(s); for (const k in r.local) { if (r.local[k] < 0) r.local[k] = Math.min(0, r.local[k] + dt * FORGIVE_PER_S); } if (r.world < 0 && (s.bounty || 0) === 0) r.world = Math.min(0, r.world + dt * FORGIVE_PER_S * 0.25); }
