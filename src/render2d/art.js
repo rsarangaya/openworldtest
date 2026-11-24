@@ -95,7 +95,7 @@ export function paintXMark(g) { line(g, -0.5, -0.45, 0.5, 0.45, 0.28, INK); line
 
 // ---------------------------------------------------------------- buildings (front view with the roof seen from above, like a classic JRPG town)
 const WALLS = [[0.97, 0.9, 0.76], [0.9, 0.8, 0.66], [0.98, 0.95, 0.88], [0.8, 0.86, 0.9]], ROOFS = [[0.82, 0.32, 0.26], [0.42, 0.52, 0.66], [0.78, 0.55, 0.28], [0.62, 0.34, 0.45]];
-const SIGN = { merchant: [0.25, 0.68, 0.38], tavern: [0.85, 0.28, 0.22], shipwright: [0.25, 0.48, 0.88], sailor: [0.6, 0.62, 0.68], warden: [0.82, 0.92, 1] };
+const SIGN = { smith: [0.5, 0.52, 0.6], guard: [0.25, 0.36, 0.72], merchant: [0.25, 0.68, 0.38], tavern: [0.85, 0.28, 0.22], shipwright: [0.25, 0.48, 0.88], sailor: [0.6, 0.62, 0.68], warden: [0.82, 0.92, 1] };
 const WOOD = [0.72, 0.52, 0.32], DARK = [0.4, 0.28, 0.18], STONE = [0.7, 0.68, 0.68];
 export const houseBox = (b) => ({ x0: -b.w / 2 - 1.1, x1: b.w / 2 + 1.1, y0: -(b.d + b.h + 3.2 + Math.min(b.w, b.d) * 0.3), y1: 0.7 });
 
@@ -163,6 +163,36 @@ export function paintBoard(g) {
     cel(g, rr(x, y, w, h, 0.04), c, { lw: 0.05 }); for (let k = 1; k < 3; k++) line(g, x + 0.12, y + (h * k) / 3.2 + 0.03, x + w - 0.12, y + (h * k) / 3.2 + 0.03, 0.04, '#6a5a44'); fillPath(g, ell(x + w / 2, y + 0.07, 0.07, 0.07), '#a8302a');
   }
 }
+// the cell gate: iron bars, drawn only while the gate is shut after an arrest
+export const GATE_BOX = { x0: -1.1, x1: 1.1, y0: -2.9, y1: 0.2 };
+export function paintGate(g) {
+  cel(g, rr(-1.0, -2.8, 2.0, 0.22, 0.04), [0.3, 0.31, 0.36], { lw: 0.08 }); cel(g, rr(-1.0, -0.15, 2.0, 0.2, 0.04), [0.3, 0.31, 0.36], { lw: 0.08 });
+  for (let i = 0; i < 6; i++) cel(g, rr(-0.92 + i * 0.37, -2.6, 0.13, 2.5, 0.04), [0.4, 0.42, 0.48], { lw: 0.07 });
+}
+// armoury and guard-station furniture: flat pixel sprites, drawn square-on like the shop counters
+const IRON = [0.34, 0.36, 0.43], IRON_L = [0.55, 0.58, 0.66], BLADE = [0.82, 0.85, 0.92];
+export const BAR_BOX = { x0: -0.2, x1: 0.2, y0: -2.9, y1: 0.1 };
+export function paintBar(g) { cel(g, rr(-0.1, -2.7, 0.2, 2.7, 0.04), IRON, { lw: 0.07 }); cel(g, rr(-0.14, -2.85, 0.28, 0.16, 0.05), IRON_L, { lw: 0.05 }); }
+export const railBox = (w) => ({ x0: -w / 2, x1: w / 2, y0: -3.1, y1: 0.2 });
+export function paintRail(g, w) { cel(g, rr(-w / 2, -2.95, w, 0.2, 0.04), IRON, { lw: 0.07 }); cel(g, rr(-w / 2, -0.12, w, 0.18, 0.04), IRON, { lw: 0.07 }); } // the top rail and the sill of the cell front
+export const BUNK_BOX = { x0: -1, x1: 1, y0: -1.2, y1: 0.2 };
+export function paintBunk(g) { cel(g, rr(-0.95, -0.55, 1.9, 0.5, 0.06), WOOD); cel(g, rr(-0.9, -0.82, 1.8, 0.34, 0.12), [0.62, 0.62, 0.56]); cel(g, rr(-0.9, -0.95, 0.6, 0.3, 0.12), [0.9, 0.88, 0.8]); for (const x of [-0.85, 0.85]) cel(g, rr(x - 0.06, -0.1, 0.12, 0.3, 0.02), DARK, { lw: 0.04 }); }
+export const DESK_BOX = { x0: -1.2, x1: 1.2, y0: -1.5, y1: 0.2 };
+export function paintDesk(g) { cel(g, rr(-1.1, -1.0, 2.2, 0.2, 0.05), [0.7, 0.5, 0.3]); cel(g, rr(-1.0, -0.8, 2.0, 0.8, 0.05), WOOD); cel(g, rr(-0.5, -1.4, 0.5, 0.4, 0.04), [0.95, 0.9, 0.75], { lw: 0.05 }); fillPath(g, ell(0.55, -1.15, 0.12, 0.12), '#a8302a'); line(g, -0.4, -1.28, -0.1, -1.28, 0.04, '#6a5a44'); line(g, -0.4, -1.16, -0.15, -1.16, 0.04, '#6a5a44'); }
+export const KEYS_BOX = { x0: -0.8, x1: 0.8, y0: -1.9, y1: 0.1 };
+export function paintKeys(g) { cel(g, rr(-0.7, -1.7, 1.4, 1.4, 0.08), WOOD); for (let i = 0; i < 4; i++) { const x = -0.45 + i * 0.3; line(g, x, -1.45, x, -1.12, 0.05, '#e3b73e'); fillPath(g, ell(x, -1.0, 0.1, 0.1), '#e3b73e'); } }
+export const NOTICES_BOX = { x0: -1, x1: 1, y0: -2.2, y1: 0.1 };
+export function paintNotices(g) { for (const [x, y, c] of [[-0.85, -2.0, [0.95, 0.9, 0.75]], [0.05, -1.9, [0.9, 0.85, 0.68]]]) { cel(g, rr(x, y, 0.8, 1.0, 0.04), c, { lw: 0.05 }); for (let k = 0; k < 3; k++) line(g, x + 0.12, y + 0.34 + k * 0.2, x + 0.68, y + 0.34 + k * 0.2, 0.04, '#6a5a44'); fillPath(g, ell(x + 0.4, y + 0.14, 0.08, 0.08), '#a8302a'); } }
+export const RACK_BOX = { x0: -1.6, x1: 1.6, y0: -2.6, y1: 0.2 };
+export function paintRack(g) {
+  for (const s of [-1, 1]) cel(g, rr(s * 1.4 - 0.08, -2.4, 0.16, 2.4, 0.03), DARK, { lw: 0.06 });
+  for (const y of [-2.0, -1.0]) cel(g, rr(-1.5, y, 3.0, 0.14, 0.04), WOOD, { lw: 0.05 });
+  for (let i = 0; i < 5; i++) { const x = -1.2 + i * 0.6; if (i % 2) { line(g, x, -2.3, x, -1.15, 0.1, rgb(BLADE)); cel(g, rr(x - 0.22, -1.15, 0.44, 0.1, 0.03), [0.9, 0.72, 0.25], { lw: 0.04 }); } else { line(g, x, -2.2, x, -0.6, 0.07, '#6b4326'); cel(g, poly(x, -2.3, x + 0.4, -2.1, x + 0.38, -1.7, x, -1.8), IRON_L, { lw: 0.05 }); } }
+}
+export const ANVIL_BOX = { x0: -0.8, x1: 0.8, y0: -1.2, y1: 0.2 };
+export function paintAnvil(g) { cel(g, rr(-0.35, -0.45, 0.7, 0.45, 0.05), WOOD); cel(g, poly(-0.75, -1.0, 0.7, -1.0, 0.5, -0.8, 0.28, -0.72, 0.4, -0.45, -0.4, -0.45, -0.28, -0.72, -0.5, -0.8), IRON, { lw: 0.07 }); cel(g, rr(-0.75, -1.05, 1.4, 0.14, 0.04), IRON_L, { lw: 0.05 }); }
+export const FORGE_BOX = { x0: -1, x1: 1, y0: -2.2, y1: 0.2 };
+export function paintForge(g) { cel(g, rr(-0.9, -2.0, 1.8, 2.0, 0.08), [0.5, 0.48, 0.46]); cel(g, rr(-0.55, -0.95, 1.1, 0.95, 0.12), [0.2, 0.18, 0.18], { lw: 0.06 }); fillPath(g, ell(0, -0.35, 0.4, 0.28), '#ff8a2e'); fillPath(g, ell(0, -0.3, 0.22, 0.17), '#ffe066'); cel(g, rr(-0.35, -2.25, 0.7, 0.3, 0.05), [0.4, 0.38, 0.36], { lw: 0.05 }); }
 // battle effects: a muzzle/impact flash, a puff of smoke and a splash (drawn as flat pixel sprites, scaled and moved by the game)
 export const FX_BOX = { x0: -1.2, x1: 1.2, y0: -1.2, y1: 1.2 };
 export function paintFlash(g) {
@@ -174,16 +204,6 @@ export function paintSmoke(g) { for (const [x, y, r] of [[-0.45, 0.2, 0.55], [0.
 export function paintSplash(g) {
   cel(g, poly(-1, 0.9, -0.55, -0.2, -0.25, 0.9), [0.85, 0.95, 1], { lw: 0.07 }); cel(g, poly(-0.4, 0.9, 0, -1, 0.4, 0.9), [0.9, 0.97, 1], { lw: 0.07 }); cel(g, poly(0.25, 0.9, 0.55, -0.2, 1, 0.9), [0.85, 0.95, 1], { lw: 0.07 });
   for (const [x, y] of [[-0.9, -0.5], [0.85, -0.4], [0.3, -1], [-0.45, -0.95]]) fillPath(g, ell(x, y, 0.12, 0.12), '#cfeaff');
-}
-// the guard station: a stone post with a blue roof, barred windows, a heavy door and a banner
-export const STATION_BOX = { x0: -3.3, x1: 3.5, y0: -4.9, y1: 0.3 };
-export function paintStation(g) {
-  cel(g, rr(-2.8, -2.7, 5.6, 2.7, 0.06), [0.58, 0.6, 0.66], { lw: 0.1 });
-  for (let r = 1; r < 4; r++) line(g, -2.75, -0.67 * r, 2.75, -0.67 * r, 0.04, '#7a7d88');
-  cel(g, poly(-3.2, -2.6, 3.2, -2.6, 2.3, -4.3, -2.3, -4.3), [0.2, 0.3, 0.52], { lw: 0.1 });
-  cel(g, rr(-0.65, -1.85, 1.3, 1.85, 0.08), [0.33, 0.22, 0.14], { lw: 0.08 }); fillPath(g, ell(0.35, -0.9, 0.08, 0.08), '#ffd76a');
-  for (const s of [-1, 1]) { cel(g, rr(s * 1.75 - 0.5, -2.05, 1.0, 0.95, 0.05), [0.12, 0.13, 0.18], { lw: 0.07 }); for (let b = 0; b < 4; b++) line(g, s * 1.75 - 0.35 + b * 0.23, -2.0, s * 1.75 - 0.35 + b * 0.23, -1.15, 0.05, '#aab0c0'); }
-  line(g, 3.1, 0, 3.1, -4.8, 0.1, '#3a2a1c'); cel(g, poly(3.1, -4.7, 3.1, -3.7, 2.2, -4.2), [0.82, 0.18, 0.2], { lw: 0.06 }); fillPath(g, ell(2.85, -4.2, 0.12, 0.12), '#ffd76a');
 }
 // a signpost outside every shop: a board on a post with the trade's picture (bag = shop, mug = tavern, ship = shipwright, anchor = sailor, snowflake = warden)
 export const SIGN_BOX = { x0: -1.6, x1: 1.6, y0: -4.1, y1: 0.3 };
@@ -205,17 +225,23 @@ export function paintSign(g, kind) {
   } else if (kind === 'sailor') { // an anchor
     g.lineCap = 'round'; line(g, cx, cy - 0.4, cx, cy + 0.38, 0.17, ink); line(g, cx - 0.26, cy - 0.2, cx + 0.26, cy - 0.2, 0.15, ink); g.beginPath(); g.arc(cx, cy + 0.12, 0.5, 0.15 * Math.PI, 0.85 * Math.PI); g.lineWidth = 0.17; g.strokeStyle = ink; g.stroke();
     g.beginPath(); g.arc(cx, cy - 0.5, 0.1, 0, 7); g.lineWidth = 0.1; g.stroke(); line(g, cx, cy - 0.4, cx, cy + 0.38, 0.08, '#4a6a8a'); line(g, cx - 0.26, cy - 0.2, cx + 0.26, cy - 0.2, 0.07, '#4a6a8a');
+  } else if (kind === 'smith') { // an anvil with a hammer
+    cel(g, poly(cx - 0.55, cy - 0.1, cx + 0.5, cy - 0.1, cx + 0.3, cy + 0.1, cx + 0.2, cy + 0.15, cx + 0.3, cy + 0.45, cx - 0.35, cy + 0.45, cx - 0.2, cy + 0.15, cx - 0.3, cy + 0.1), [0.42, 0.44, 0.5], { lw: 0.08 });
+    line(g, cx - 0.1, cy - 0.5, cx + 0.3, cy - 0.12, 0.09, '#6b4326'); cel(g, rr(cx - 0.3, cy - 0.62, 0.34, 0.22, 0.04), [0.6, 0.62, 0.7], { lw: 0.06 });
+  } else if (kind === 'guard') { // a shield with a cross
+    cel(g, poly(cx - 0.5, cy - 0.5, cx + 0.5, cy - 0.5, cx + 0.5, cy + 0.05, cx, cy + 0.6, cx - 0.5, cy + 0.05), [0.25, 0.36, 0.72], { lw: 0.09 });
+    line(g, cx, cy - 0.42, cx, cy + 0.38, 0.12, '#f0d060'); line(g, cx - 0.38, cy - 0.12, cx + 0.38, cy - 0.12, 0.12, '#f0d060');
   } else { // a snowflake (the warden)
     for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI; line(g, cx - Math.cos(a) * 0.5, cy - Math.sin(a) * 0.5, cx + Math.cos(a) * 0.5, cy + Math.sin(a) * 0.5, 0.13, ink); line(g, cx - Math.cos(a) * 0.5, cy - Math.sin(a) * 0.5, cx + Math.cos(a) * 0.5, cy + Math.sin(a) * 0.5, 0.06, '#5fb0d8'); }
   }
 }
 export const SHELF_BOX = { x0: -3.4, x1: 3.4, y0: -2.9, y1: 0.3 };
 export function paintShelf(g, kind) {
-  const goods = { merchant: [[0.9, 0.3, 0.25], [0.95, 0.8, 0.3], [0.4, 0.7, 0.3], [0.35, 0.5, 0.88], [0.9, 0.5, 0.2]], tavern: [[0.95, 0.8, 0.4], [0.62, 0.42, 0.24], [0.85, 0.3, 0.28], [0.97, 0.9, 0.7]], shipwright: [[0.6, 0.6, 0.65], [0.55, 0.4, 0.25], [0.72, 0.4, 0.3], [0.5, 0.5, 0.58]], sailor: [[0.97, 0.92, 0.75], [0.6, 0.6, 0.65], [0.3, 0.5, 0.7]], warden: [[0.5, 0.9, 1], [0.92, 0.95, 1], [0.6, 0.6, 0.7]] }[kind] || [[0.7, 0.5, 0.3]];
+  const goods = { smith: [[0.7, 0.72, 0.8], [0.55, 0.57, 0.64], [0.45, 0.3, 0.2], [0.8, 0.82, 0.9]], guard: [[0.9, 0.85, 0.7]], merchant: [[0.9, 0.3, 0.25], [0.95, 0.8, 0.3], [0.4, 0.7, 0.3], [0.35, 0.5, 0.88], [0.9, 0.5, 0.2]], tavern: [[0.95, 0.8, 0.4], [0.62, 0.42, 0.24], [0.85, 0.3, 0.28], [0.97, 0.9, 0.7]], shipwright: [[0.6, 0.6, 0.65], [0.55, 0.4, 0.25], [0.72, 0.4, 0.3], [0.5, 0.5, 0.58]], sailor: [[0.97, 0.92, 0.75], [0.6, 0.6, 0.65], [0.3, 0.5, 0.7]], warden: [[0.5, 0.9, 1], [0.92, 0.95, 1], [0.6, 0.6, 0.7]] }[kind] || [[0.7, 0.5, 0.3]];
   for (const s of [-1, 1]) cel(g, rr(s * 3 - 0.1, -2.5, 0.2, 2.5, 0.04), DARK, { lw: 0.05 });
   for (const y of [-0.85, -1.7]) { cel(g, rr(-3.2, y, 6.4, 0.2, 0.05), WOOD, { lw: 0.05 }); goods.forEach((c, i) => { const x = -2.7 + i * (5.4 / Math.max(1, goods.length - 1)); cel(g, rr(x - 0.3, y - 0.62, 0.6, 0.62, 0.1), c, { lw: 0.045 }); }); }
 }
-export function paintShopCounter(g, b) { const hw = 1.6; cel(g, rr(-hw, -0.95, hw * 2, 0.95, 0.07), WOOD); cel(g, rr(-hw - 0.1, -1.1, hw * 2 + 0.2, 0.2, 0.06), [0.82, 0.62, 0.4]); const gs = { merchant: [[0.9, 0.3, 0.25], [0.95, 0.8, 0.3], [0.4, 0.7, 0.3]], tavern: [[0.95, 0.8, 0.4], [0.97, 0.9, 0.7]], shipwright: [[0.6, 0.6, 0.65], [0.55, 0.4, 0.25]], sailor: [[0.97, 0.92, 0.75]], warden: [[0.5, 0.9, 1]] }[b.kind] || []; gs.forEach((c, i) => cel(g, ell(-0.9 + i * 0.7, -1.28, 0.2, 0.18), c, { lw: 0.045 })); }
+export function paintShopCounter(g, b) { const hw = 1.6; cel(g, rr(-hw, -0.95, hw * 2, 0.95, 0.07), WOOD); cel(g, rr(-hw - 0.1, -1.1, hw * 2 + 0.2, 0.2, 0.06), [0.82, 0.62, 0.4]); const gs = { smith: [[0.7, 0.72, 0.8], [0.45, 0.3, 0.2], [0.55, 0.57, 0.64]], guard: [[0.9, 0.85, 0.7]], merchant: [[0.9, 0.3, 0.25], [0.95, 0.8, 0.3], [0.4, 0.7, 0.3]], tavern: [[0.95, 0.8, 0.4], [0.97, 0.9, 0.7]], shipwright: [[0.6, 0.6, 0.65], [0.55, 0.4, 0.25]], sailor: [[0.97, 0.92, 0.75]], warden: [[0.5, 0.9, 1]] }[b.kind] || []; gs.forEach((c, i) => cel(g, ell(-0.9 + i * 0.7, -1.28, 0.2, 0.18), c, { lw: 0.045 })); }
 export function paintShopFront(g, b, biome) {
   const hw = b.w / 2, h = b.h, wall = mixc(WALLS[b.roof % 4], [0.92, 0.95, 1], biome === 'frozen' ? 0.4 : 0), trim = mixc(wall, [1, 1, 1], 0.45), sc = SIGN[b.kind] || [0.5, 0.5, 0.5], shut = mixc(sc, [0.3, 0.3, 0.3], 0.3);
   roofOf(g, b, biome);
@@ -234,7 +260,7 @@ export function paintShopFront(g, b, biome) {
 const SKIN = [[0.92, 0.77, 0.64], [0.8, 0.6, 0.45], [0.62, 0.44, 0.32], [0.44, 0.3, 0.22]];
 const HAIRC = [[0.12, 0.1, 0.1], [0.3, 0.2, 0.12], [0.5, 0.34, 0.18], [0.62, 0.6, 0.6], [0.45, 0.2, 0.12], [0.7, 0.55, 0.3]];
 const LEATHER = [0.36, 0.24, 0.15];
-const CLOTH = { merchant: [[0.22, 0.38, 0.3], [0.45, 0.3, 0.2]], tavern: [[0.5, 0.22, 0.2], [0.42, 0.3, 0.2]], shipwright: [[0.3, 0.4, 0.5], [0.38, 0.38, 0.34]], sailor: [[0.2, 0.28, 0.42], [0.25, 0.32, 0.4]], warden: [[0.7, 0.74, 0.8], [0.6, 0.66, 0.74]],
+const CLOTH = { smith: [[0.34, 0.3, 0.28], [0.3, 0.27, 0.3]], guard: [[0.22, 0.32, 0.58], [0.2, 0.3, 0.52]], merchant: [[0.22, 0.38, 0.3], [0.45, 0.3, 0.2]], tavern: [[0.5, 0.22, 0.2], [0.42, 0.3, 0.2]], shipwright: [[0.3, 0.4, 0.5], [0.38, 0.38, 0.34]], sailor: [[0.2, 0.28, 0.42], [0.25, 0.32, 0.4]], warden: [[0.7, 0.74, 0.8], [0.6, 0.66, 0.74]],
   villager: [[0.45, 0.32, 0.22], [0.36, 0.42, 0.26], [0.55, 0.28, 0.2], [0.3, 0.36, 0.44], [0.6, 0.5, 0.28], [0.42, 0.3, 0.4]], player: [[0.26, 0.34, 0.5]] };
 export function personSpec(kind, seed) {
   const r = rngFor(seed, kind.length * 17 + 3), P = { kind, skin: pick(r, SKIN), hair: pick(r, HAIRC), eye: [0.14, 0.12, 0.12], style: (r() * 4) | 0, cloth: pick(r, CLOTH[kind] || CLOTH.villager), pants: pick(r, [[0.26, 0.26, 0.3], [0.34, 0.28, 0.2], [0.24, 0.3, 0.32]]), extra: (r() * 4) | 0 };
@@ -263,6 +289,8 @@ export function paintPerson(g, P, dir, fr) {
   else if (K === 'shipwright' && !back) cel(g, rr(-0.4, -1.55, 0.8, 1.15, 0.05), [0.5, 0.35, 0.2], { lw: 0.06 });
   else if (K === 'sailor') for (let y = -1.85; y < -1.25; y += 0.2) line(g, wide ? -0.48 : -0.36, y, wide ? 0.48 : 0.36, y, 0.06, '#e8e6e0');
   else if (K === 'merchant' && front) { cel(g, ell(0.38, -1.05, 0.17, 0.2), [0.5, 0.36, 0.2], { lw: 0.05 }); }
+  else if (K === 'smith' && !back) cel(g, rr(-0.42, -1.65, 0.84, 1.25, 0.06), [0.42, 0.28, 0.18], { lw: 0.06 }); // a leather apron
+  else if (K === 'guard') { cel(g, rr(-0.42, -1.9, 0.84, 0.9, 0.1), [0.6, 0.63, 0.7], { lw: 0.07 }); line(g, 0, -1.9, 0, -1.0, 0.07, rgb([0.9, 0.78, 0.3])); } // a breastplate
   else if (K === 'warden') { cel(g, ell(0, -1.98, 0.74, 0.3), [0.9, 0.92, 0.95], { lw: 0.07 }); } // fur mantle over the shoulders
   else if (K === 'player') { if (!front) cel(g, rr(-0.46, -1.9, 0.62, 0.95, 0.12), [0.45, 0.3, 0.2], { lw: 0.07 }); line(g, -0.2, -1.95, -0.2, -1.2, 0.07, rgb(LEATHER)); }
   // neck and head
@@ -282,6 +310,8 @@ export function paintPerson(g, P, dir, fr) {
   if (K === 'merchant') { cel(g, ell(0, hy - 0.28, 0.62, 0.15), [0.3, 0.22, 0.16], { lw: 0.07 }); cel(g, rr(-0.34, hy - 0.62, 0.68, 0.4, 0.14), [0.34, 0.25, 0.18], { lw: 0.07 }); line(g, -0.32, hy - 0.34, 0.32, hy - 0.34, 0.07, '#8a3a2a'); }
   else if (K === 'tavern' && P.style !== 3) line(g, -0.36, hy - 0.2, 0.36, hy - 0.2, 0.08, '#d9d4c4');
   else if (K === 'shipwright') cel(g, rr(-0.4, hy - 0.5, 0.8, 0.28, 0.1), [0.4, 0.36, 0.3], { lw: 0.07 });
+  else if (K === 'smith') cel(g, rr(-0.38, hy - 0.4, 0.76, 0.2, 0.08), [0.22, 0.2, 0.2], { lw: 0.07 }); // a sooty headband
+  else if (K === 'guard') { cel(g, (p) => { p.moveTo(-0.42, hy + 0.02); p.bezierCurveTo(-0.44, hy - 0.62, 0.44, hy - 0.62, 0.42, hy + 0.02); p.closePath(); }, [0.6, 0.63, 0.7], { lw: 0.07 }); line(g, 0, hy - 0.5, 0, hy - 0.1, 0.07, rgb([0.45, 0.48, 0.55])); } // a helmet
   else if (K === 'sailor') { cel(g, (p) => { p.moveTo(-0.4, hy - 0.08); p.bezierCurveTo(-0.4, hy - 0.6, 0.4, hy - 0.6, 0.4, hy - 0.08); p.closePath(); }, [0.62, 0.2, 0.18], { lw: 0.07 }); if (!front) line(g, -0.3, hy - 0.2, -0.62, hy - 0.05, 0.1, '#9c3028'); }
   else if (K === 'warden') { cel(g, (p) => { p.moveTo(-0.5, hy + 0.35); p.bezierCurveTo(-0.62, hy - 0.7, 0.62, hy - 0.7, 0.5, hy + 0.35); p.lineTo(0.36, hy + 0.1); p.bezierCurveTo(0.34, hy - 0.3, -0.34, hy - 0.3, -0.36, hy + 0.1); p.closePath(); }, [0.9, 0.92, 0.95], { lw: 0.07 }); if (front) { line(g, 0.95, -0.3, 0.95, -2.85, 0.1, '#5a3c22'); fillPath(g, ell(0.95, -2.95, 0.16, 0.24), '#9fe6f5'); fillPath(g, ell(0.95, -2.95, 0.36, 0.4), 'rgba(160,230,245,0.22)'); } }
   else if (K === 'player') cel(g, rr(-0.38, hy - 0.46, 0.76, 0.26, 0.1), dark(cl, 0.2), { lw: 0.07 });

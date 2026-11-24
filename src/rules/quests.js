@@ -73,6 +73,8 @@ export function dialog(s, npc) {
     case 'warden':
       s.flags.warden = true;
       return { lines: s.upgrades.ram ? ['That ram will do it. Make for the gate and do not slow down.'] : ['So the stories got you here. The gate is thin ice, but only an icebreaker ram will crack it.', 'I can fit one to your ship. Five hundred gold.'], panel: 'warden' };
+    case 'smith': return { lines: !s.weapon || s.weapon === 'fists' ? ['Bare hands? That is no way to cross the sea, or to walk a strange town.', 'Have a look at what I have. A good blade pays for itself.'] : ['Keep it sharp. Anything else you need?'], panel: 'arms' };
+    case 'guard': return { lines: s.bountyGold > 0 ? ['You are wanted. Pay what you owe and the matter is closed.'] : ['Keep the peace in this town and we will get along. Break it and you will see our cell.'], panel: s.bountyGold > 0 ? 'guard' : null };
     default: return { lines: ['...'], panel: null };
   }
 }

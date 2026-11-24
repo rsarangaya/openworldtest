@@ -29,8 +29,16 @@ export function createSprites(R) {
       case 'bench': return get('n', A.BENCH_BOX, 12, (g) => A.paintBench(g));
       case 'counter': return get(`co${p.kind}`, A.shopMidBox, 12, (g) => A.paintShopCounter(g, { kind: p.kind }));
       case 'board': return get('bd', A.BOARD_BOX, 12, (g) => A.paintBoard(g));
-      case 'station': return get('gs', A.STATION_BOX, 11, (g) => A.paintStation(g));
       case 'sign': return get(`sg${p.kind}`, A.SIGN_BOX, 12, (g) => A.paintSign(g, p.kind));
+      case 'bar': return get('br', A.BAR_BOX, 12, (g) => A.paintBar(g));
+      case 'cellrail': return get('rl' + p.v, A.railBox(p.v / 10), 12, (g) => A.paintRail(g, p.v / 10));
+      case 'bunk': return get('bk', A.BUNK_BOX, 12, (g) => A.paintBunk(g));
+      case 'desk': return get('dk', A.DESK_BOX, 12, (g) => A.paintDesk(g));
+      case 'keys': return get('ky', A.KEYS_BOX, 12, (g) => A.paintKeys(g));
+      case 'notices': return get('nt', A.NOTICES_BOX, 12, (g) => A.paintNotices(g));
+      case 'rack': return get('rk', A.RACK_BOX, 12, (g) => A.paintRack(g));
+      case 'anvil': return get('an', A.ANVIL_BOX, 12, (g) => A.paintAnvil(g));
+      case 'forge': return get('fg', A.FORGE_BOX, 12, (g) => A.paintForge(g));
       case 'shelf': return get(`sh${p.kind}`, A.SHELF_BOX, 12, (g) => A.paintShelf(g, p.kind));
       case 'xmark': return get('x', A.XMARK_BOX, 12, (g) => A.paintXMark(g));
     }
@@ -39,6 +47,7 @@ export function createSprites(R) {
   const person = (kind, seed, dir, fr) => get(`p${kind}${seed % 16}${dir}${fr}`, A.PERSON_BOX, 12, (g) => A.paintPerson(g, A.personSpec(kind, seed % 16), dir, fr));
   const fx = (k) => get('fx' + k, A.FX_BOX, 12, (g) => (k === 'hurt' ? A.paintHurt(g) : k === 'flash' ? A.paintFlash(g) : k === 'smoke' ? A.paintSmoke(g) : A.paintSplash(g)));
   const fallen = (kind, seed) => get(`fl${kind}${seed % 16}`, A.FALLEN_BOX, 12, (g) => { g.rotate(Math.PI / 2); A.paintPerson(g, A.personSpec(kind, seed % 16), 'down', 0); });
+  const gate = () => get('gate', A.GATE_BOX, 12, (g) => A.paintGate(g));
   const hp = (n) => get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10));
-  return { prop, person, fallen, hp, fx, PERSON_SCALE };
+  return { prop, person, fallen, hp, fx, gate, PERSON_SCALE };
 }

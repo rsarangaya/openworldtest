@@ -192,6 +192,8 @@ export function islandTown(isl) {
   if (isl.port.home || isl.tier === 'city') kinds.push('shipwright');
   if (isl.quest === 'sailor') kinds.push('sailor');
   if (isl.quest === 'warden') kinds.push('warden');
+  if (isl.tier !== 'village' || isl.port.home) kinds.push('smith'); // the armoury: weapons are bought here
+  kinds.push('guard'); // the guard station: a real building with a barred jail cell inside (placed last so it never takes a quest giver's spot)
   const buildings = [], npcs = [];
   // a spot is good when the ground is land, gently sloped, clear of the dock, the plaza and other buildings
   const R = (cx, cz, w, d) => [cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2], hit = (a, b) => a[0] < b[1] && a[1] > b[0] && a[2] < b[3] && a[3] > b[2];
@@ -210,13 +212,18 @@ export function islandTown(isl) {
   };
   const toward = () => '+z'; // in the 2D view every door faces the viewer (south)
   kinds.forEach((k, i) => {
-    const w = 8, d = 7;
-    for (let tries = 0; tries < 70; tries++) {
-      const an = (i / kinds.length) * TAU + (r() - 0.5) * 0.6 + tries * 0.21, ring = 13 + r() * 6 + tries * 0.15, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, true);
+    for (let tries = 0; tries < 260; tries++) {
+      const w = k === 'guard' ? (tries < 130 ? 10 : 9) : 8, d = k === 'guard' ? (tries < 130 ? 8 : 7) : 7; // the guard station is big; on a cramped island a smaller one is tried after 130 failures
+      const an = (i / kinds.length) * TAU + (r() - 0.5) * 0.6 + tries * 0.21, ring = 13 + r() * 6 + tries * 0.12, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, true);
       if (!sp) continue;
       const b = { x, z, w, d, h: 4, pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: toward(x, z), kind: k };
       b.solids = solidsOf(b); buildings.push(b);
-      npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r), x, z: z - 1.4, y: sp.pad + 0.1, island: isl.id, shop: buildings.length - 1, seed: (isl.seed + i * 7919) >>> 0 });
+      if (k === 'guard') { // a barred cell in the back right corner: bars along its front (with a gate you can be locked behind) and its left side; the sergeant's desk is at the front left
+        const cx = x + 0.7, bz = z - 0.8, bar = (x0, x1, z0, z1) => (b.bars ||= []).push([x0, x1, z0, z1]); // bars block walking but are drawn as thin iron bars (mesh.js), not walls
+        bar(cx, x + 1.4, bz - 0.1, bz + 0.1); bar(x + 3.9, x + w / 2, bz - 0.1, bz + 0.1); bar(cx, cx + 0.2, z - d / 2, bz + 0.1);
+        b.jail = { spawn: { x: x + 2.6, z: z - 2.2 }, gate: [x + 1.9, x + 3.9, bz - 0.15, bz + 0.15], cell: [cx, x + w / 2, z - d / 2, bz] };
+      }
+      npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r), x: k === 'guard' ? x - 2.4 : x, z: k === 'guard' ? z + 1.4 : z - 1.4, y: sp.pad + 0.1, island: isl.id, shop: buildings.length - 1, seed: (isl.seed + i * 7919) >>> 0 });
       return;
     }
     const an = (i / kinds.length) * TAU, x = plaza.x + Math.cos(an) * 4, z = plaza.z + Math.sin(an) * 4; // no room: stand in the plaza

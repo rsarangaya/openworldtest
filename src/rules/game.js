@@ -22,7 +22,7 @@ export function newGame(seed = 1717) {
   const targets = questWorld(seed), home = sectorIslands(seed, 0, 0)[0], plaza = islandTown(home).plaza;
   const s = {
     seed, t: 0, mode: 'foot', gold: 500, food: 0, hull: 100, maxHull: 100, hold: 20, cargo: {}, upgrades: {}, flags: {}, found: new Set(), dead: new Set(),
-    kills: 0, killsBy: {}, npcs: {}, murders: 0, rep: { world: 0, local: {} }, bounty: 0, bountyGold: 0, weapon: 'sword', weapons: { sword: true }, hp: 100, maxHp: 100, hurtT: -99, guards: [], sinking: [], fx: [], hitT: -99, alert: {}, guardT: {}, score: 0, quest: 0, targets, ship: null, foodT: 0, msgT: 0,
+    kills: 0, killsBy: {}, npcs: {}, murders: 0, rep: { world: 0, local: {} }, bounty: 0, bountyGold: 0, weapon: 'fists', weapons: {}, jailUntil: -1, hp: 100, maxHp: 100, hurtT: -99, guards: [], sinking: [], fx: [], hitT: -99, alert: {}, guardT: {}, score: 0, quest: 0, targets, ship: null, foodT: 0, msgT: 0,
     foot: { x: plaza.x, z: plaza.z, y: plaza.y, yaw: 0, vy: 0 }, wind: windAt(0), enemies: new Map(), shots: [], log: [], events: [], over: false, ending: false,
   };
   const sw = islandTown(home).npcs.find((n) => n.kind === 'shipwright'); if (sw) s.foot.yaw = Math.atan2(sw.z - plaza.z, sw.x - plaza.x);
@@ -59,7 +59,7 @@ export const groundAt = (s, x, z) => { let h = -4; for (const i of islandsAt(s, 
 export const camBlocked = (s, x, y, z) => { for (const i of islandsAt(s, x, z)) { if (y < islandHeight(i, x, z) + 1.2) return true; for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1 && y < b.pad + b.h + 4) return true; } return false; };
 const PAD = 0.5; // body radius against walls
 // solid circles for everything that stands on an island: tree trunks, rocks, the well, stalls, lamps, barrels, counters, shelves (cached per island)
-const SOLID = { station: [[-2.2, 0, 0.8], [-0.75, 0, 0.8], [0.75, 0, 0.8], [2.2, 0, 0.8]], board: [[-1.7, 0, 0.4], [-0.85, 0, 0.4], [0, 0, 0.4], [0.85, 0, 0.4], [1.7, 0, 0.4]], tree: [[0, 0, 0.55]], rock: [[0, 0, 0.7]], bush: [[0, 0, 0.6]], well: [[0, 0, 1.6]], lamp: [[0, 0, 0.35]], sign: [[0, 0, 0.3]], barrel: [[0, 0, 0.6]], crate: [[0, 0, 0.6]], bench: [[-0.6, 0, 0.55], [0.6, 0, 0.55]],
+const SOLID = { rack: [[-1, 0, 0.35], [0, 0, 0.35], [1, 0, 0.35]], anvil: [[0, 0, 0.6]], forge: [[0, 0, 0.8]], desk: [[-0.7, 0, 0.45], [0.7, 0, 0.45]], bunk: [[-0.5, 0, 0.5], [0.5, 0, 0.5]], board: [[-1.7, 0, 0.4], [-0.85, 0, 0.4], [0, 0, 0.4], [0.85, 0, 0.4], [1.7, 0, 0.4]], tree: [[0, 0, 0.55]], rock: [[0, 0, 0.7]], bush: [[0, 0, 0.6]], well: [[0, 0, 1.6]], lamp: [[0, 0, 0.35]], sign: [[0, 0, 0.3]], barrel: [[0, 0, 0.6]], crate: [[0, 0, 0.6]], bench: [[-0.6, 0, 0.55], [0.6, 0, 0.55]],
   stall: [[-1.3, 0, 0.9], [0, 0, 0.9], [1.3, 0, 0.9]], counter: [[-1.1, 0, 0.7], [0, 0, 0.7], [1.1, 0, 0.7]], shelf: [[-2.4, 0, 0.7], [-0.8, 0, 0.7], [0.8, 0, 0.7], [2.4, 0, 0.7]] };
 const solidCache = new Map();
 const solidsOf = (isl) => { let c = solidCache.get(isl.seed); if (!c) { c = []; for (const p of islandProps(isl)) for (const o of SOLID[p.k] || []) c.push([p.x + o[0], p.z + o[1], o[2]]); solidCache.set(isl.seed, c); if (solidCache.size > 80) solidCache.delete(solidCache.keys().next().value); } return c; };
@@ -71,7 +71,7 @@ const blockedByThings = (s, x, z) => {
   return false;
 };
 const blocked = (s, x, z) => {
-  if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + PAD + 0.5 && Math.abs(b.z - z) < b.d / 2 + PAD + 0.5) for (const w of b.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; return false; };
+  if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + PAD + 0.5 && Math.abs(b.z - z) < b.d / 2 + PAD + 0.5) { for (const w of b.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; if (b.bars) for (const w of b.bars) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; const gt = b.jail && s.jailUntil > s.t ? b.jail.gate : null; if (gt && x > gt[0] - PAD && x < gt[1] + PAD && z > gt[2] - PAD && z < gt[3] + PAD) return true; } return false; };
 // ships are long: test the bow, the stern and the beam against the land, not just the centre point (that let hulls and masts sit inside islands)
 const HULL = { trader: [8, 3.5], navy: [12, 2.5], raider: [10, 2.2], ghost: [12, 3] };
 export const hullHit = (s, x, z, yaw, L, B) => {
@@ -110,26 +110,31 @@ export function crime(s, isl, gold, serious) {
   s.alert[isl.id] = s.t + ALERT_S; if (!s.alerted) { s.alerted = true; say(s, 'Guards! Guards!'); }
 }
 export const wantedHere = (s, isl) => !!isl?.port && ((s.alert[isl.id] || 0) > s.t || localRep(s, isl.id) <= WANTED_AT);
-// the station's front: the nearest free spot to the station (facing the plaza), else the plaza itself
-const stationCache = new Map(); // islandProps is not cheap, and this is asked every step
-export const stationOf = (isl) => { let v = stationCache.get(isl.seed); if (v === undefined) { v = islandProps(isl).find((p) => p.k === 'station') || null; stationCache.set(isl.seed, v); if (stationCache.size > 200) stationCache.delete(stationCache.keys().next().value); } return v; };
+// the guard station is a real building (kind 'guard') with a barred cell inside; stationOf gives its front door spot and its jail
+const stationCache = new Map();
+export const JAIL_S = 8; // how long the cell gate stays shut after an arrest
+export const stationOf = (isl) => { let v = stationCache.get(isl.seed); if (v === undefined) { const b = islandTown(isl).buildings.find((q) => q.kind === 'guard'); v = b ? { x: b.x, z: b.z + b.d / 2 + 2.4, b, jail: b.jail } : null; stationCache.set(isl.seed, v); if (stationCache.size > 200) stationCache.delete(stationCache.keys().next().value); } return v; };
 function freeSpotNear(s, cx, cz, tx, tz, r0 = 3.2, r1 = 12) {
   const a0 = Math.atan2(tz - cz, tx - cx);
   for (let r = r0; r < r1; r += 0.6) for (let k = 0; k < 24; k++) { const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.26, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (roomy(s, x, z)) return { x, z }; }
   return null;
 }
+// an arrested player wakes in the cell of the town's guard station, the gate shut for JAIL_S seconds; with no station, in the plaza
 function placeAtPlaza(s, isl) {
-  const pl = islandTown(isl).plaza, st = stationOf(isl), sp = (st && freeSpotNear(s, st.x, st.z, pl.x, pl.z)) || freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 4.8, 12);
-  if (sp) s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: Math.atan2((st || pl).z - sp.z, (st || pl).x - sp.x), vy: 0 };
+  const st = stationOf(isl), pl = islandTown(isl).plaza;
+  if (st?.jail) { const sp = st.jail.spawn; s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: Math.PI / 2, vy: 0 }; s.jailUntil = s.t + JAIL_S; return true; }
+  const sp = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 4.8, 12);
+  if (sp) s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: Math.atan2(pl.z - sp.z, pl.x - sp.x), vy: 0 };
+  return false;
 }
 export function payBounty(s) {
   const pay = Math.min(Math.floor(s.gold), Math.ceil(s.bountyGold || 0)); if (pay <= 0) return 0;
   s.gold -= pay; s.bountyGold = Math.max(0, s.bountyGold - pay); if (s.bountyGold <= 0) { s.bountyGold = 0; s.bounty = 0; s.alert = {}; s.guards = []; } return pay;
 }
 function arrest(s, isl) {
-  const pay = payBounty(s); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false;
-  if (isl) { addLocalRep(s, isl.id, Math.max(0, -10 - localRep(s, isl.id)) ); placeAtPlaza(s, isl); }
-  s.foot.vy = 0; s.events.push({ type: 'arrest', yaw: s.foot.yaw }); say(s, `You were beaten and arrested and dragged to the guard station. You paid ${pay} gold in fines${s.bountyGold > 0 ? `, and still owe ${s.bountyGold}` : ''}.`);
+  let jailed = false; const pay = payBounty(s); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false;
+  if (isl) { addLocalRep(s, isl.id, Math.max(0, -10 - localRep(s, isl.id)) ); jailed = placeAtPlaza(s, isl); }
+  s.foot.vy = 0; s.events.push({ type: 'arrest', yaw: s.foot.yaw }); say(s, `You were beaten and arrested and thrown in ${jailed ? 'the cell at the guard station' : 'the street'}. You paid ${pay} gold in fines${s.bountyGold > 0 ? `, and still owe ${s.bountyGold}` : ''}.`);
 }
 function stepGuards(s, dt) {
   s.hp = Math.min(s.maxHp, s.hp + (s.t - s.hurtT > 6 ? 2 * dt : 0));
@@ -139,11 +144,14 @@ function stepGuards(s, dt) {
   if (!isl || !wantedHere(s, isl)) { if (s.guards.length) s.guards = []; if (!isl) s.alerted = false; return; }
   const pl = stationOf(isl) || islandTown(isl).plaza, rad = stationOf(isl) ? 4.5 : 14;
   if (s.guards.length < guardCount(isl) && s.t >= (s.guardT[isl.id] || 0)) {
-    s.guardT[isl.id] = s.t + 4; for (let k = 0; k < 12; k++) { const a = hash(s.seed, isl.id, s.t | 0, k) % 628 / 100, x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad; if (Math.hypot(x - f.x, z - f.z) > 9 && canStand(s, x, z, groundAt(s, x, z))) { s.guards.push({ id: hash(s.seed, isl.id, s.t | 0, k), seed: hash(isl.id, k, 9), isl: isl.id, x, z, y: groundAt(s, x, z), hp: GUARD_HP, cd: 1 }); break; } }
+    s.guardT[isl.id] = s.t + 4; for (let k = 0; k < 12; k++) { const a = hash(s.seed, isl.id, s.t | 0, k) % (stationOf(isl) ? 314 : 628) / 100, /* the station's own side only: guards come out of its front door, never from inside it */ x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad; if (Math.hypot(x - f.x, z - f.z) > 9 && canStand(s, x, z, groundAt(s, x, z))) { s.guards.push({ id: hash(s.seed, isl.id, s.t | 0, k), seed: hash(isl.id, k, 9), isl: isl.id, x, z, y: groundAt(s, x, z), hp: GUARD_HP, cd: 1 }); break; } }
   }
   for (const g of s.guards) {
     const dx = f.x - g.x, dz = f.z - g.z, d = Math.hypot(dx, dz) || 1; g.cd = Math.max(0, g.cd - dt); g.face = Math.atan2(dz, dx);
-    if (d > 2) { const sp = GUARD_SPEED * dt, mx = (dx / d) * sp, mz = (dz / d) * sp; if (canStand(s, g.x + mx, g.z + mz, g.y)) { g.x += mx; g.z += mz; } else if (canStand(s, g.x + mx, g.z, g.y)) g.x += mx; else if (canStand(s, g.x, g.z + mz, g.y)) g.z += mz; g.y = groundAt(s, g.x, g.z); g.walk = (g.walk || 0) + dt; }
+    if (d > 2) { // walk at you; a wall in the way makes them steer round it (turn one way, and keep to that side until the way is clear)
+      const sp = GUARD_SPEED * dt, base = Math.atan2(dz, dx); let moved = false;
+      for (const m of [0, 0.5, 1, 1.6, 2.2]) { for (const sg of m ? [g.side || 1, -(g.side || 1)] : [1]) { const an = base + m * sg, mx = Math.cos(an) * sp, mz = Math.sin(an) * sp; if (canStand(s, g.x + mx, g.z + mz, g.y)) { g.x += mx; g.z += mz; if (m) g.side = sg; moved = true; break; } } if (moved) break; }
+      g.y = groundAt(s, g.x, g.z); g.walk = (g.walk || 0) + dt; }
     else if (g.cd <= 0) { g.cd = 1; g.atk = s.t; s.hp -= GUARD_HIT; s.hurtT = s.t; s.events.push({ type: 'hit' }); }
   }
   if (s.hp <= 0) arrest(s, isl);
@@ -373,7 +381,7 @@ export function interact(s) {
     const l = findLand(s); if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
     unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, 'Ashore.'); return { type: 'ashore' };
   }
-  const n = nearNpc(s); if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; return { type: 'npc', npc: n, island: isl, ...dialog(s, n) }; }
+  const n = nearNpc(s); if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; return { type: 'npc', npc: n, island: isl, ...dialog(s, n) }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
   const t = nearTreasure(s);
   if (t) { s.found.add(t.id); s.gold += t.treasure.gold; s.score += t.treasure.gold; say(s, `Buried treasure! ${t.treasure.gold} gold.`); s.events.push({ type: 'coin' }); return { type: 'dig' }; }

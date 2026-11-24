@@ -33,7 +33,7 @@ function bb(sp, x, y, z, sc) { // one billboard instance: anchor + scale, quad e
   if (!sp || BB.n >= 8000) return; const i = BB.n++ * 12, d = BB.data, u = sp.uv;
   d[i] = x; d[i + 1] = y; d[i + 2] = z; d[i + 3] = sc; d[i + 4] = sp.x0; d[i + 5] = sp.x1; d[i + 6] = sp.top; d[i + 7] = sp.bot; d[i + 8] = u.u0; d[i + 9] = u.v0; d[i + 10] = u.u1; d[i + 11] = u.v1;
 }
-const FIXED = { station: 3, board: 2, stall: 1.9, bench: 0.9, counter: 2.2, shelf: 2.6 }; // wide props: half-width; drawn square-on, never turning with the camera
+const FIXED = { bar: 0.2, cellrail: 2, bunk: 0.9, desk: 1.1, keys: 0.7, notices: 0.9, rack: 1.5, anvil: 0.7, forge: 0.9, board: 2, stall: 1.9, bench: 0.9, counter: 2.2, shelf: 2.6 }; // wide props: half-width; drawn square-on, never turning with the camera
 const key = (x, z) => `${x},${z}`;
 // a sector is created empty and its meshes are built one at a time within a few ms per frame, so sailing never hitches
 function queueSector(sx, sz) {
@@ -146,6 +146,7 @@ function render(t) {
         const la = s.t - (g.atk ?? -9), fa = s.t - (g.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
         bb(sprites.person('warden', g.seed, 'down', 1 + (((g.walk || 0) * 5 | 0) & 1)), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 + lu * 0.2 - fl * 0.12));
       }
+      if (s.jailUntil > s.t) for (const b of islandTown(isl).buildings) if (b.jail) bb(sprites.gate(), (b.jail.gate[0] + b.jail.gate[1]) / 2, b.pad, (b.jail.gate[2] + b.jail.gate[3]) / 2, -1); // the cell gate is shut: bars across it
       let props = propCache.get(isl.seed); if (!props) { props = islandProps(isl); for (const p of props) { const h = (x) => islandHeight(isl, x, p.z); p.y = dockDist(isl, p.x, p.z) < 1.8 ? Math.max(h(p.x), DOCK_Y) : FIXED[p.k] ? Math.min(h(p.x - FIXED[p.k]), h(p.x), h(p.x + FIXED[p.k])) - 0.05 : h(p.x); } propCache.set(isl.seed, props); if (propCache.size > 60) propCache.delete(propCache.keys().next().value); }
       // nothing turns with the camera: wide props face one way, round ones are two crossed quads
       for (const p of props) { const dx = p.x - cam.x, dz = p.z - cam.z; if (dx * dx + dz * dz < 36000 && (p.k !== 'tuft' && p.k !== 'flower' || dx * dx + dz * dz < 6400)) { const sp = sprites.prop(p, isl.biome); bb(sp, p.x, p.y, p.z, -1); if (!FIXED[p.k] && p.k !== 'tuft' && p.k !== 'flower') bb(sp, p.x, p.y, p.z, -1000); } }

@@ -126,3 +126,26 @@ Reason: 2-4 are the spine of the "be whatever you want" promise, and everything 
 More ideas (value order): 1 day/night + weather, 2 contracts board per port, 3 ship parts + named rival captains with bounties, 4 fishing/diving/salvage, 5 wrecks/ghost ships/sea monsters, 6 explored-area chart, 7 smuggling, 8 island events (festivals, blockades), 9 boarding and capturing ships, 10 ship customisation.
 
 Build order: **1 polish what exists (IN PROGRESS)** · **2 foot combat + killable NPCs (IN PROGRESS)** · 3 reputation (local + world) · 4 governments, guards, bounties · 5 ship parts and weapons (parallel to 2-4) · 6 crew, fleets, mercenaries · 7 storms, contracts, underwater, big land battles.
+
+## Added by the user (2026-11-24, not started)
+
+### The law from the other side: bounty missions (the cop path)
+Goal: the player can be a lawman as easily as an outlaw. Nothing is gated; the same systems (reputation, bounty gold, guards, the jail) just pay out in the other direction.
+- **Bounty board / bounty missions.** Every guard station (and notice board) lists wanted people: a name, a portrait seed, a reward, a last-known island or sea sector, and whether the target is wanted **dead or alive** (arrested targets pay more, killed ones less; killing an "alive only" target hurts reputation).
+- **Targets are real people in the world**, not spawned from nothing: a named raider captain with a ship, a thief hiding in a town's houses, a deserter on a remote island, a rival crew's officer. They are generated from the seed and the issue number (like the notice boards) so they are stable and persist once met.
+- **Arrest, don't just kill.** On foot: reduce the target's health to near zero ("subdued") and use a *bind* action, or shout for surrender when outnumbered. At sea: board and subdue (see boarding below). A bound prisoner follows you or is carried; they can escape, be rescued by their crew, or be killed by rivals on the way.
+- **Bring them back to ANY town in the same world (realm).** A target can be handed in at the guard station of any port in the current realm, not only the town that posted the bounty. The reward is paid by the realm's government; the handing-in town's local reputation goes up. Wanted level and bounty gold follow the *world* score, so the same hand-in works for the player's own bounty being cleared by serving.
+- **Prisoners use the jail we already have** (the cell inside every guard station): handed-in targets are locked in the cell (the player can see them there); the player's own arrests wake them in the same cell.
+- **Reputation hooks:** lawful work raises world and local reputation, which unlocks cheaper prices, access to navy contracts, a badge or commission (the cop rank ladder), and being let off a bounty; hunting people who are not on the board still counts as murder. Bounty hunting rivals (other hunters, the crews of the people you jailed) come after high-profile cops.
+- **Build on:** the existing `bountyGold`, `alert`, guards, `stationOf` and cell (`jail.spawn`, `jail.gate`), the notice boards (`rules/news.js`), the world reputation score (`rules/rep.js`), named raiders (`sectorEnemies`).
+- **Steps:** (1) wanted-target data model + board listing; (2) kill-for-reward on foot and at sea; (3) subdue/arrest + prisoner following; (4) hand-in at any guard station in the realm + payout and reputation; (5) escapes, rescues, rival hunters; (6) ranks and a badge.
+
+### Boarding other ships
+- **Board an enemy or merchant ship** from your own: come alongside (or ram-and-grapple), press a key to throw grapples, and your hull and theirs lock together for a short deck fight on foot (the same sword/pistol combat as on land, on the enemy's deck).
+- **Outcomes:** capture the ship (keep it as a prize or fleet ship, sell it, scuttle it, or sail it as your own), loot the hold and the captain, take the captain **prisoner** (this ties directly into bounty missions: a wanted captain taken alive is a hand-in), or be repelled. Crew (once recruitment exists) fight beside you; alone you face the whole crew, so small ships and raids on weak merchantmen come first.
+- **Consequences:** boarding a peaceful ship is piracy (bounty, reputation); boarding a raider or a wanted ship is lawful and pays. Navy ships board *you* when you have a bounty at sea.
+- **Build on:** the ship classes and hulls (`rules/ships.js`, `hullHit`), the foot combat and weapons (`rules/weapons.js`, `swing`), enemy kinds and health (`KINDS`), the sinking and fx system (`s.sinking`, `puff`), and the jail and bounty systems for prisoners.
+- **Steps:** (1) approach and grapple (ships lock together, wind/steering locked); (2) a deck arena built from the ship's length with a few defenders; (3) win/lose rules and loot; (4) capture options (prize ship, prisoner); (5) enemy boarding parties against the player.
+
+### Build order (revised)
+3 reputation (done) · 4 governments, guards, bounties, jail (done: guards, arrest, a real guard station with a cell) · **4b bounty missions + hand-in anywhere (cop path)** · **5b boarding other ships** (needs 4b for prisoners) · 5 ship parts and weapons (independent) · 6 crew, fleets, mercenaries · 7 storms, contracts, underwater, big land battles.

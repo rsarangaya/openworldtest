@@ -23,9 +23,18 @@ export function islandProps(isl) {
   if (isl.biome === 'tropical' || isl.biome === 'temperate') scatter(Math.round(isl.r * 0.6), 0.25, 0.8, 'flower', 2);
   if (green) scatter(Math.round(isl.r * isl.r * 0.012), 0.2, 0.9, 'tuft', 1.5);
   scatter(Math.round(isl.r * (isl.biome === 'rocky' || isl.biome === 'volcanic' ? 0.8 : 0.25)), 0.2, 0.95, 'rock', 2);
-  for (const b of town.buildings) if (b.door) { // inside each shop: a counter in front of the shopkeeper, a shelf on the back wall, and a barrel or crate
+  for (const b of town.buildings) if (b.door && b.kind !== 'guard') { // inside each shop: a counter in front of the shopkeeper, a shelf on the back wall, and a barrel or crate
     out.push({ k: 'counter', x: b.x, z: b.z, v: 0, kind: b.kind }); out.push({ k: 'shelf', x: b.x, z: b.z - b.d / 2 + 0.8, v: 0, kind: b.kind });
     out.push({ k: b.kind === 'tavern' ? 'barrel' : 'crate', x: b.x + b.w / 2 - 1.1, z: b.z - b.d / 2 + 1.6, v: 1 });
+  }
+  for (const b of town.buildings) { // armoury and guard station furniture, as flat sprites (the guard station's cell bars also block walking: b.bars)
+    if (b.kind === 'smith') { const bz = b.z - b.d / 2 + 0.75; out.push({ k: 'rack', x: b.x - 1.9, z: bz, v: 0 }, { k: 'rack', x: b.x + 1.9, z: bz, v: 1 }, { k: 'forge', x: b.x - b.w / 2 + 1.5, z: bz, v: 0 }, { k: 'anvil', x: b.x + 1.2, z: b.z - 0.4, v: 0 }, { k: 'barrel', x: b.x + b.w / 2 - 1.2, z: b.z - 0.2, v: 1 }); }
+    if (b.kind === 'guard' && b.jail) {
+      const cx = b.x + 0.7, bz = b.z - 0.8, back = b.z - b.d / 2 + 0.75, right = b.x + b.w / 2;
+      for (let x = cx + 0.1; x < right - 0.1; x += 0.4) if (x < b.x + 1.5 || x > b.x + 3.85) out.push({ k: 'bar', x, z: bz, v: 0 }); // the cell front, with the gate gap
+      for (let z = back; z < bz; z += 0.4) out.push({ k: 'bar', x: cx + 0.1, z, v: 0 });                                              // the cell's left side
+      out.push({ k: 'cellrail', x: (cx + right) / 2, z: bz, v: Math.round((right - cx) * 10) }, { k: 'bunk', x: right - 1.3, z: b.z - 2.5, v: 0 }, { k: 'desk', x: b.x - 2.4, z: b.z + 0.7, v: 0 }, { k: 'keys', x: b.x - 0.8, z: back, v: 0 }, { k: 'notices', x: b.x - 3.0, z: back, v: 0 });
+    }
   }
   for (const b of town.buildings) if (b.door) out.push({ k: 'sign', x: b.x + 3.9, z: b.z + b.d / 2 + 1.2, v: 0, kind: b.kind });
   if (pl) {
@@ -54,16 +63,6 @@ export function islandProps(isl) {
       }
       if (best && best.rg < 1.0) out.push({ k: 'board', x: best.x, z: best.z, v: 0 });
     }
-  }
-  if (pl && isl.port) { // the guard station: a small stone post on level dry ground a little way off the plaza, clear of buildings and the other props; arrested players wake up in front of it
-    const others = out.filter((q) => q.k === 'lamp' || q.k === 'stall' || q.k === 'bench' || q.k === 'board' || q.k === 'well'); let best = null;
-    for (const rad of [10.5, 11.5, 9.5, 12.5, 13.5, 8.8, 15, 17, 19, 21]) for (let k = 0; k < 48; k++) {
-      const a = (k / 48) * TAU + 2.2, x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad;
-      if (others.some((q) => Math.hypot(q.x - x, q.z - z) < 4.6) || town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 3.6 && Math.abs(b.z - z) < b.d / 2 + 3.6)) continue;
-      let lo = 1e9, hi = -1e9; for (const dx of [-3, 0, 3]) for (const dz of [-1.2, 1.2, 3.4]) { const y = islandHeight(isl, x + dx, z + dz); lo = Math.min(lo, y); hi = Math.max(hi, y); }
-      const rg = hi - lo + rad * 0.03; if (lo > 0.6 && (!best || rg < best.rg)) best = { x, z, rg };
-    }
-    if (best && best.rg < 1.8) out.push({ k: 'station', x: best.x, z: best.z, v: 0 });
   }
   if (isl.port) { // dock furniture
     const d = isl.port.dock, len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), ux = (d.x1 - d.x0) / len, uz = (d.z1 - d.z0) / len, rr = rngFor(isl.seed, 12);
