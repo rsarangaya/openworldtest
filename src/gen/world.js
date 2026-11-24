@@ -87,7 +87,7 @@ export function sectorIslands(seed, sx, sz) {
   return v;
 }
 export function questWorld(seed) {
-  const t = questTags(seed), find = (id) => { const [a, b] = id.split(',').map(Number); return gen(seed, a, b).find((i) => i.id === id); };
+  const t = questTags(seed), find = (id) => { const [a, b] = id.split(',').map(Number); return sectorIslands(seed, a, b).find((i) => i.id === id); }; // the cached, quest-tagged islands: a fresh gen() copy has no quest, and a town built from one would be cached without its sailor or warden
   const h = sectorIslands(seed, 0, 0)[0], s = find(t.sailor), f = find(t.frost), g = gatePos(seed);
   const pt = (i) => ({ id: i.id, name: i.port.name, x: i.port.x, z: i.port.z, island: i.name, get npcs() { return islandTown(i).npcs; } }); // npcs is looked up lazily: the island's quest tags are applied after this runs
   return { home: pt(h), sailor: pt(s), frost: pt(f), gate: { x: g.x, z: g.z, angle: g.angle } };

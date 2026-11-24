@@ -527,3 +527,10 @@ test('wind stays random but favours the objective about 80% of the time, and nev
     assert.ok(windAt(500, null).dir === windAt(500).dir, 'no objective: plain wind');
   } finally { windBias.on = false; }
 });
+
+test('quest givers always exist: reading a quest target early never builds the sailor or warden town without them', () => {
+  const g = newGame(4242);
+  for (const k of ['sailor', 'frost']) { const t = { ...g.targets[k] }; assert.ok(t.npcs !== undefined); } // the spread reads the lazy npcs getter, as the compass does every frame
+  const want = { sailor: 'sailor', frost: 'warden' };
+  for (const k of ['sailor', 'frost']) assert.ok(g.targets[k].npcs.some((n) => n.kind === want[k]), k + ' town has its quest giver');
+});
