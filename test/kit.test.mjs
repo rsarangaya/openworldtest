@@ -5,11 +5,12 @@ import { buildContours, levelsOf } from '../src/gen/terrain.js';
 import { islandProps } from '../src/gen/props.js';
 import { newGame, step, interact, prompt, groundAt, canStand, toggleAuto, toggleRow, bestTrim, trimInfo, hullHit } from '../src/rules/game.js';
 import { buy, sell, repair, buyShip, buyFood, buyRam, cargoCount } from '../src/rules/trade.js';
-import { sailEfficiency } from '../src/rules/sea.js';
+import { sailEfficiency, windAt, windBias } from '../src/rules/sea.js';
 import { QUESTS } from '../src/rules/quests.js';
 import { serialize, deserialize } from '../src/rules/save.js';
 
 const SEED = 1717, TAU = Math.PI * 2;
+windBias.on = false; // the physics tests below were written for the plain drifting wind; the bias has its own test
 const allIslands = (n) => { const a = []; for (let x = -n; x <= n; x++) for (let z = -n; z <= n; z++) a.push(...sectorIslands(SEED, x, z)); return a; };
 
 test('same seed, same sea; different seed, different sea', () => {
@@ -513,4 +514,16 @@ test('a ship that is going down is never saved (it would load as an instant game
   const s = newGame(SEED); s.sunkT = 5; s.sunkSplash = true;
   const o = JSON.parse(serialize(s)); assert.equal(o.sunkT, undefined);
   assert.equal(deserialize(serialize(s)).sunkT, undefined);
+});
+
+test('wind stays random but favours the objective about 80% of the time, and never jumps', () => {
+  windBias.on = true;
+  try {
+    const goal = 1.2, wrap = (a) => a - TAU * Math.floor((a + Math.PI) / TAU);
+    let fav = 0, n = 0, jump = 0, prev = windAt(0, goal).dir;
+    for (let t = 0; t < 150 * 400; t += 1) { const w = windAt(t, goal); if (t % 150 === 100) { n++; if (Math.abs(wrap(w.dir - goal)) < 0.5) fav++; } jump = Math.max(jump, Math.abs(wrap(w.dir - prev))); prev = w.dir; }
+    assert.ok(fav / n > 0.7 && fav / n < 0.9, 'favourable share ' + fav / n);
+    assert.ok(jump < 0.2, 'no jumps: ' + jump);
+    assert.ok(windAt(500, null).dir === windAt(500).dir, 'no objective: plain wind');
+  } finally { windBias.on = false; }
 });

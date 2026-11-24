@@ -64,7 +64,7 @@ export function dialog(s, npc) {
   const q = currentQuest(s);
   switch (npc.kind) {
     case 'shipwright':
-      return { lines: s.ship ? ['A fine sloop you have there. Mind the rocks.'] : ['Looking for a ship? I have one sloop left: sturdy, fast, and she floats most days.', 'Three hundred gold and she is yours.'], panel: 'shipyard' };
+      return { lines: s.ship ? ['A fine boat you have there. Mind the rocks.'] : ['Looking for a ship? I have a few ships on the slip, from a handy sailboat to a galleon. They all float, most days.', 'The sailboat is three hundred gold and she is yours.'], panel: 'shipyard' };
     case 'merchant': return { lines: ['Provisions, powder, rum. Whatever your hold can carry.'], panel: 'market' };
     case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', 'Folk say there are other worlds past the Wall. Folk say a lot of things.'], panel: null };
     case 'sailor':

@@ -7,7 +7,17 @@ export const calm = (x, z) => { let c = 1; for (const q of Z) { const d = Math.h
 export const wave = (x, z, t) => calm(x, z) * 3 * (0.6 * Math.sin(x * 0.057 + z * 0.026 + t * 0.55) + 0.35 * Math.sin(x * -0.038 + z * 0.07 + t * 0.78) + 0.18 * Math.sin(x * 0.085 + z * -0.06 + t * 1.05));
 
 // direction the wind blows TOWARD (radians), drifts slowly; speed 0.5..1
-export const windAt = (t) => ({ dir: 0.8 + 0.9 * Math.sin(t * 0.004) + 0.4 * Math.sin(t * 0.011), speed: 0.75 + 0.25 * Math.sin(t * 0.007 + 1) });
+// The wind comes in spells of SPELL seconds. Each spell is a seeded coin flip: with chance WIND_KIND it blows roughly toward `goal` (the bearing to the current objective, if there is one), otherwise it is the old free-drifting random wind. Spells blend into each other so the arrow never jumps.
+const SPELL = 150, BLEND = 40, WIND_KIND = 0.8;
+export const windBias = { on: true }; // tests that depend on a fixed wind switch this off
+const hash = (k) => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const free = (t) => 0.8 + 0.9 * Math.sin(t * 0.004) + 0.4 * Math.sin(t * 0.011);
+const spellDir = (k, t, goal) => (windBias.on && goal != null && hash(k) < WIND_KIND ? goal + (hash(k + 0.5) - 0.5) * 0.9 : free(t));
+export const windAt = (t, goal = null) => {
+  const k = Math.floor(t / SPELL), u = Math.min(1, (t - k * SPELL) / BLEND), e = u * u * (3 - 2 * u);
+  const a = spellDir(k, t, goal), b = spellDir(k - 1, t, goal);
+  return { dir: b + wrapPi(a - b) * e, speed: 0.75 + 0.25 * Math.sin(t * 0.007 + 1) };
+};
 
 const wrapPi = (a) => a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2)); // a proper wrap: JS % keeps the sign, which once made this NaN
 // how far off the wind the bow points: 0 = straight into it, PI = running with it. yaw 0 points along +x, positive yaw turns toward +z.

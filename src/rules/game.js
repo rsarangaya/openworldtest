@@ -253,9 +253,11 @@ export function toggleRow(s) {
   if (s.mode !== 'ship' || !s.ship) return;
   s.row = !s.row; say(s, s.row ? 'Oars out: you row, wind or not.' : 'Oars shipped.');
 }
+// bearing (same convention as yaw) from the player to the current objective, or null when there is none: the wind favours it
+const windGoal = (s) => { const tg = currentQuest(s)?.target?.(s), f = s.mode === 'ship' ? s.ship : s.foot; return tg && f ? Math.atan2(tg.z - f.z, tg.x - f.x) : null; };
 function stepShip(s, inp, dt) {
   const p = s.ship, gate = gatePos(s.seed);
-  s.wind = windAt(s.t);
+  s.wind = windAt(s.t, windGoal(s));
   let rudder = inp.rudder || 0, sailIn = inp.sail || 0;
   if (s.auto) { if (rudder || sailIn || inp.trim) { s.auto = false; say(s, 'Autosail off: you have the helm.'); } else { const a = autoSail(s, p); rudder = a.rudder; sailIn = 1; p.trim = bestTrim(p.yaw, s.wind, p.trim); } }
   p.trim = Math.max(-1, Math.min(1, (p.trim || 0) + (inp.trim || 0) * 1.2 * dt));
@@ -334,7 +336,7 @@ export function step(s, input, dt = DT) {
     if (!s.sunkSplash && a > SINK_S * 0.5) { s.sunkSplash = true; puff(s, 'splash', p.x, 0.5, p.z, 1.1, { sc: 3.2 }); }
     if (a >= SINK_S) s.over = true; return;
   }
-  if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
+  if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
   advanceQuests(s, say); stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
