@@ -1,0 +1,313 @@
+// Entry point: game loop, input, cameras, and the bridge between the rules (rules/*), the generator (gen/*) and the renderer.
+import { createRenderer } from './render/gpu.js';
+import { model, mul } from './render/math.js';
+import { SHIPS } from './rules/ships.js';
+import { islandMesh, wallMesh, shipMesh, shipParams, ballMesh, wakeMesh } from './gen/mesh.js';
+import { islandProps } from './gen/props.js';
+import { createSprites } from './render/sprites.js';
+import { sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
+import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
+import { newGame, step, interact, prompt, standingOn, nearbyIslands, say, camBlocked, toggleAuto, toggleRow, DT } from './rules/game.js';
+import { wave, setCalm } from './rules/sea.js';
+import { saveGame, loadGame, hasSave, loadOptions, saveOptions } from './rules/save.js';
+import { createUI } from './ui.js';
+import { SOFT, MID } from './render/palette.js';
+import { createAudio } from './audio.js';
+
+const SEED = 1717; // the world "Terra": same seed, same sea, every time
+const $ = (id) => document.getElementById(id);
+const canvas = $('c'), ui = createUI(), audio = createAudio();
+let opts = loadOptions(), renderer, s = null, phase = 'boot'; // boot | menu | intro | play | panel | paused | ending | over
+const keys = new Set(), view = { yaw: 0, pitch: 0 }, orbit = { yaw: 0, pitch: -0.22, idle: 0 };
+const cam = { x: 0, y: 5, z: 0, yaw: 0, pitch: 0, blend: 0 };
+let expectUnlock = false, saveT = 0, mouseDown = false;
+const IDENT = model(0, 0, 0);
+const wrapPi = (a) => a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ---------------------------------------------------------------- sectors: built on demand, one per frame, freed when far
+const sectors = new Map(), shipMeshes = new Map(), npcMeshes = new Map(), tasks = [];
+let ballGpu = null, sprites = null, wakeGpu = null;
+const BB = { data: new Float32Array(12 * 8000), n: 0 }, propCache = new Map();
+function bb(sp, x, y, z, sc) { // one billboard instance: anchor + scale, quad extents, atlas rect
+  if (!sp || BB.n >= 8000) return; const i = BB.n++ * 12, d = BB.data, u = sp.uv;
+  d[i] = x; d[i + 1] = y; d[i + 2] = z; d[i + 3] = sc; d[i + 4] = sp.x0; d[i + 5] = sp.x1; d[i + 6] = sp.top; d[i + 7] = sp.bot; d[i + 8] = u.u0; d[i + 9] = u.v0; d[i + 10] = u.u1; d[i + 11] = u.v1;
+}
+const FIXED = { station: 3, board: 2, stall: 1.9, bench: 0.9, counter: 2.2, shelf: 2.6 }; // wide props: half-width; drawn square-on, never turning with the camera
+const key = (x, z) => `${x},${z}`;
+// a sector is created empty and its meshes are built one at a time within a few ms per frame, so sailing never hitches
+function queueSector(sx, sz) {
+  const k = key(sx, sz); sectors.set(k, { sx, sz, objs: [] });
+  for (const isl of sectorIslands(SEED, sx, sz)) tasks.push({ k, build: () => { const im = islandMesh(isl); return [{ m: renderer.upload(im.ground), mat: IDENT, tint: [1, 1, 1], detail: 2 }, { m: renderer.upload(im.structs), mat: IDENT, tint: [1, 1, 1], detail: 1 }]; } });
+  tasks.push({ k, build: () => { const w = wallMesh(SEED, sx, sz); return w ? { m: renderer.upload(w), mat: IDENT, tint: [1, 1, 1] } : null; } });
+}
+function pump(budgetMs) {
+  const t0 = performance.now();
+  do { const t = tasks.shift(); if (!t) return; const sec = sectors.get(t.k); if (!sec) continue; const o = t.build(); if (o) sec.objs.push(...[].concat(o)); } while (performance.now() - t0 < budgetMs);
+}
+function updateSectors(x, z, all = false) {
+  const cx = sectorOf(x), cz = sectorOf(z), R = opts.distance, want = [];
+  for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) if (!sectors.has(key(cx + i, cz + j))) want.push([cx + i, cz + j, i * i + j * j]);
+  want.sort((p, q) => p[2] - q[2]);
+  for (const w of want) queueSector(w[0], w[1]);
+  for (const [k, sec] of sectors) if (Math.max(Math.abs(sec.sx - cx), Math.abs(sec.sz - cz)) > R + 1) { for (const o of sec.objs) renderer.free(o.m); sectors.delete(k); }
+  pump(all ? Infinity : 6);
+}
+const playerGpu = (cls) => { let g = shipMeshes.get('P' + cls); if (!g) { const so = [], h = shipMesh(shipParams(1, 'player', cls), so); g = { hull: renderer.upload(h), sails: so.map((q) => ({ g: renderer.upload(q.mesh), x: q.x })) }; shipMeshes.set('P' + cls, g); } return g; };
+const enemyL = new Map(), enemyLen = (e) => { let l = enemyL.get(e.kind + e.seed); if (!l) { l = shipParams(e.seed, e.kind).L; enemyL.set(e.kind + e.seed, l); } return l; };
+// the sail pivots about its mast; the boom swings out to the side the wind blows toward
+const tr = (x) => { const o = model(0, 0, 0); o[12] = x; return o; };
+const sailMat = (hm, x, trim) => mul(hm, mul(tr(x), mul(model(0, 0, 0, -trim * 1.48), tr(-x))));
+// a V of foam splitting from the bow and a churned trail astern; three frames cycled so it streams outward
+function wake(objects, hm, L, speed, t) {
+  if (speed < 1.2) return; wakeGpu ||= [0, 1 / 3, 2 / 3].map((ph) => renderer.upload(wakeMesh(ph)));
+  const sc = L * Math.max(0.55, Math.min(1.15, speed / 9)), o = mul(hm, Float32Array.from([sc, 0, 0, 0, 0, 1, 0, 0, 0, 0, sc, 0, 0, 0.6, 0, 1]));
+  objects.push({ m: wakeGpu[((t * 4) | 0) % 3], mat: o, tint: [1, 1, 1] });
+}
+const shipGpu = (seed, kind, cls = '') => { const k = kind + seed + cls; let g = shipMeshes.get(k); if (!g) { g = renderer.upload(shipMesh(shipParams(seed, kind, cls))); shipMeshes.set(k, g); } return g; };
+
+// ---------------------------------------------------------------- cameras
+const homeIsland = () => sectorIslands(SEED, 0, 0)[0];
+// the hull rides the swell: heave, pitch along the waves, roll across them, a lazy wobble, and she heels over when turning at speed
+const shipMat = (x, z, yaw, t, heel = 0, sink = 0) => {
+  const c = Math.cos(yaw), sn = Math.sin(yaw), h0 = wave(x, z, t), hf = wave(x + c * 4, z + sn * 4, t), hb = wave(x - c * 4, z - sn * 4, t), hs = wave(x - sn * 2.5, z + c * 2.5, t), hp = wave(x + sn * 2.5, z - c * 2.5, t);
+  const stp = (v, q) => Math.round(v / q) * q;
+  return model(x, stp(h0 * 1.0 - 0.15 - 9 * sink ** 1.4, 0.05), z, yaw, stp(Math.atan2(hf - hb, 8) * 1.15 + sink * 0.5, 0.015), stp(Math.atan2(hs - hp, 5) * 1.1 + heel + sink * 0.9 + Math.sin(t * 1.3 + x * 0.05) * 0.03, 0.015));
+};
+const poseFoot = () => ({ x: s.foot.x, y: s.foot.y + 1.7, z: s.foot.z, yaw: view.yaw, pitch: view.pitch });
+function poseShip() {
+  const p = s.ship, yaw = p.yaw + orbit.yaw, cp = Math.cos(orbit.pitch), fx = cp * Math.cos(yaw), fy = Math.sin(orbit.pitch), fz = cp * Math.sin(yaw), D = 15 + (SHIPS[s.shipClass] || SHIPS.sailboat).L * 1.3;
+  const tx = p.x, ty = 4 + wave(p.x, p.z, T) * 0.6, tz = p.z; // the camera rises and falls with the swell
+  let dist = D; // pull the camera in when terrain or a building would be in the way (e.g. a boat moored beside the town)
+  for (let d = 6; d <= D; d += 2) if (camBlocked(s, tx - fx * d, Math.max(3, ty - fy * d), tz - fz * d)) { dist = Math.max(5, d - 3); break; }
+  const cy = Math.max(3, ty - fy * dist);
+  return { x: tx - fx * dist, y: cy, z: tz - fz * dist, yaw, pitch: Math.atan2(ty - cy, dist * cp) };
+}
+function menuPose(t) {
+  const h = homeIsland(), c = islandTown(h).plaza, a = t * 0.08, R = 150;
+  const x = c.x + Math.cos(a) * R, z = c.z + Math.sin(a) * R;
+  return { x, y: 38, z, yaw: Math.atan2(c.z - z, c.x - x), pitch: -0.22 };
+}
+function updateCamera(dt, t) {
+  if (!s) { Object.assign(cam, menuPose(t)); return; }
+  const target = s.mode === 'ship' && s.ship ? 1 : 0;
+  cam.blend += Math.sign(target - cam.blend) * Math.min(Math.abs(target - cam.blend), dt / 1.1);
+  const k = cam.blend * cam.blend * (3 - 2 * cam.blend), f = poseFoot(), p = cam.blend > 0 && s.ship ? poseShip() : f;
+  cam.x = lerp(f.x, p.x, k); cam.y = lerp(f.y, p.y, k); cam.z = lerp(f.z, p.z, k); cam.pitch = lerp(f.pitch, p.pitch, k); cam.yaw = f.yaw + wrapPi(p.yaw - f.yaw) * k;
+  if (s.mode === 'ship') { orbit.idle += dt; if (orbit.idle > 2.5) orbit.yaw *= 1 - Math.min(1, dt * 1.5), orbit.pitch = lerp(orbit.pitch, -0.22, Math.min(1, dt * 1.5)); }
+}
+
+// ---------------------------------------------------------------- drawing
+let calmT = -9, calmZ = [];
+// the eight islands nearest the camera: the swell flattens round them (see rules/sea.js `calm`)
+function updateCalm(t) {
+  if (t - calmT < 0.25 && t >= calmT) return; calmT = t; const cx = sectorOf(cam.x), cz = sectorOf(cam.z), z = [];
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(SEED, cx + i, cz + j)) z.push([isl.x, isl.z, isl.r * 1.7, Math.hypot(isl.x - cam.x, isl.z - cam.z)]);
+  z.sort((p, q) => p[3] - q[3]); calmZ = z.slice(0, 8); setCalm(calmZ);
+}
+function render(t) {
+  updateCalm(t);
+  const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = Math.max(0, Math.min(1, (zone - 0.5) / 0.4)), R = opts.distance;
+  const objects = []; BB.n = 0;
+  for (const sec of sectors.values()) if (Math.max(Math.abs(sec.sx - sectorOf(cam.x)), Math.abs(sec.sz - sectorOf(cam.z))) <= R) objects.push(...sec.objs);
+  if (s) {
+    if (s.ship) {
+      const sk = s.sunkT === undefined ? 0 : Math.min(1, (s.t - s.sunkT) / SINK_S), P = playerGpu(s.shipClass || 'sailboat'), hm = shipMat(s.ship.x, s.ship.z, s.ship.yaw, t, -(s.ship.turn || 0) * Math.min(1, s.ship.speed / 8) * 0.14, sk);
+      const ph = sk ? [1 - sk * 0.5, 1 - sk * 0.5, 1 - sk * 0.4] : s.t - s.hitT < 0.22 ? [1.6, 0.6, 0.55] : [1, 1, 1]; // the hull flashes red when hit
+      objects.push({ m: P.hull, mat: hm, tint: ph });
+      for (const q of P.sails) objects.push({ m: q.g, mat: sailMat(hm, q.x, s.ship.trim || 0), tint: ph });
+      if (!sk) wake(objects, hm, (SHIPS[s.shipClass] || SHIPS.sailboat).L, Math.abs(s.ship.speed), t);
+    }
+    for (const e of s.enemies.values()) {
+      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, em, enemyLen(e), e.speed, t);
+      const dd = Math.hypot(e.x - cam.x, e.z - cam.z); // a health bar above every enemy ship you can see: bigger with distance so it stays readable
+      if (dd < 260 && sprites && e.maxHp) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((e.hp / e.maxHp) * 10)))), e.x, 15 + wave(e.x, e.z, t) * 0.9, e.z, Math.max(1, Math.min(3.2, dd / 40)));
+    }
+    for (const q of Object.values(s.npcs || {})) if (q.dead && q.x !== undefined && s.t - q.t < CORPSE_S && Math.hypot(q.x - cam.x, q.z - cam.z) < 220) { // a body lies where it fell, then shrinks away
+      const a = (s.t - q.t) / CORPSE_S, fade = a > 0.8 ? 1 - (a - 0.8) / 0.2 : 1, pop = Math.min(1, (s.t - q.t) / 0.25); // it topples over in a quarter second
+      bb(sprites?.fallen(q.kind, q.seed), q.x - 0.9 * (1 - pop), q.y + 0.05 + 0.5 * Math.sin(pop * Math.PI), q.z, sprites.PERSON_SCALE * Math.max(0.05, fade));
+    }
+    for (const k of s.sinking) { const a = Math.min(1, (s.t - k.t0) / SINK_S); objects.push({ m: shipGpu(k.seed, k.kind), mat: shipMat(k.x, k.z, k.yaw, t, 0, a), tint: [1 - a * 0.5, 1 - a * 0.5, 1 - a * 0.4] }); } // a sunk ship rolls over and slips under, then is gone
+    for (const f of s.fx) { const p = (s.t - f.t0) / f.life, sc = f.sc * (f.k === 'flash' ? 1 - p * 0.6 : f.k === 'smoke' ? 0.5 + p * 0.9 : f.k === 'hurt' ? 0.18 : 0.6 + p * 0.6) * (1 - p ** 3 * 0.7); bb(sprites?.fx(f.k), f.x, f.y, f.z, sc); }
+    if (s.shots.length) { ballGpu ||= renderer.upload(ballMesh()); for (const b of s.shots) objects.push({ m: ballGpu, mat: model(b.x, 2.5 + Math.sin(b.life * 3) * 0.3, b.z), tint: [1, 1, 1] }); }
+    const px = s.mode === 'foot' ? s.foot.x : s.ship.x, pz = s.mode === 'foot' ? s.foot.z : s.ship.z;
+    for (const isl of nearbyIslands(s, px, pz, 1)) if (Math.hypot(isl.x - px, isl.z - pz) < isl.r * 1.7 + 60) {
+      const kb = (q, x, z) => { const a = q ? s.t - q.hit : 9; if (!(a < 0.28)) return [x, z, 1]; const f = Math.sin((a / 0.28) * Math.PI), dx = x - px, dz = z - pz, d = Math.hypot(dx, dz) || 1; return [x + (dx / d) * 0.5 * f, z + (dz / d) * 0.5 * f, 1 - 0.14 * f]; }; // a hit person is knocked back and squashes
+      const hpBar = (id, kind, x, y, z) => { const q = s.npcs?.[id]; if (q && !q.dead && s.t - q.hit < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((q.hp / npcMax(kind)) * 10)))), x, y + 2.9, z, 0.5); };
+      for (const n of islandTown(isl).npcs) if (npcAlive(s, n.id)) { const [kx, kz, ks] = kb(s.npcs?.[n.id], n.x, n.z); bb(sprites.person(n.kind, n.seed, 'down', 0), kx, n.y, kz, sprites.PERSON_SCALE * ks); hpBar(n.id, n.kind, n.x, n.y, n.z); } // shopkeepers face you and stand still
+      for (const f of townsfolk(isl)) { if (!npcAlive(s, `v${isl.id}:${f.seed}`)) continue; // villagers stroll round the plaza; the sprite shows the way they walk relative to the camera
+        const tt = s ? s.t : t, an = f.a0 + tt * f.speed, sg = Math.sign(f.speed), vx = -Math.sin(an) * sg, vz = Math.cos(an) * sg, fwd = vx * Math.cos(cam.yaw) + vz * Math.sin(cam.yaw), rgt = -vx * Math.sin(cam.yaw) + vz * Math.cos(cam.yaw);
+        const dir = Math.abs(fwd) >= Math.abs(rgt) ? (fwd > 0 ? 'up' : 'down') : rgt > 0 ? 'right' : 'left';
+        const vx2 = f.cx + Math.cos(an) * f.rad, vz2 = f.cz + Math.sin(an) * f.rad;
+        const [kx, kz, ks] = kb(s.npcs?.[`v${isl.id}:${f.seed}`], vx2, vz2);
+        bb(sprites.person('villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
+      }
+      for (const g of s.guards) if (g.isl === isl.id) { // a guard lunges at you when it strikes and flinches when you hit it
+        const la = s.t - (g.atk ?? -9), fa = s.t - (g.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
+        bb(sprites.person('warden', g.seed, 'down', 1 + (((g.walk || 0) * 5 | 0) & 1)), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 + lu * 0.2 - fl * 0.12));
+      }
+      let props = propCache.get(isl.seed); if (!props) { props = islandProps(isl); for (const p of props) { const h = (x) => islandHeight(isl, x, p.z); p.y = dockDist(isl, p.x, p.z) < 1.8 ? Math.max(h(p.x), DOCK_Y) : FIXED[p.k] ? Math.min(h(p.x - FIXED[p.k]), h(p.x), h(p.x + FIXED[p.k])) - 0.05 : h(p.x); } propCache.set(isl.seed, props); if (propCache.size > 60) propCache.delete(propCache.keys().next().value); }
+      // nothing turns with the camera: wide props face one way, round ones are two crossed quads
+      for (const p of props) { const dx = p.x - cam.x, dz = p.z - cam.z; if (dx * dx + dz * dz < 36000 && (p.k !== 'tuft' && p.k !== 'flower' || dx * dx + dz * dz < 6400)) { const sp = sprites.prop(p, isl.biome); bb(sp, p.x, p.y, p.z, -1); if (!FIXED[p.k] && p.k !== 'tuft' && p.k !== 'flower') bb(sp, p.x, p.y, p.z, -1000); } }
+    }
+  }
+  const far = R * SECTOR * 1.5 + 600, mix = (a, b) => a.map((v, i) => lerp(v, b[i], cold));
+  renderer.draw({
+    cam: { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch, fov: 1.05 }, t, far, extent: R * SECTOR * 1.3 + 200, objects, bb: BB, calm: calmZ,
+    pal: { cold, density: 2.4 / (R * SECTOR * 0.8 + 300), fog: mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96]), deep: mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27]), shal: mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72]) },
+  });
+}
+// pixel-art look: the world is drawn at a small internal height (opts.pixels, default 270) and the browser scales it up with hard edges
+function resize() {
+  const h = SOFT ? 720 : MID ? 540 : Math.max(120, Math.min(720, opts.pixels | 0 || 270));
+  renderer?.resize(Math.round((h * innerWidth) / innerHeight), h);
+}
+
+// ---------------------------------------------------------------- input
+const locked = () => document.pointerLockElement === canvas;
+function lock() { try { const p = canvas.requestPointerLock(); p?.catch?.(() => {}); } catch {} }
+function unlock() { if (locked()) { expectUnlock = true; setTimeout(() => { expectUnlock = false; }, 400); document.exitPointerLock(); } } // the flag can never stay stuck and swallow a real Esc
+// While playing, browser shortcuts (Ctrl+W, Ctrl+B, Ctrl+D, F5...) are blocked. In fullscreen, Chrome/Edge let us capture the
+// reserved ones too (Keyboard Lock); everywhere else a "leave site?" prompt is the safety net for Ctrl+W. Escape (pause) releases it all.
+let guard = false;
+const LOCK_KEYS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((c) => 'Key' + c).concat(['Tab', 'F5', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0']);
+let kbLocked = false;
+function applyGuard() {
+  guard = phase === 'play' || phase === 'panel';
+  const wantLock = guard && !!document.fullscreenElement;
+  if (wantLock === kbLocked) return;
+  kbLocked = wantLock;
+  try { if (wantLock) navigator.keyboard?.lock?.(LOCK_KEYS); else navigator.keyboard?.unlock?.(); } catch {}
+}
+function goFullscreen() { if (opts.fullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch?.(() => {}); }
+addEventListener('beforeunload', (e) => { if (guard) { e.preventDefault(); e.returnValue = ''; } });
+document.addEventListener('fullscreenchange', () => { kbLocked = false; applyGuard(); resize(); });
+let wsel = 0;
+addEventListener('keydown', (e) => {
+  audio.init();
+  if (guard && ((e.ctrlKey || e.metaKey) || (/^F\d+$/.test(e.code) && e.code !== 'F12'))) e.preventDefault();
+  if (e.code === 'Tab' || (e.code === 'Space' && phase === 'play')) e.preventDefault();
+  if (e.code === 'Escape' && phase === 'play' && !locked()) { pause(); return; }
+  if (e.code === 'Escape' && phase === 'paused' && !e.repeat) { ($('pR') || $('oB'))?.click(); return; } // Esc again resumes (or backs out of Options)
+  if (e.repeat) { keys.add(e.code); return; }
+  keys.add(e.code);
+  if (phase === 'panel' && e.code === 'Escape') { ui.closePanel(); phase = 'play'; return; }
+  if (phase !== 'play') return;
+  if (/^Digit[1-5]$/.test(e.code) && s?.mode === 'foot') wsel = +e.code[5];
+  else if (e.code === 'KeyF') onInteract();
+  else if (e.code === 'KeyR') toggleAuto(s);
+  else if (e.code === 'KeyO') toggleRow(s);
+  else if (e.code === 'Tab') { phase = 'panel'; unlock(); ui.questLog(s, () => { phase = 'play'; lock(); }); }
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('mousedown', (e) => { if (e.button === 0 && phase === 'play' && locked()) mouseDown = true; });
+addEventListener('mouseup', () => { mouseDown = false; });
+addEventListener('blur', () => keys.clear());
+addEventListener('mousemove', (e) => {
+  if (phase !== 'play' || !locked()) return;
+  const k = 0.0022 * opts.sens, cl = (v) => Math.max(-200, Math.min(200, v)); // Chrome can report one huge jump when the lock is (re)acquired: it must not pin the view straight up
+  const mvX = cl(e.movementX), mvY = cl(e.movementY);
+  if (s.mode === 'foot') { view.yaw += mvX * k; view.pitch = Math.max(-1.45, Math.min(1.45, view.pitch - mvY * k)); }
+  else { orbit.yaw += mvX * k; orbit.pitch = Math.max(-0.9, Math.min(0.15, orbit.pitch - mvY * k)); orbit.idle = 0; }
+});
+canvas.addEventListener('click', () => { audio.init(); if (phase === 'play' && !locked()) { goFullscreen(); lock(); } }); // only the click that captures the mouse may go fullscreen: attack clicks must never drop the pointer lock
+document.addEventListener('pointerlockchange', () => {
+  ui.crosshair(locked() && s?.mode === 'foot');
+  if (locked()) return;
+  if (expectUnlock) { expectUnlock = false; return; }
+  if (phase === 'play') pause();
+});
+addEventListener('resize', resize);
+
+function onInteract() {
+  const r = interact(s);
+  if (r.type === 'npc') {
+    phase = 'panel'; unlock();
+    ui.dialog(s, r, { island: standingOn(s), audio, say: (m) => say(s, m), onChange: () => saveGame(s), onClose: () => { phase = 'play'; lock(); saveGame(s); } });
+  } else if (r.type === 'news') { phase = 'panel'; unlock(); ui.news(s, r.island, () => { phase = 'play'; lock(); saveGame(s); });
+  } else if (r.type === 'ashore') { view.yaw = s.foot.yaw; view.pitch = 0; saveGame(s); }
+  else if (r.type === 'board') { orbit.yaw = 0; orbit.pitch = -0.22; orbit.idle = 0; saveGame(s); }
+  else if (r.type === 'dig') { audio.coin(); saveGame(s); }
+}
+
+// ---------------------------------------------------------------- flow: menu -> intro -> play -> pause / ending / game over
+const getOptions = () => opts;
+const setOptions = (o) => { opts = o; saveOptions(o); audio.setVolume(o.volume); resize(); };
+function showMenu() {
+  phase = 'menu'; s = null; ui.hud(false); ui.crosshair(false); ui.loading(false);
+  ui.menu({ hasSave: hasSave(), getOptions, setOptions, onNew: newGameFlow, onContinue: continueFlow });
+}
+function startPlay(game) {
+  s = game; ui.fade(true);
+  setTimeout(() => {
+    const px = s.mode === 'ship' ? s.ship.x : s.foot.x, pz = s.mode === 'ship' ? s.ship.z : s.foot.z;
+    updateSectors(px, pz, true); view.yaw = s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22;
+    ui.hud(true); phase = 'play'; ui.fade(false); saveT = 0;
+  }, 850);
+}
+async function newGameFlow() {
+  goFullscreen(); phase = 'intro';
+  await ui.intro([
+    'Tuesday night. A documentary murmurs in a quiet apartment.',
+    '“…the Wall. A cliff of ice ringing the whole world. Every map ends at it. No expedition has returned to say what lies beyond.”',
+    'The narrator calls it a legend. You cannot stop thinking about it.',
+    'By morning your savings are spent and you are standing in Port Haven, the last harbour on the maps, with a one-way ticket and a lot of questions.',
+    'Time to find out if the Wall is real.',
+  ]);
+  startPlay(newGame(SEED));
+}
+function continueFlow() { goFullscreen(); const g = loadGame(); if (!g) return newGameFlow(); startPlay(g); }
+function pause() {
+  phase = 'paused'; unlock();
+  ui.pause({ getOptions, setOptions, onResume: () => { phase = 'play'; lock(); }, onSave: () => saveGame(s), onQuit: () => { saveGame(s); showMenu(); } });
+}
+
+// ---------------------------------------------------------------- main loop
+// what the ears should hear: at sea, or ashore, and how busy the town around you is (louder near the plaza, bigger in cities)
+const soundScene = () => { if (s.mode !== 'foot') return { foot: false, town: 0 }; const i = standingOn(s), pz = i?.port && islandTown(i).plaza; if (!pz) return { foot: true, town: 0 }; const w = { village: 0.5, town: 0.8, city: 1 }[i.tier] || 0.5; return { foot: true, town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) }; };
+let prevMode = null, last = performance.now(), acc = 0, T = 0, fpsN = 0, fpsT = 0;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; T += dt;
+  applyGuard();
+  if (renderer.lost) { ui.error('The graphics device was lost: ' + renderer.lost + '. Reload the page.'); return; }
+  if (s && phase === 'play') {
+    acc += dt;
+    for (let n = 0; acc >= DT && n < 5; n++, acc -= DT) {
+      const on = (k) => (keys.has(k) ? 1 : 0);
+      step(s, s.mode === 'ship'
+        ? { rudder: on('KeyD') - on('KeyA'), sail: on('KeyW') - on('KeyS'), trim: on('KeyC') - on('KeyZ'), fireL: keys.has('KeyQ'), fireR: keys.has('KeyE') }
+        : { mx: on('KeyD') - on('KeyA'), mz: on('KeyW') - on('KeyS'), run: keys.has('ShiftLeft') || keys.has('ShiftRight'), jump: keys.has('Space'), yaw: view.yaw, attack: keys.has('KeyQ') || mouseDown, wsel: (() => { const w = wsel; wsel = 0; return w; })() }, DT);
+    }
+    for (const ev of s.events) {
+      if (ev.type === 'cannon') audio.boom(1 / (1 + Math.hypot(ev.x - (s.ship?.x || 0), ev.z - (s.ship?.z || 0)) / 60));
+      else if (ev.type === 'slash') { audio.slash(ev.hit); ui.slash(ev.w, ev.hit); } else if (ev.type === 'kill') audio.boom(0.25); else if (ev.type === 'arrest') { view.yaw = s.foot.yaw = ev.yaw; view.pitch = 0; mouseDown = false; keys.clear(); }
+      else if (ev.type === 'hit') { audio.hit(); if (s.mode === 'foot') ui.hurt(); } else if (ev.type === 'coin' || ev.type === 'sunk') audio.coin(); else if (ev.type === 'quest') { audio.quest(); saveGame(s); }
+    }
+    s.events.length = 0;
+    saveT += dt; if (saveT > 30) { saveT = 0; saveGame(s); }
+    if (s.ending) { phase = 'ending'; unlock(); saveGame(s); ui.ending({ onReturn: () => { const g = gatePos(SEED); s.ending = false; s.ship.x = g.x * (1 - 140 / WALL_R); s.ship.z = g.z * (1 - 140 / WALL_R); s.ship.speed = 0; s.mode = 'ship'; phase = 'play'; lock(); }, onMenu: showMenu }); }
+    else if (s.over) { phase = 'over'; unlock(); ui.gameOver({ hasSave: hasSave(), onLoad: continueFlow, onMenu: showMenu }); }
+  }
+  updateCamera(dt, T);
+  const fx = s ? (s.mode === 'ship' && s.ship ? s.ship.x : s.foot.x) : cam.x, fz = s ? (s.mode === 'ship' && s.ship ? s.ship.z : s.foot.z) : cam.z;
+  updateSectors(fx, fz);
+  render(T);
+  if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
+    const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
+    if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
+    ui.updateHud(s, { prompt: pr, yaw: cam.yaw });
+    audio.update(s.ship?.speed || 0, Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
+  }
+  fpsN++; fpsT += dt; if (fpsT > 1) { window.__fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
+}
+
+(async () => {
+  try {
+    renderer = await createRenderer(canvas); sprites = createSprites(renderer);
+  } catch (e) { ui.error(e.message); return; }
+  audio.setVolume(opts.volume); resize();
+  window.__pk = { home: homeIsland, town: islandTown, get s() { return s; }, get phase() { return phase; }, cam, view, opts, sectors, newGame: () => startPlay(newGame(SEED)), updateSectors, interact: onInteract, T: () => T };
+  updateSectors(homeIsland().x, homeIsland().z, true); // warm the sea behind the menu
+  showMenu(); requestAnimationFrame(loop);
+})();

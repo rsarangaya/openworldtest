@@ -1,0 +1,44 @@
+// Pixel-art billboard sprites: people, trees, bushes, rocks, flowers, plaza and dock furniture. Each one is painted ONCE with the anime painters,
+// snapped to the fixed palette, packed into the GPU atlas, and from then on drawn as a flat camera-facing quad. Zero asset files.
+import { bake } from '../render2d/art.js';
+import * as A from '../render2d/art.js';
+import { quantize, SOFT } from './palette.js';
+
+const PERSON_SCALE = 0.6; // the painted person is ~3.4 units tall; scale to a ~2 unit human
+export function createSprites(R) {
+  const cache = new Map(); let epoch = R.atlasEpoch;
+  function get(key, box, S, paint) {
+    if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
+    let s = cache.get(key); if (s) return s;
+    const b = bake(box, SOFT ? S * 3 : S, paint); if (!SOFT) quantize(b.c);
+    const uv = R.addSprite(b.c); if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
+    s = { uv, x0: box.x0, x1: box.x1, top: -box.y0, bot: -box.y1 }; cache.set(key, s); return s;
+  }
+  const prop = (p, bi) => {
+    switch (p.k) {
+      case 'tree': return get(`t${p.v % 8}${bi}`, A.TREE_BOX, 9, (g) => A.paintTree(g, p.v % 8, bi));
+      case 'bush': return get(`b${p.v % 4}`, A.BUSH_BOX, 10, (g) => A.paintBush(g, p.v));
+      case 'rock': return get(`r${p.v % 4}${bi}`, A.ROCK_BOX, 10, (g) => A.paintRock(g, p.v, bi));
+      case 'flower': return get(`f${p.v % 5}`, A.FLOWER_BOX, 12, (g) => A.paintFlower(g, p.v));
+      case 'tuft': return get(`u${p.v % 4}`, A.TUFT_BOX, 12, (g) => A.paintTuft(g, p.v));
+      case 'crate': return get(`c${p.v % 2}`, A.CRATE_BOX, 12, (g) => A.paintCrate(g, p.v));
+      case 'barrel': return get('a', A.CRATE_BOX, 12, (g) => A.paintBarrel(g));
+      case 'lamp': return get('l', A.LAMP_BOX, 12, (g) => A.paintLamp(g));
+      case 'well': return get('w', A.WELL_BOX, 11, (g) => A.paintWell(g));
+      case 'stall': return get(`s${p.v % 4}`, A.STALL_BOX, 11, (g) => A.paintStall(g, p.v));
+      case 'bench': return get('n', A.BENCH_BOX, 12, (g) => A.paintBench(g));
+      case 'counter': return get(`co${p.kind}`, A.shopMidBox, 12, (g) => A.paintShopCounter(g, { kind: p.kind }));
+      case 'board': return get('bd', A.BOARD_BOX, 12, (g) => A.paintBoard(g));
+      case 'station': return get('gs', A.STATION_BOX, 11, (g) => A.paintStation(g));
+      case 'sign': return get(`sg${p.kind}`, A.SIGN_BOX, 12, (g) => A.paintSign(g, p.kind));
+      case 'shelf': return get(`sh${p.kind}`, A.SHELF_BOX, 12, (g) => A.paintShelf(g, p.kind));
+      case 'xmark': return get('x', A.XMARK_BOX, 12, (g) => A.paintXMark(g));
+    }
+    return null;
+  };
+  const person = (kind, seed, dir, fr) => get(`p${kind}${seed % 16}${dir}${fr}`, A.PERSON_BOX, 12, (g) => A.paintPerson(g, A.personSpec(kind, seed % 16), dir, fr));
+  const fx = (k) => get('fx' + k, A.FX_BOX, 12, (g) => (k === 'hurt' ? A.paintHurt(g) : k === 'flash' ? A.paintFlash(g) : k === 'smoke' ? A.paintSmoke(g) : A.paintSplash(g)));
+  const fallen = (kind, seed) => get(`fl${kind}${seed % 16}`, A.FALLEN_BOX, 12, (g) => { g.rotate(Math.PI / 2); A.paintPerson(g, A.personSpec(kind, seed % 16), 'down', 0); });
+  const hp = (n) => get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10));
+  return { prop, person, fallen, hp, fx, PERSON_SCALE };
+}

@@ -1,0 +1,417 @@
+<!doctype html><meta charset=utf-8><title>RPG sprites preview</title><body><script>
+(() => {
+  // src/gen/rng.js
+  var hash = (a, b = 0, c = 0, d = 0) => {
+    let h = (a | 0) ^ 2654435769;
+    h = Math.imul(h ^ (b | 0), 2246822507);
+    h ^= h >>> 15;
+    h = Math.imul(h ^ (c | 0), 3266489909);
+    h ^= h >>> 13;
+    h = Math.imul(h ^ (d | 0), 668265263);
+    h ^= h >>> 16;
+    return h >>> 0;
+  };
+  var mulberry = (s) => {
+    let t = s >>> 0;
+    return () => {
+      t = t + 1831565813 >>> 0;
+      let r = Math.imul(t ^ t >>> 15, t | 1);
+      r ^= r + Math.imul(r ^ r >>> 7, r | 61);
+      return ((r ^ r >>> 14) >>> 0) / 4294967296;
+    };
+  };
+  var rngFor = (seed, a = 0, b = 0, c = 0) => mulberry(hash(seed, a, b, c));
+  var pick = (r, arr) => arr[r() * arr.length | 0];
+
+  // src/render2d/art.js
+  var TAU = Math.PI * 2;
+  var INK = "#050508";
+  var rgb = (c, k = 1, a = 1) => `rgba(${Math.round(Math.min(1, c[0] * k) * 255)},${Math.round(Math.min(1, c[1] * k) * 255)},${Math.round(Math.min(1, c[2] * k) * 255)},${a})`;
+  var mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  function bake(box, S, fn) {
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.ceil((box.x1 - box.x0) * S));
+    c.height = Math.max(1, Math.ceil((box.y1 - box.y0) * S));
+    const g = c.getContext("2d");
+    g.translate(-box.x0 * S, -box.y0 * S);
+    g.scale(S, S);
+    g.lineJoin = "round";
+    g.lineCap = "round";
+    fn(g);
+    return { c, ox: -box.x0 * S, oy: -box.y0 * S, S };
+  }
+  function cel(g, path, col, o = {}) {
+    g.save();
+    g.beginPath();
+    path(g);
+    g.fillStyle = rgb(col, o.shade ?? 0.72);
+    g.fill();
+    g.clip();
+    g.translate(o.dx ?? -0.13, o.dy ?? -0.17);
+    g.beginPath();
+    path(g);
+    g.fillStyle = rgb(col);
+    g.fill();
+    g.restore();
+    g.beginPath();
+    path(g);
+    g.lineWidth = o.lw ?? 0.13;
+    g.strokeStyle = o.ink ?? INK;
+    g.stroke();
+  }
+  var ell = (cx, cy, rx, ry, rot = 0) => (g) => g.ellipse(cx, cy, rx, ry, rot, 0, TAU);
+  var rr = (x, y, w, h, r) => (g) => g.roundRect(x, y, w, h, r);
+  var poly = (...p) => (g) => {
+    g.moveTo(p[0], p[1]);
+    for (let i = 2; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]);
+    g.closePath();
+  };
+  var fillPath = (g, path, style) => {
+    g.beginPath();
+    path(g);
+    g.fillStyle = style;
+    g.fill();
+  };
+  var line = (g, x0, y0, x1, y1, w, style) => {
+    g.beginPath();
+    g.moveTo(x0, y0);
+    g.lineTo(x1, y1);
+    g.lineWidth = w;
+    g.strokeStyle = style;
+    g.stroke();
+  };
+  var GREENS = [[0.3, 0.62, 0.27], [0.36, 0.66, 0.3], [0.25, 0.56, 0.32], [0.42, 0.64, 0.26]];
+  var AUTUMN = [[0.9, 0.52, 0.18], [0.92, 0.72, 0.24]];
+  var SNOW = [0.86, 0.93, 0.98];
+  var TREE_BOX = { x0: -2.8, x1: 2.8, y0: -6.4, y1: 0.5 };
+  function paintTree(g, v, biome) {
+    const frozen = biome === "frozen", trunk = [0.5, 0.34, 0.2];
+    if (biome === "tropical") {
+      const d = v % 2 ? 1 : -1;
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(0.9 * d, -2.3, 0.4 * d, -4.6);
+      g.lineWidth = 0.68;
+      g.strokeStyle = INK;
+      g.stroke();
+      g.lineWidth = 0.5;
+      g.strokeStyle = rgb(trunk);
+      g.stroke();
+      for (let k = 1; k < 5; k++) {
+        const t = k / 5;
+        g.beginPath();
+        g.moveTo(0.9 * d * 2 * t * (1 - t) + 0.4 * d * t * t - 0.22, -4.6 * t * t - 2.3 * 2 * t * (1 - t));
+        g.lineTo(0.9 * d * 2 * t * (1 - t) + 0.4 * d * t * t + 0.22, -4.6 * t * t - 2.3 * 2 * t * (1 - t));
+        g.lineWidth = 0.07;
+        g.strokeStyle = rgb(trunk, 0.6);
+        g.stroke();
+      }
+      const tx = 0.4 * d, ty = -4.6, leaf2 = GREENS[v % 4];
+      for (let i = 0; i < 7; i++) {
+        const a = -Math.PI / 2 + (i - 3) * 0.62, ca = Math.cos(a), sa = Math.sin(a);
+        cel(g, (p) => {
+          p.moveTo(tx, ty);
+          p.quadraticCurveTo(tx + ca * 1.7, ty + sa * 1.3 - 0.6, tx + ca * 2.9, ty + sa * 1.9 + 0.7);
+          p.quadraticCurveTo(tx + ca * 1.7, ty + sa * 1.3 + 0.1, tx, ty + 0.08);
+        }, mixc(leaf2, [0.5, 0.75, 0.3], i % 2 * 0.2));
+      }
+      cel(g, ell(tx - 0.2, ty + 0.35, 0.22, 0.22), [0.5, 0.34, 0.12]);
+      cel(g, ell(tx + 0.22, ty + 0.4, 0.22, 0.22), [0.55, 0.38, 0.14]);
+      return;
+    }
+    if (frozen || v % 3 === 0) {
+      const c = frozen ? [0.3, 0.5, 0.45] : [0.18, 0.44, 0.3];
+      cel(g, rr(-0.26, -1.4, 0.52, 1.4, 0.1), trunk);
+      for (let k = 0; k < 3; k++) {
+        const w = 1.9 - k * 0.45, y = -1.1 - k * 1.35;
+        cel(g, poly(-w, y, w, y, 0, y - 2.1), mixc(c, [0.3, 0.6, 0.4], k * 0.12));
+        if (frozen) fillPath(g, poly(-w * 0.62, y - 0.8, w * 0.62, y - 0.8, 0, y - 2.1), rgb(SNOW));
+      }
+      return;
+    }
+    const leaf = v % 5 === 4 ? AUTUMN[v % 2] : GREENS[v % 4];
+    cel(g, rr(-0.3, -2.6, 0.6, 2.6, 0.14), trunk);
+    line(g, 0, -2.3, -0.8, -3.1, 0.2, rgb(trunk, 0.8));
+    line(g, 0, -2.2, 0.8, -3, 0.2, rgb(trunk, 0.8));
+    for (const [cx, cy, r, k] of [[-1.15, -3.2, 1.15, 0.9], [1.2, -3.3, 1.2, 0.95], [0, -3.9, 1.7, 1], [-0.5, -5, 1.15, 1.08], [0.7, -4.8, 1.05, 1.05]]) cel(g, ell(cx, cy, r, r * 0.92), mixc(leaf, [1, 1, 1], 0), { shade: 0.62 + k * 0.1 });
+    for (const [cx, cy, r] of [[-0.6, -4.5, 0.4], [0.5, -3.7, 0.3], [-1.2, -3.5, 0.25]]) fillPath(g, ell(cx, cy, r, r * 0.7), rgb(leaf, 1.28, 0.55));
+  }
+  var BUSH_BOX = { x0: -1.8, x1: 1.8, y0: -1.8, y1: 0.4 };
+  function paintBush(g, v) {
+    const c = GREENS[v % 4];
+    cel(g, ell(-0.6, -0.55, 0.8, 0.65), c);
+    cel(g, ell(0.65, -0.5, 0.75, 0.6), mixc(c, [1, 1, 1], 0.08));
+    cel(g, ell(0, -0.95, 0.85, 0.7), mixc(c, [1, 1, 1], 0.12));
+    fillPath(g, ell(-0.2, -1.2, 0.25, 0.14), rgb(c, 1.3, 0.55));
+    if (v % 3 === 0) for (const [x, y] of [[-0.5, -0.9], [0.4, -1.1], [0.1, -0.5]]) fillPath(g, ell(x, y, 0.1, 0.1), "#ff6f8a");
+  }
+  var ROCK_BOX = { x0: -1.8, x1: 1.8, y0: -1.9, y1: 0.4 };
+  function paintRock(g, v, biome) {
+    const c = biome === "volcanic" ? [0.32, 0.28, 0.3] : biome === "frozen" ? [0.78, 0.84, 0.92] : [0.62, 0.6, 0.62], k = 0.85 + v % 4 * 0.07;
+    cel(g, poly(-1.2 * k, 0, -1 * k, -0.8 * k, -0.3, -1.4 * k, 0.5, -1.25 * k, 1.1 * k, -0.6 * k, 1.25 * k, 0), c);
+    line(g, -0.4, -1 * k, 0.2, -0.5, 0.06, rgb(c, 0.6));
+    fillPath(g, poly(-0.5, -1.2 * k, 0.1, -1.15 * k, -0.2, -0.9 * k), rgb(c, 1.25, 0.7));
+  }
+  var CRATE_BOX = { x0: -0.9, x1: 0.9, y0: -1.5, y1: 0.2 };
+  function paintBarrel(g) {
+    const w = [0.62, 0.42, 0.24];
+    cel(g, rr(-0.55, -1.35, 1.1, 1.35, 0.4), w);
+    for (const y of [-1, -0.35]) line(g, -0.54, y, 0.54, y, 0.1, "#4a4650");
+    fillPath(g, ell(0, -1.33, 0.5, 0.18), rgb(w, 1.15));
+    g.beginPath();
+    g.ellipse(0, -1.33, 0.5, 0.18, 0, 0, TAU);
+    g.lineWidth = 0.06;
+    g.strokeStyle = INK;
+    g.stroke();
+  }
+  var LAMP_BOX = { x0: -0.9, x1: 0.9, y0: -4.4, y1: 0.3 };
+  function paintLamp(g) {
+    cel(g, rr(-0.13, -3.4, 0.26, 3.4, 0.06), [0.25, 0.24, 0.3]);
+    cel(g, rr(-0.36, -4.1, 0.72, 0.8, 0.12), [1, 0.88, 0.45]);
+    fillPath(g, ell(0, -3.7, 0.55, 0.55), "rgba(255,230,140,0.28)");
+    cel(g, poly(-0.5, -4.1, 0.5, -4.1, 0, -4.4), [0.25, 0.24, 0.3]);
+  }
+  var WELL_BOX = { x0: -2, x1: 2, y0: -4, y1: 0.8 };
+  function paintWell(g) {
+    cel(g, ell(0, -0.7, 1.35, 0.8), [0.6, 0.58, 0.58]);
+    fillPath(g, ell(0, -0.9, 1, 0.55), "#2d6a8a");
+    fillPath(g, ell(-0.2, -1, 0.45, 0.2), "rgba(255,255,255,0.35)");
+    cel(g, rr(-1.35, -0.7, 2.7, 0.7, 0.2), [0.62, 0.6, 0.6]);
+    for (const s of [-1, 1]) cel(g, rr(s * 1.1 - 0.08, -2.7, 0.16, 2.1, 0.04), [0.5, 0.34, 0.2]);
+    cel(g, poly(-1.6, -2.6, 1.6, -2.6, 0, -3.7), [0.72, 0.28, 0.2]);
+  }
+  var STALL_BOX = { x0: -2.1, x1: 2.1, y0: -3.6, y1: 0.4 };
+  function paintStall(g, v) {
+    const c = [[0.88, 0.32, 0.28], [0.28, 0.52, 0.85], [0.95, 0.78, 0.28], [0.3, 0.68, 0.45]][v % 4];
+    for (const s of [-1, 1]) cel(g, rr(s * 1.7 - 0.07, -3, 0.14, 3, 0.03), [0.5, 0.34, 0.2]);
+    cel(g, rr(-1.8, -1.1, 3.6, 1.1, 0.08), [0.7, 0.5, 0.3]);
+    for (let i = -3; i <= 2; i++) fillPath(g, ell(i * 0.5 + 0.25, -1.3, 0.2, 0.2), rgb([[0.9, 0.3, 0.25], [0.95, 0.8, 0.25], [0.4, 0.7, 0.3]][(i + 3) % 3]));
+    for (let i = 0; i < 8; i++) {
+      const x = -2 + i * 0.5;
+      g.beginPath();
+      g.moveTo(x, -3.1);
+      g.lineTo(x + 0.5, -3.1);
+      g.lineTo(x + 0.5, -2.2);
+      g.arc(x + 0.25, -2.2, 0.25, 0, Math.PI);
+      g.closePath();
+      g.fillStyle = i % 2 ? rgb(c) : "#fff";
+      g.fill();
+      g.lineWidth = 0.05;
+      g.strokeStyle = INK;
+      g.stroke();
+    }
+    cel(g, poly(-2.1, -3.1, 2.1, -3.1, 1.8, -3.55, -1.8, -3.55), c);
+  }
+  var SKIN = [[0.92, 0.77, 0.64], [0.8, 0.6, 0.45], [0.62, 0.44, 0.32], [0.44, 0.3, 0.22]];
+  var HAIRC = [[0.12, 0.1, 0.1], [0.3, 0.2, 0.12], [0.5, 0.34, 0.18], [0.62, 0.6, 0.6], [0.45, 0.2, 0.12], [0.7, 0.55, 0.3]];
+  var LEATHER = [0.36, 0.24, 0.15];
+  var CLOTH = {
+    merchant: [[0.22, 0.38, 0.3], [0.45, 0.3, 0.2]],
+    tavern: [[0.5, 0.22, 0.2], [0.42, 0.3, 0.2]],
+    shipwright: [[0.3, 0.4, 0.5], [0.38, 0.38, 0.34]],
+    sailor: [[0.2, 0.28, 0.42], [0.25, 0.32, 0.4]],
+    warden: [[0.7, 0.74, 0.8], [0.6, 0.66, 0.74]],
+    villager: [[0.45, 0.32, 0.22], [0.36, 0.42, 0.26], [0.55, 0.28, 0.2], [0.3, 0.36, 0.44], [0.6, 0.5, 0.28], [0.42, 0.3, 0.4]],
+    player: [[0.26, 0.34, 0.5]]
+  };
+  function personSpec(kind, seed) {
+    const r = rngFor(seed, kind.length * 17 + 3), P = { kind, skin: pick(r, SKIN), hair: pick(r, HAIRC), eye: [0.14, 0.12, 0.12], style: r() * 4 | 0, cloth: pick(r, CLOTH[kind] || CLOTH.villager), pants: pick(r, [[0.26, 0.26, 0.3], [0.34, 0.28, 0.2], [0.24, 0.3, 0.32]]), extra: r() * 4 | 0 };
+    if (kind === "player") {
+      P.skin = SKIN[1];
+      P.hair = HAIRC[1];
+      P.style = 0;
+      P.extra = 3;
+      P.pants = [0.22, 0.24, 0.3];
+    }
+    return P;
+  }
+  var PERSON_BOX = { x0: -1.2, x1: 1.2, y0: -3.1, y1: 0.35 };
+  function paintPerson(g, P, dir, fr) {
+    const step = fr === 1 ? 0.17 : fr === 2 ? -0.17 : 0, bob = fr ? -0.05 : 0, front = dir === "down", back = dir === "up", K = P.kind;
+    g.save();
+    if (dir === "left") g.scale(-1, 1);
+    g.translate(0, bob);
+    const sk = P.skin, hair = P.hair, cl = P.cloth, dark = (c, t = 0.3) => mixc(c, [0, 0, 0], t), hy = -2.55, bearded = P.extra < 2 && K !== "player" && K !== "warden";
+    for (const s of [-1, 1]) {
+      const o = s * step, lx = front || back ? s * 0.25 : -s * step * 1.6;
+      cel(g, rr(lx - 0.2, -1.05, 0.4, 0.86 + o * 0.3, 0.12), P.pants, { lw: 0.08 });
+      cel(g, rr(lx - 0.23 + (front || back ? 0 : 0.06), -0.34 + o * 0.3, 0.46, 0.34, 0.1), LEATHER, { lw: 0.08 });
+    }
+    if (K === "warden" || K === "merchant") cel(g, poly(-0.62, -1.95, 0.62, -1.95, 0.78, -0.3, -0.78, -0.3), dark(cl, 0.2), { lw: 0.08 });
+    const wide = front || back;
+    const arm = (x, o) => {
+      cel(g, rr(x - 0.13, -1.9, 0.26, 0.95 + o * 0.25, 0.1), dark(cl, 0.12), { lw: 0.07 });
+      fillPath(g, ell(x, -0.92 + o * 0.25, 0.13, 0.13), rgb(sk));
+    };
+    if (!wide) arm(0 - step * 0.8, -step * 0.5);
+    cel(g, rr(wide ? -0.52 : -0.4, -2, wide ? 1.04 : 0.8, 1.05, 0.16), cl, { lw: 0.08 });
+    line(g, wide ? -0.5 : -0.38, -1.2, wide ? 0.5 : 0.38, -1.2, 0.1, rgb(LEATHER));
+    if (front) cel(g, rr(-0.09, -1.28, 0.18, 0.16, 0.03), [0.8, 0.68, 0.3], { lw: 0.04 });
+    if (wide) {
+      arm(-0.67, step * 0.6);
+      arm(0.67, -step * 0.6);
+    }
+    if (K === "tavern" && !back) cel(g, rr(-0.4, -1.5, 0.8, 1.1, 0.06), [0.9, 0.88, 0.8], { lw: 0.06 });
+    else if (K === "shipwright" && !back) cel(g, rr(-0.4, -1.55, 0.8, 1.15, 0.05), [0.5, 0.35, 0.2], { lw: 0.06 });
+    else if (K === "sailor") for (let y = -1.85; y < -1.25; y += 0.2) line(g, wide ? -0.48 : -0.36, y, wide ? 0.48 : 0.36, y, 0.06, "#e8e6e0");
+    else if (K === "merchant" && front) {
+      cel(g, ell(0.38, -1.05, 0.17, 0.2), [0.5, 0.36, 0.2], { lw: 0.05 });
+    } else if (K === "warden") {
+      cel(g, ell(0, -1.98, 0.74, 0.3), [0.9, 0.92, 0.95], { lw: 0.07 });
+    } else if (K === "player") {
+      if (!front) cel(g, rr(-0.46, -1.9, 0.62, 0.95, 0.12), [0.45, 0.3, 0.2], { lw: 0.07 });
+      line(g, -0.2, -1.95, -0.2, -1.2, 0.07, rgb(LEATHER));
+    }
+    cel(g, rr(-0.12, -2.28, 0.24, 0.3, 0.05), dark(sk, 0.18), { lw: 0.05 });
+    if (back || !front && P.style === 1) cel(g, ell(front ? 0 : -0.1, hy + 0.1, 0.4, 0.44), hair, { lw: 0.07 });
+    cel(g, ell(0, hy + 0.03, 0.34, 0.4), sk, { lw: 0.07 });
+    if (front) {
+      for (const s of [-1, 1]) {
+        fillPath(g, ell(s * 0.14, hy + 0.04, 0.045, 0.05), "#1a1414");
+        line(g, s * 0.14 - 0.1, hy - 0.08 - s * 0.01, s * 0.14 + 0.1, hy - 0.1 + s * 0.02, 0.05, rgb(dark(hair, 0.25)));
+      }
+      line(g, 0, hy + 0.1, 0.03, hy + 0.2, 0.04, rgb(dark(sk, 0.3)));
+      line(g, -0.09, hy + 0.3, 0.09, hy + 0.3, 0.04, "#5a2c26");
+    } else if (!back) {
+      fillPath(g, ell(0.2, hy + 0.04, 0.04, 0.05), "#1a1414");
+      line(g, 0.1, hy - 0.08, 0.3, hy - 0.09, 0.05, rgb(dark(hair, 0.25)));
+      fillPath(g, ell(0.36, hy + 0.14, 0.05, 0.06), rgb(dark(sk, 0.12)));
+      line(g, 0.22, hy + 0.3, 0.32, hy + 0.3, 0.04, "#5a2c26");
+    }
+    if (bearded && !back) cel(g, (p) => {
+      p.moveTo(-0.34, hy + 0.12);
+      p.bezierCurveTo(-0.34, hy + 0.6, 0.34, hy + 0.6, 0.34, hy + 0.12);
+      p.lineTo(0.2, hy + 0.2);
+      p.bezierCurveTo(0.1, hy + 0.3, -0.1, hy + 0.3, -0.2, hy + 0.2);
+      p.closePath();
+    }, front ? dark(hair, 0.05) : hair, { lw: 0.06 });
+    const cap = (low) => cel(g, (p) => {
+      p.moveTo(-0.38, hy + 0.05);
+      p.bezierCurveTo(-0.42, hy - 0.62, 0.42, hy - 0.62, 0.38, hy + 0.05);
+      if (front || back) {
+        p.lineTo(0.2, hy - 0.16 + low);
+        p.lineTo(0, hy - 0.2);
+        p.lineTo(-0.2, hy - 0.16 + low);
+      } else {
+        p.lineTo(0.2, hy - 0.2);
+        p.lineTo(-0.1, hy - 0.04);
+        p.lineTo(-0.3, hy + 0.1);
+      }
+      p.closePath();
+    }, hair, { lw: 0.07 });
+    if (K !== "warden" && K !== "sailor" && K !== "merchant" && P.style !== 3) cap(P.style === 2 ? 0.08 : 0);
+    if (back) cel(g, ell(0, hy + 0, 0.38, 0.4), hair, { lw: 0.07 });
+    if (K === "merchant") {
+      cel(g, ell(0, hy - 0.28, 0.62, 0.15), [0.3, 0.22, 0.16], { lw: 0.07 });
+      cel(g, rr(-0.34, hy - 0.62, 0.68, 0.4, 0.14), [0.34, 0.25, 0.18], { lw: 0.07 });
+      line(g, -0.32, hy - 0.34, 0.32, hy - 0.34, 0.07, "#8a3a2a");
+    } else if (K === "tavern" && P.style !== 3) line(g, -0.36, hy - 0.2, 0.36, hy - 0.2, 0.08, "#d9d4c4");
+    else if (K === "shipwright") cel(g, rr(-0.4, hy - 0.5, 0.8, 0.28, 0.1), [0.4, 0.36, 0.3], { lw: 0.07 });
+    else if (K === "sailor") {
+      cel(g, (p) => {
+        p.moveTo(-0.4, hy - 0.08);
+        p.bezierCurveTo(-0.4, hy - 0.6, 0.4, hy - 0.6, 0.4, hy - 0.08);
+        p.closePath();
+      }, [0.62, 0.2, 0.18], { lw: 0.07 });
+      if (!front) line(g, -0.3, hy - 0.2, -0.62, hy - 0.05, 0.1, "#9c3028");
+    } else if (K === "warden") {
+      cel(g, (p) => {
+        p.moveTo(-0.5, hy + 0.35);
+        p.bezierCurveTo(-0.62, hy - 0.7, 0.62, hy - 0.7, 0.5, hy + 0.35);
+        p.lineTo(0.36, hy + 0.1);
+        p.bezierCurveTo(0.34, hy - 0.3, -0.34, hy - 0.3, -0.36, hy + 0.1);
+        p.closePath();
+      }, [0.9, 0.92, 0.95], { lw: 0.07 });
+      if (front) {
+        line(g, 0.95, -0.3, 0.95, -2.85, 0.1, "#5a3c22");
+        fillPath(g, ell(0.95, -2.95, 0.16, 0.24), "#9fe6f5");
+        fillPath(g, ell(0.95, -2.95, 0.36, 0.4), "rgba(160,230,245,0.22)");
+      }
+    } else if (K === "player") cel(g, rr(-0.38, hy - 0.46, 0.76, 0.26, 0.1), dark(cl, 0.2), { lw: 0.07 });
+    else if (P.extra === 0) cel(g, (p) => {
+      p.moveTo(-0.45, hy + 0.2);
+      p.bezierCurveTo(-0.55, hy - 0.7, 0.55, hy - 0.7, 0.45, hy + 0.2);
+      p.lineTo(0.3, hy + 0.05);
+      p.bezierCurveTo(0.3, hy - 0.3, -0.3, hy - 0.3, -0.3, hy + 0.05);
+      p.closePath();
+    }, dark(cl, 0.1), { lw: 0.07 });
+    if (K === "shipwright" && front) {
+      line(g, -0.82, -1, -0.82, -1.7, 0.07, "#5a3c22");
+      cel(g, rr(-0.98, -1.82, 0.34, 0.2, 0.04), [0.45, 0.46, 0.5], { lw: 0.05 });
+    }
+    g.restore();
+  }
+
+  // src/render/palette.js
+  var hsl = (h, s, l) => {
+    const a = s * Math.min(l, 1 - l), f = (n) => {
+      const k = (n + h / 30) % 12;
+      return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    };
+    return "#" + [f(0), f(8), f(4)].map((v) => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+  };
+  var PAL = ["#07080c"];
+  for (const [h, s] of [[2, 0.5], [18, 0.55], [32, 0.45], [45, 0.5], [62, 0.55], [95, 0.4], [125, 0.38], [160, 0.35], [195, 0.45], [215, 0.5], [235, 0.4], [265, 0.35], [300, 0.3], [340, 0.45]]) for (const l of [0.17, 0.29, 0.42, 0.56, 0.7, 0.84]) PAL.push(hsl(h, s, l));
+  for (let k = 1; k <= 9; k++) PAL.push(hsl(230, 0.1, k / 10));
+  for (const l of [0.35, 0.5, 0.62, 0.74, 0.85]) PAL.push(hsl(24, 0.5, l));
+  PAL.push("#fdf6e3", "#f4f1ea", "#e8e6e0", "#efe3cf", "#ffe14a", "#3cff8a", "#ff5a4a", "#4a90d9");
+  var PALRGB = PAL.map((h) => {
+    const n = parseInt(h.slice(1), 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  });
+  function quantize(canvas) {
+    const g = canvas.getContext("2d"), img = g.getImageData(0, 0, canvas.width, canvas.height), d = img.data, memo = /* @__PURE__ */ new Map();
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 110) {
+        d[i + 3] = 0;
+        continue;
+      }
+      const key = d[i] >> 3 << 10 | d[i + 1] >> 3 << 5 | d[i + 2] >> 3;
+      let best = memo.get(key);
+      if (best === void 0) {
+        let bd = 1e9;
+        best = 0;
+        for (let j = 0; j < PALRGB.length; j++) {
+          const c2 = PALRGB[j], dr = d[i] - c2[0], dg = d[i + 1] - c2[1], db = d[i + 2] - c2[2], e = dr * dr * 3 + dg * dg * 4 + db * db * 2;
+          if (e < bd) {
+            bd = e;
+            best = j;
+          }
+        }
+        memo.set(key, best);
+      }
+      const c = PALRGB[best];
+      d[i] = c[0];
+      d[i + 1] = c[1];
+      d[i + 2] = c[2];
+      d[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  // ../../../../../AppData/Local/Temp/claude/c3ccfd3c92334a35/1a29ff9b-59fd-4f5d-993b-4550f6bbd244/scratchpad/pv2.src.mjs
+  var root = document.body;
+  root.style.cssText = "background:#8fb4d0;font:14px system-ui;margin:12px";
+  var kinds = ["player", "villager", "villager", "merchant", "tavern", "shipwright", "sailor", "warden"];
+  var seeds = [1, 3, 8, 2, 5, 4, 6, 7];
+  function row(title, items) {
+    const r = document.createElement("div");
+    r.innerHTML = `<b>${title}</b>`;
+    r.style.margin = "8px 0";
+    const strip = document.createElement("div");
+    strip.style.cssText = "display:flex;gap:14px;align-items:flex-end;background:#d9c8a8;padding:10px;border:2px solid #000;flex-wrap:wrap";
+    r.appendChild(strip);
+    root.appendChild(r);
+    for (const [box, fn, S] of items) {
+      const c = bake(box, S, fn).c;
+      quantize(c);
+      const z = 6;
+      c.style.cssText = `width:${c.width * z / 1.6}px;height:${c.height * z / 1.6}px;image-rendering:pixelated`;
+      strip.appendChild(c);
+    }
+  }
+  for (const dir of ["down", "up", "right"]) row(`RPG people, facing ${dir === "down" ? "you" : dir === "up" ? "away" : "sideways"} (player, 2 villagers, merchant, tavern keeper, shipwright, sailor, warden)`, kinds.map((k, i) => [PERSON_BOX, (g) => paintPerson(g, personSpec(k, seeds[i]), dir, dir === "right" ? 1 : 0), 14]));
+  row("Props as 2D pixel sprites (the buildings, ground and ships stay 3D)", [[TREE_BOX, (g) => paintTree(g, 2, "tropical"), 14], [TREE_BOX, (g) => paintTree(g, 5, "temperate"), 14], [BUSH_BOX, (g) => paintBush(g, 1), 14], [ROCK_BOX, (g) => paintRock(g, 1, "rocky"), 14], [STALL_BOX, (g) => paintStall(g, 0), 14], [STALL_BOX, (g) => paintStall(g, 3), 14], [LAMP_BOX, (g) => paintLamp(g), 14], [CRATE_BOX, (g) => paintBarrel(g), 14], [WELL_BOX, (g) => paintWell(g), 14]]);
+})();
+</script>

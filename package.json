@@ -1,0 +1,12 @@
+{
+  "name": "open-world-test",
+  "private": true,
+  "type": "module",
+  "description": "Starter kit for a free-roam sailing and exploration game: seeded world generator + procedural ships and towns + WebGPU renderer, bundled into one HTML file",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --readable",
+    "test": "node --test test/"
+  },
+  "devDependencies": { "esbuild": "^0.28.2" }
+}

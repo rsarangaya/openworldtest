@@ -1,0 +1,79 @@
+// Everything that stands on an island besides the buildings: trees, bushes, rocks, flowers, grass tufts, the plaza's well/stalls/lamps/benches,
+// and the dock's crates, barrels and lamps. Pure data from the seed (no drawing), so it is cheap, cacheable and testable.
+import { rngFor, range } from './rng.js';
+import { islandHeight, islandTown, dockDist, pathDist, bindProps, TAU } from './world.js';
+
+export function islandProps(isl) {
+  const out = [], town = islandTown(isl), pl = town.plaza, r = rngFor(isl.seed, 3), placed = [];
+  const free = (x, z, pad) => !town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad + 1.5)
+    && !(pl && Math.hypot(pl.x - x, pl.z - z) < 9 + pad) && dockDist(isl, x, z) > 4 && pathDist(isl, x, z) > 2.2;
+  const scatter = (n, lo, hi, k, pad, ymax = 0.75) => {
+    for (let i = 0; i < n; i++) {
+      const a = r() * TAU, d = range(r, lo, hi) * isl.r, x = isl.x + Math.cos(a) * d, z = isl.z + Math.sin(a) * d, y = islandHeight(isl, x, z), v = (r() * 8) | 0;
+      if (y < 1.1 || y > isl.h * ymax || !free(x, z, pad)) continue;
+      const sp = k === 'tree' ? 2.4 : k === 'rock' ? 1.8 : k === 'bush' ? 1.5 : 0; // solid things keep their distance from each other
+      if (sp && placed.some((q) => (q.x - x) ** 2 + (q.z - z) ** 2 < sp * sp)) continue;
+      if (sp) placed.push({ x, z });
+      out.push({ k, x, z, v });
+    }
+  };
+  const green = isl.biome === 'tropical' || isl.biome === 'temperate' || isl.biome === 'frozen';
+  if (green) scatter(8 + Math.round(isl.r * 0.45), 0.3, 0.85, 'tree', 3, 0.6);
+  if (green) scatter(Math.round(isl.r * 0.4), 0.25, 0.85, 'bush', 2.5);
+  if (isl.biome === 'tropical' || isl.biome === 'temperate') scatter(Math.round(isl.r * 0.6), 0.25, 0.8, 'flower', 2);
+  if (green) scatter(Math.round(isl.r * isl.r * 0.012), 0.2, 0.9, 'tuft', 1.5);
+  scatter(Math.round(isl.r * (isl.biome === 'rocky' || isl.biome === 'volcanic' ? 0.8 : 0.25)), 0.2, 0.95, 'rock', 2);
+  for (const b of town.buildings) if (b.door) { // inside each shop: a counter in front of the shopkeeper, a shelf on the back wall, and a barrel or crate
+    out.push({ k: 'counter', x: b.x, z: b.z, v: 0, kind: b.kind }); out.push({ k: 'shelf', x: b.x, z: b.z - b.d / 2 + 0.8, v: 0, kind: b.kind });
+    out.push({ k: b.kind === 'tavern' ? 'barrel' : 'crate', x: b.x + b.w / 2 - 1.1, z: b.z - b.d / 2 + 1.6, v: 1 });
+  }
+  for (const b of town.buildings) if (b.door) out.push({ k: 'sign', x: b.x + 3.9, z: b.z + b.d / 2 + 1.2, v: 0, kind: b.kind });
+  if (pl) {
+    out.push({ k: 'well', x: pl.x, z: pl.z, v: 0 });
+    for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU + Math.PI / 4; out.push({ k: 'lamp', x: pl.x + Math.cos(a) * 6.3, z: pl.z + Math.sin(a) * 6.3, v: 0 }); }
+    const stalls = isl.tier === 'village' ? 1 : isl.tier === 'town' ? 2 : 4;
+    // each stall goes where the ground is level under its whole width and depth (never over a slope), clear of the lamps and the other stalls
+    const lamps = out.filter((p) => p.k === 'lamp'), taken = [], rough = (x, z) => { let lo = 1e9, hi = -1e9; for (const dx of [-2.1, 0, 2.1]) for (const dz of [-1.4, 0, 1.4]) { const y = islandHeight(isl, x + dx, z + dz); lo = Math.min(lo, y); hi = Math.max(hi, y); } return hi - lo; };
+    for (let i = 0; i < stalls; i++) {
+      let best = null;
+      for (const rad of [6.2, 6.8, 5.8, 7.4]) for (const off of [0, 0.15, -0.15, 0.3, -0.3, 0.45, -0.45, 0.6, -0.6, 0.75, -0.75, 0.9, -0.9, 1.05, -1.05, 1.2, -1.2]) {
+        const a = (i / stalls) * TAU + 0.35 + off, x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad;
+        if (lamps.some((l) => Math.hypot(l.x - x, l.z - z) < 3) || taken.some((q) => Math.hypot(q.x - x, q.z - z) < 4.8)) continue;
+        const rg = rough(x, z) + Math.abs(rad - 6.2) * 0.05; if (!best || rg < best.rg) best = { x, z, rg };
+      }
+      if (best && best.rg < 0.35) { taken.push(best); out.push({ k: 'stall', x: best.x, z: best.z, v: i }); }
+    }
+    for (const s of [-1, 1]) out.push({ k: 'bench', x: pl.x + s * 2.6, z: pl.z + 3.8, v: 0 });
+    { // the notice board: the nearest free spot round the well, clear of lamps, stalls and benches, on level ground
+      const others = out.filter((p) => p.k === 'lamp' || p.k === 'stall' || p.k === 'bench'); let best = null;
+      for (const rad of [4.4, 5, 3.8, 5.6, 6.2, 7, 7.8]) for (let k = 0; k < 36; k++) {
+        const a = (k / 36) * TAU + 0.9, x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad;
+        if (others.some((q) => Math.hypot(q.x - x, q.z - z) < (q.k === 'stall' ? 4.3 : q.k === 'bench' ? 3.6 : 3)) || Math.hypot(x - pl.x, z - pl.z) < 3.4) continue;
+        let lo = 1e9, hi = -1e9; for (const dx of [-1.8, 0, 1.8]) for (const dz of [-0.6, 0.6]) { const y = islandHeight(isl, x + dx, z + dz); lo = Math.min(lo, y); hi = Math.max(hi, y); }
+        const rg = hi - lo + rad * 0.02; if (!best || rg < best.rg) best = { x, z, rg };
+      }
+      if (best && best.rg < 1.0) out.push({ k: 'board', x: best.x, z: best.z, v: 0 });
+    }
+  }
+  if (pl && isl.port) { // the guard station: a small stone post on level dry ground a little way off the plaza, clear of buildings and the other props; arrested players wake up in front of it
+    const others = out.filter((q) => q.k === 'lamp' || q.k === 'stall' || q.k === 'bench' || q.k === 'board' || q.k === 'well'); let best = null;
+    for (const rad of [10.5, 11.5, 9.5, 12.5, 13.5, 8.8, 15, 17, 19, 21]) for (let k = 0; k < 48; k++) {
+      const a = (k / 48) * TAU + 2.2, x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad;
+      if (others.some((q) => Math.hypot(q.x - x, q.z - z) < 4.6) || town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 3.6 && Math.abs(b.z - z) < b.d / 2 + 3.6)) continue;
+      let lo = 1e9, hi = -1e9; for (const dx of [-3, 0, 3]) for (const dz of [-1.2, 1.2, 3.4]) { const y = islandHeight(isl, x + dx, z + dz); lo = Math.min(lo, y); hi = Math.max(hi, y); }
+      const rg = hi - lo + rad * 0.03; if (lo > 0.6 && (!best || rg < best.rg)) best = { x, z, rg };
+    }
+    if (best && best.rg < 1.8) out.push({ k: 'station', x: best.x, z: best.z, v: 0 });
+  }
+  if (isl.port) { // dock furniture
+    const d = isl.port.dock, len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), ux = (d.x1 - d.x0) / len, uz = (d.z1 - d.z0) / len, rr = rngFor(isl.seed, 12);
+    for (let k = 1; k < Math.floor(len / 2); k++) {
+      const x = d.x0 + ux * k * 2, z = d.z0 + uz * k * 2, s = rr() < 0.5 ? -1 : 1;
+      if (k % 3 === 0) { out.push({ k: 'lamp', x: x - uz * 1.65, z: z + ux * 1.65, v: 1 }); out.push({ k: 'lamp', x: x + uz * 1.65, z: z - ux * 1.65, v: 1 }); }
+      else if (k > 1 && rr() < 0.35) out.push({ k: rr() < 0.5 ? 'crate' : 'barrel', x: x - uz * 1.5 * s, z: z + ux * 1.5 * s, v: (rr() * 4) | 0 });
+    }
+  }
+  if (isl.treasure) out.push({ k: 'xmark', x: isl.treasure.x, z: isl.treasure.z, v: 0 });
+  return out.sort((a, b) => a.z - b.z);
+}
+bindProps(islandProps);
