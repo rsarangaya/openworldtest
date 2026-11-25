@@ -423,3 +423,31 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - A raider's health bar carries a skull (red eyes) on its left end; other ships keep the plain bar.
 - While "Clear the Lanes" or a cull contract is unfinished, there are raiders within 400 of your ship: fewer than 2 that close and one more arrives (200-350 away, mostly ahead, anywhere in open water if land is in the way), at most one every 8 s. It stops when the job's count is reached.
 - 84 tests pass. Seen in Chrome: the skull on a raider's bar, none on a trader. Build 240.6 kB. Pushed together with Round 55.
+
+## Round 57 (2026-11-24): weather
+- **Spells (`rules/weather.js`):** 200 s spells blending over 30 s, a pure function of the world seed and time (nothing saved). Clear, cloudy, rain, storm, fog; cold places (Asgard, the rim near the Wall) get snow instead of rain. A new game's first 400 s are always clear.
+- **Look:** greyer sky, light and water with cloud cover; thick haze in fog; rain streaks and snow flakes on a small overlay at the game's pixel size (at most 220, none when dry or under a roof); lightning flashes in storms; a label under the wind dial.
+- **Sea and sailing:** storms raise the swell up to about 60% (same number for the ships and the water shader; still flat near islands), blow up to 40% harder and swing the wind about.
+- **Danger:** in a storm, in open water, with more than 55% sail, the hull loses 2 every 8 s, never below 10 (weather alone cannot sink you). Reefing (S) or an island's lee is safe.
+- **Sound:** rain hiss and rolling thunder after each flash.
+- **Debug:** "Weather: next" cycles automatic, clear, cloudy, rain, storm, fog, snow.
+- The wake's V arms and stern churn were thinned (they read as solid white lines up close).
+- 85 tests pass (1 new). Seen in Chrome: storm with rain, fog, snow, no console errors. Not heard: rain and thunder. Not measured: frame rate cost on a foreground tab (the automation tab read 40 fps during snow). Build 245.4 kB. Not pushed.
+- Not done: day and night, weather changing the NPCs or towns, snow lying on the ground.
+
+## Round 58 (2026-11-24): optimization pass
+- **Measured first.** CPU per frame in Chrome: about 0.4 ms rules, 1.5-3 ms drawing at sea (12-22 ships, storm or clear), 3 ms in a town; 60 fps in clear and storm at 3440x1440. The real problem was building a city island in one frame (15-31 ms in Node), which causes hitches when sailing into new waters.
+- **Island building spread over frames:** the ground is a generator (`islandGroundSteps`) that pauses between heights, colours and rows of triangles; buildings are a separate step. Worst single step 31 ms -> about 10.5 ms (Node).
+- **View culling:** sectors wholly behind or beside the camera are no longer sent to the GPU.
+- **Wake:** the swell is sampled once per strip end instead of per corner: 0.26 -> 0.13 ms per ship (Node).
+- Indoors test for rain only runs when it is raining or snowing.
+- The debug panel now shows CPU ms (rules + draw).
+- 85 tests pass; build 246.0 kB. Seen in Chrome: sailing fast past islands and a town, nothing missing, no console errors; in a 20 s fast sail, average frame 17.3 ms, 25 of 1190 frames over 26 ms, one 143 ms hitch (no before figure for that run; cause not found). GPU time itself is not measured. Not pushed.
+
+## Round 59 (2026-11-24): rain makes rougher seas, bow spray, the hitch, no more triangles, twice the ship speed
+- **Rougher in weather:** swell x1.4 in rain (was 1.15), x1.8 in a storm, x1.2 in snow.
+- **Bow spray:** when a hull drives into a rising sea (weather only) a burst of round droplets flies off for 3/4 s, with a splash sound for your ship. Billboards only, ships within 160.
+- **No triangles (user):** the splash sprite (bow, cannon, sinking, the Wall) is now round drops; the wake is built from soft round foam patches, not pointed wedges.
+- **Hitch:** sprite canvases are now kept in main memory (`willReadFrequently`) since the palette snap reads them straight back, and at most about 4 ms of new sprites are painted a frame (the rest appear on the next frames). Same fast-sail test in Chrome: worst frame 45 ms (was 143), none over 50 ms; 38 of 1066 frames over 26 ms (was 25 of 1190), average 19.4 ms (was 17.3). One run each, in an automation tab, so the averages are noisy.
+- **Speed doubled:** top sail speed 15 -> 30, oars 4.5 -> 9, every enemy kind's speed x2, fleet ships follow, turn and speed up to match, fast travel time halved; grounding damage is unchanged for the same impact.
+- 85 tests pass (three adjusted for the new speeds). Build 246.8 kB. Not heard: splash sound.

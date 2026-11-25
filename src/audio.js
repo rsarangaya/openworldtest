@@ -1,6 +1,6 @@
 // Procedural audio (no sample files): sea, wind, cannons, coins. Built on the first click or key press.
 export function createAudio() {
-  let ac, out, sea, wind, windF, vol = 0.7, mus, murmur, echo, scene = { foot: false, town: 0 }, nextBar = 0, nextVoice = 0, nextGull = 0, bar = 0;
+  let ac, out, rainGain, sea, wind, windF, vol = 0.7, mus, murmur, echo, scene = { foot: false, town: 0 }, nextBar = 0, nextVoice = 0, nextGull = 0, bar = 0;
   const noiseBuf = () => { const n = ac.sampleRate * 3, b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); for (let i = 0, l = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = l * 3.5; } return b; };
   function init() {
     if (ac) { ac.resume?.(); return; }
@@ -8,6 +8,7 @@ export function createAudio() {
     out = ac.createGain(); out.gain.value = vol * 0.95; const lim = ac.createDynamicsCompressor(); lim.threshold.value = -16; lim.ratio.value = 6; out.connect(lim); lim.connect(ac.destination); // a soft limiter so cannons never clip
     const nb = noiseBuf(), src = (f, type, g) => { const s = ac.createBufferSource(); s.buffer = nb; s.loop = true; const bq = ac.createBiquadFilter(); bq.type = type; bq.frequency.value = f; const gn = ac.createGain(); gn.gain.value = g; s.connect(bq); bq.connect(gn); gn.connect(out); s.start(); return { gn, bq }; };
     const a = src(380, 'lowpass', 0.5), w = src(900, 'bandpass', 0.0);
+    rainGain = src(2600, 'highpass', 0).gn; // the hiss of rain
     sea = a.gn; wind = w.gn; windF = w.bq;
     const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 0.12; lg.gain.value = 0.18; lfo.connect(lg); lg.connect(sea.gain); lfo.start();
     // the town crowd: a low murmur that swells and falls
@@ -56,6 +57,12 @@ export function createAudio() {
       wind.gain.setTargetAtTime(foot ? 0.05 + cold * 0.2 : Math.min(0.5, 0.05 + Math.abs(speed) * 0.04 + cold * 0.25), t, 0.3); windF.frequency.setTargetAtTime(700 + cold * 500, t, 0.5); },
     // nearest whale-like animal and bird distances (world units), called each frame
     critters(c) { if (!ac) return; const t = ac.currentTime; if (c.whale < 320 && t > nextWhale) { nextWhale = t + 16 + Math.random() * 18; whaleSong(Math.max(0.15, 1 - c.whale / 320)); } if (c.bird < 110 && t > nextCry) { nextCry = t + 4 + Math.random() * 8; cry(c.birdKind, Math.max(0.2, 1 - c.bird / 110)); } },
+    // rain hiss and a heavier wind in a storm, called each frame
+    weather(rain, storm) { if (!ac || !rainGain) return; const t = ac.currentTime; rainGain.gain.setTargetAtTime(0.16 * rain + 0.1 * storm, t, 0.8); },
+    // thunder after a delay (the further the bolt, the longer): a low rolling rumble
+    thunder(delay = 1, gain = 0.8) { if (!ac) return; const t = ac.currentTime + delay; this.nbuf ||= noiseBuf(); const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); n.buffer = this.nbuf; n.loop = true; f.type = 'lowpass'; f.frequency.setValueAtTime(420, t); f.frequency.exponentialRampToValueAtTime(60, t + 2.8); env(g, t, 0.05, 2.9, 1.3 * gain); n.connect(f); f.connect(g); g.connect(out); n.start(t); n.stop(t + 3.1); },
+    // water slapping the bow
+    splash(k = 1) { if (!ac) return; const t = ac.currentTime; this.nbuf ||= noiseBuf(); const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); n.buffer = this.nbuf; n.playbackRate.value = 2.4; f.type = 'bandpass'; f.frequency.setValueAtTime(1500, t); f.frequency.exponentialRampToValueAtTime(420, t + 0.5); f.Q.value = 0.7; env(g, t, 0.02, 0.55, 0.28 * Math.min(1.4, k)); n.connect(f); f.connect(g); g.connect(out); n.start(t, Math.random()); n.stop(t + 0.65); },
     boom(distGain = 1) { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(30, t + 0.4); env(g, t, 0.01, 0.5, 0.9 * distGain); o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.6);
       const s = ac.createBufferSource(); s.buffer = noiseBuf(); const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; const g2 = ac.createGain(); env(g2, t, 0.005, 0.35, 1.2 * distGain); s.connect(f); f.connect(g2); g2.connect(out); s.start(t); s.stop(t + 0.5); },
     coin() { if (!ac) return; const t = ac.currentTime; [880, 1320].forEach((f, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'triangle'; o.frequency.value = f; env(g, t + i * 0.08, 0.005, 0.25, 0.25); o.connect(g); g.connect(out); o.start(t + i * 0.08); o.stop(t + i * 0.08 + 0.3); }); },

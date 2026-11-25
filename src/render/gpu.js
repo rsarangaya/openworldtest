@@ -12,7 +12,7 @@ struct O{m:mat4x4f,tint:vec4f};
 @group(1)@binding(0) var<uniform> o:O;
 // keep in sync with wave() in rules/sea.js
 fn calmAt(p:vec2f)->f32{var c=1.;for(var i=0;i<8;i++){let z=g.calm[i];if(z.z>0.){c=min(c,smoothstep(z.z,z.z*2.1,length(p-z.xy)));}}return c;}
-fn wave(p:vec2f,t:f32)->f32{return calmAt(p)*3.*(.6*sin(p.x*.057+p.y*.026+t*.55)+.35*sin(p.x*-.038+p.y*.07+t*.78)+.18*sin(p.x*.085+p.y*-.06+t*1.05));}
+fn wave(p:vec2f,t:f32)->f32{return (1.+g.sun.w)*calmAt(p)*3.*(.6*sin(p.x*.057+p.y*.026+t*.55)+.35*sin(p.x*-.038+p.y*.07+t*.78)+.18*sin(p.x*.085+p.y*-.06+t*1.05));}
 fn wv(p:vec2f,t:f32,dist:f32)->vec3f{var r=vec3f(0.);for(var i=0;i<5;i++){let fi=f32(i);let a=.7+fi*1.9;let d=vec2f(cos(a),sin(a));let lam=90./pow(2.,fi*.95);let k=6.2832/lam;let amp=.8*pow(.58,fi)*(1.-smoothstep(lam*3.,lam*10.,dist));let ph=dot(p,d)*k+t*sqrt(k*9.8)*.7+fi*1.7;r+=vec3f(amp*sin(ph),amp*k*cos(ph)*d.x,amp*k*cos(ph)*d.y);}return r;}
 fn h21(p:vec2f)->f32{return fract(sin(dot(p,vec2f(127.1,311.7)))*43758.5453);}
 fn vn(p:vec2f)->f32{let i=floor(p);let f=fract(p);let u=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2f(1.,0.)),u.x),mix(h21(i+vec2f(0.,1.)),h21(i+vec2f(1.,1.)),u.x),u.y);}
@@ -24,6 +24,7 @@ fn skyCol(rd:vec3f)->vec3f{
   c+=vec3f(1.,.85,.6)*(pow(sd,600.)*3.+pow(sd,12.)*.25);
   if(rd.y>.01){let q=rd.xz/(rd.y+.2)*1.3+vec2f(0.,0.);let n=.6*vn(q*1.6)+.4*vn(q*3.3);let cl=step(.58,n)*step(.03,rd.y);
     c=mix(c,vec3f(1.,.98,.95)*(.78+.22*sd)*mix(1.,.72,g.fwd.w),cl*.9);}
+  let o=g.deepC.w;c=mix(c,g.fogC.rgb*(.88+.24*vn(rd.xz/(abs(rd.y)+.25)*2.)),clamp(o*.95,0.,.97));
   return c;}
 fn fogMix(c:vec3f,w:vec3f)->vec3f{let d=length(w-g.cam.xyz);let f=clamp(1.-exp(-d*g.fogC.w),0.,1.);return mix(c,g.fogC.rgb,floor(f*8.+.5)/8.);}
 struct VO{@builtin(position)p:vec4f,@location(0)w:vec3f,@location(1)n:vec3f,@location(2)c:vec3f,@location(3)d:f32};
@@ -157,7 +158,7 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
     const ux = -fy * 0 + (0 * fz - sz * fy), uy = sz * fx - sx * fz, uz = sx * fy - 0 * fx; // up = right x forward
     const vp = mul(perspective(c.fov, W / H, 0.1, f.far), lookAt(c.x, c.y, c.z, c.x + fx, c.y + fy, c.z + fz));
     G.set(vp, 0);
-    G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, 0.45, 0.8, 0.3, 0, ...f.pal.fog, f.pal.density, ...f.pal.deep, 0, ...f.pal.shal, 0], 16);
+    G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, 0.45, 0.8, 0.3, (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, 0], 16);
     for (let i = 0; i < 8; i++) { const z = f.calm?.[i]; G.set(z ? [z[0], z[1], z[2], 0] : [0, 0, 0, 0], 48 + i * 4); }
     Q.writeBuffer(gBuf, 0, G, 0, 80);
     const ext = f.extent, cell = (2 * ext) / 140, wm = model(Math.round(c.x / cell) * cell, 0, Math.round(c.z / cell) * cell, 0, 0, 0, ext);

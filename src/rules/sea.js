@@ -4,7 +4,10 @@
 let Z = [];
 export const setCalm = (z) => { Z = z; };
 export const calm = (x, z) => { let c = 1; for (const q of Z) { const d = Math.hypot(x - q[0], z - q[1]); if (d < q[2] * 2.1) { const u = Math.max(0, Math.min(1, (d - q[2]) / (q[2] * 1.1))); c = Math.min(c, u * u * (3 - 2 * u)); } } return c; };
-export const wave = (x, z, t) => calm(x, z) * 3 * (0.6 * Math.sin(x * 0.057 + z * 0.026 + t * 0.55) + 0.35 * Math.sin(x * -0.038 + z * 0.07 + t * 0.78) + 0.18 * Math.sin(x * 0.085 + z * -0.06 + t * 1.05));
+// how much bigger the weather makes the swell (1 = a normal day); the water shader gets the same number
+let rough = 1;
+export const setRough = (r) => { rough = r; };
+export const wave = (x, z, t) => calm(x, z) * rough * 3 * (0.6 * Math.sin(x * 0.057 + z * 0.026 + t * 0.55) + 0.35 * Math.sin(x * -0.038 + z * 0.07 + t * 0.78) + 0.18 * Math.sin(x * 0.085 + z * -0.06 + t * 1.05));
 
 // direction the wind blows TOWARD (radians), drifts slowly; speed 0.5..1
 // The wind comes in spells of SPELL seconds. Each spell is a seeded coin flip: with chance WIND_KIND it blows roughly toward `goal` (the bearing to the current objective, if there is one), otherwise it is the old free-drifting random wind. Spells blend into each other so the arrow never jumps.

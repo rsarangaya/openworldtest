@@ -10,7 +10,7 @@ const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a
 
 export function bake(box, S, fn) { // render fn into a canvas that covers box (units) at S pixels per unit
   const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil((box.x1 - box.x0) * S)); c.height = Math.max(1, Math.ceil((box.y1 - box.y0) * S));
-  const g = c.getContext('2d'); g.translate(-box.x0 * S, -box.y0 * S); g.scale(S, S); g.lineJoin = 'round'; g.lineCap = 'round';
+  const g = c.getContext('2d', { willReadFrequently: true }); g.translate(-box.x0 * S, -box.y0 * S); g.scale(S, S); // kept in main memory: the palette snap reads it straight back g.lineJoin = 'round'; g.lineCap = 'round';
   fn(g); return { c, ox: -box.x0 * S, oy: -box.y0 * S, S };
 }
 // shaded shape: darker base, lighter body shifted up-left (leaves a crescent of shade), then the ink outline
@@ -212,9 +212,10 @@ export function paintFlash(g) {
 }
 export function paintHurt(g) { for (const [x, y, r] of [[-0.5, 0.2, 0.28], [0.3, -0.3, 0.34], [0.55, 0.4, 0.22], [-0.1, 0.5, 0.2], [-0.4, -0.5, 0.24]]) cel(g, ell(x, y, r, r, 0), [0.78, 0.1, 0.12], { lw: 0.06, shade: 0.7 }); }
 export function paintSmoke(g) { for (const [x, y, r] of [[-0.45, 0.2, 0.55], [0.4, 0.25, 0.5], [0, -0.3, 0.65]]) cel(g, ell(x, y, r, r * 0.9), [0.62, 0.64, 0.7], { lw: 0.09 }); }
-export function paintSplash(g) {
-  cel(g, poly(-1, 0.9, -0.55, -0.2, -0.25, 0.9), [0.85, 0.95, 1], { lw: 0.07 }); cel(g, poly(-0.4, 0.9, 0, -1, 0.4, 0.9), [0.9, 0.97, 1], { lw: 0.07 }); cel(g, poly(0.25, 0.9, 0.55, -0.2, 1, 0.9), [0.85, 0.95, 1], { lw: 0.07 });
-  for (const [x, y] of [[-0.9, -0.5], [0.85, -0.4], [0.3, -1], [-0.45, -0.95]]) fillPath(g, ell(x, y, 0.12, 0.12), '#cfeaff');
+export function paintSplash(g) { // round drops flung up and out
+  for (const [x, y, r] of [[-0.75, 0.35, 0.2], [-0.4, -0.1, 0.27], [0, -0.5, 0.31], [0.42, -0.12, 0.26], [0.78, 0.3, 0.2], [-0.15, 0.45, 0.24], [0.28, 0.5, 0.2], [-0.62, -0.55, 0.12], [0.6, -0.6, 0.13], [0.05, -0.98, 0.11], [-0.95, -0.15, 0.09], [0.98, -0.2, 0.09]]) {
+    fillPath(g, ell(x, y, r, r), 'rgba(196,226,250,1)'); fillPath(g, ell(x - r * 0.25, y - r * 0.28, r * 0.55, r * 0.55), '#f6fbff');
+  }
 }
 // a signpost outside every shop: a board on a post with the trade's picture (bag = shop, mug = tavern, ship = shipwright, anchor = sailor, snowflake = warden)
 export const SIGN_BOX = { x0: -1.6, x1: 1.6, y0: -4.1, y1: 0.3 };

@@ -6,6 +6,7 @@ import { KINDS } from './gen/world.js';
 import { SHIPS } from './rules/ships.js';
 import { MAX_FOOD } from './rules/trade.js';
 import { PARTS } from './rules/parts.js';
+import { weatherForce, KINDS_W } from './rules/weather.js';
 
 export const debugEnabled = () => /[?&]debug\b/.test(location.search);
 
@@ -30,6 +31,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Clear enemies', (s) => { s.enemies.clear(); s.guards = []; s.foes = []; }],
     ['Clear bounty', (s) => { s.bounty = 0; s.bountyGold = 0; s.alert = {}; }],
     ['Skip 10 minutes', (s) => { s.t += 600; }],
+    ['Weather: next', (s) => { const list = [null, ...KINDS_W]; weatherForce.kind = list[(list.indexOf(weatherForce.kind) + 1) % list.length]; say(s, 'Weather ' + (weatherForce.kind || 'automatic')); }],
   ];
   const text = () => { const s = get(); if (!s || !el) return; const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; el.querySelector('#dbgInfo').textContent = `${s.realm || 'terra'}  x ${p.x.toFixed(0)}  z ${p.z.toFixed(0)}  (${Math.hypot(p.x, p.z).toFixed(0)} from centre)\nships ${s.enemies.size}  fx ${s.fx.length}  quest ${s.quest}  gold ${Math.round(s.gold)}${god ? '  GOD' : ''}\n${info()}`; };
   function toggle() {

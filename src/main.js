@@ -2,10 +2,13 @@
 import { createRenderer } from './render/gpu.js';
 import { model, mul } from './render/math.js';
 import { SHIPS } from './rules/ships.js';
-import { islandMesh, wallMesh, shipMesh, shipParams, ballMesh } from './gen/mesh.js';
+import { islandGroundSteps, islandStructs, wallMesh, shipMesh, shipParams, ballMesh } from './gen/mesh.js';
 import { islandProps } from './gen/props.js';
 import { createSprites } from './render/sprites.js';
 import { newTrail, feed, buildWake } from './wake.js';
+import { createWeatherFx } from './weatherfx.js';
+import { roughOf } from './rules/weather.js';
+import { weatherNow } from './rules/game.js';
 import { createDebug, debugEnabled } from './debug.js';
 import { warpText } from './rules/realm.js';
 import { lifeAt, clearLife } from './rules/life.js';
@@ -53,9 +56,15 @@ const atkFrame = (e, near, walk) => { const la = s.t - (e.atk ?? -9); if (la >= 
 // a sector is created empty and its meshes are built one at a time within a few ms per frame, so sailing never hitches
 // the wall's mesh for one sector (flagged so it can be swapped alone when the breach opens)
 const wallTask = (sx, sz) => () => { if (s && s.realm && s.realm !== 'terra') return null; const w = wallMesh(s?.baseSeed || BASE_SEED, sx, sz, !!s?.flags?.crossed); return w ? { m: renderer.upload(w), mat: IDENT, tint: [1, 1, 1], wall: true } : null; };
+// a city is built over several frames: each stage of the ground is one step of the task, which puts itself back at the front of the queue until done
+const islandTasks = (k, isl) => {
+  const it = islandGroundSteps(isl);
+  const ground = { k, build: () => { const r = it.next(); if (!r.done) { tasks.unshift(ground); return null; } return { m: renderer.upload(r.value), mat: IDENT, tint: [1, 1, 1], detail: 2 }; } };
+  return [ground, { k, build: () => ({ m: renderer.upload(islandStructs(isl)), mat: IDENT, tint: [1, 1, 1], detail: 1 }) }];
+};
 function queueSector(sx, sz) {
   const k = key(sx, sz); sectors.set(k, { sx, sz, objs: [] });
-  for (const isl of sectorIslands(SEED, sx, sz)) tasks.push({ k, build: () => { const im = islandMesh(isl); return [{ m: renderer.upload(im.ground), mat: IDENT, tint: [1, 1, 1], detail: 2 }, { m: renderer.upload(im.structs), mat: IDENT, tint: [1, 1, 1], detail: 1 }]; } });
+  for (const isl of sectorIslands(SEED, sx, sz)) tasks.push(...islandTasks(k, isl)); /* ground in stages, then the buildings */
   tasks.push({ k, build: wallTask(sx, sz) });
 }
 function pump(budgetMs) {
@@ -133,11 +142,33 @@ function updateCalm(t) {
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(SEED, cx + i, cz + j)) z.push([isl.x, isl.z, isl.r * 1.7, Math.hypot(isl.x - cam.x, isl.z - cam.z)]);
   z.sort((p, q) => p[3] - q[3]); calmZ = z.slice(0, 8); setCalm(calmZ);
 }
+// can any of this sector (a square, with the wall's overhang) be on screen?
+const SECTOR_REACH = 480;
+function sectorSeen(sec, halfView) {
+  const dx = (sec.sx + 0.5) * 600 - cam.x, dz = (sec.sz + 0.5) * 600 - cam.z, d = Math.hypot(dx, dz); if (d <= SECTOR_REACH) return true;
+  return Math.abs(wrapPi(Math.atan2(dz, dx) - cam.yaw)) <= halfView + Math.asin(SECTOR_REACH / d);
+}
+// spray when a hull drives into a rising sea: no state in the game rules, just a handful of splash sprites for 3/4 of a second (rain and storms only)
+const splashes = new Map();
+function bowSplash(id, x, z, yaw, L, B, speed, t, rough, sound) {
+  if (rough < 1.12 || !sprites) return;
+  let w = splashes.get(id); if (!w) { if (splashes.size > 40) splashes.clear(); splashes.set(id, (w = { t0: -9, prev: 0, k: 0 })); }
+  const c = Math.cos(yaw), sn = Math.sin(yaw), dive = wave(x + c * L, z + sn * L, t) - wave(x, z, t); // how far the water stands above midships at the stem
+  const th = 0.02 * L;
+  if (w.prev <= th && dive > th && t - w.t0 > 0.8 && (speed > 2 || rough > 1.5)) { w.t0 = t; w.k = Math.min(1.5, (rough - 1) * 1.3 + speed / 44); sound?.(w.k); }
+  w.prev = dive;
+  const age = (t - w.t0) / 0.75; if (age < 0 || age >= 1) return;
+  for (let i = 0; i < 14; i++) {
+    const side = i % 2 ? 1 : -1, out = B * (0.95 + (i % 3) * 0.45) + age * (3 + 1.6 * (i % 3)) * w.k, f = L * (1.05 - (i % 5) * 0.22) - age * speed * 0.2, px = x + c * f - sn * side * out, pz = z + sn * f + c * side * out;
+    bb(sprites.fx('splash'), px, wave(px, pz, t) + 1.2 + (6 + (i % 3) * 3.5) * w.k * age * (1 - age) * 2.2, pz, (0.34 + 0.3 * w.k + (i % 3) * 0.08) * (1 - age * 0.55) * Math.max(1, L / 9));
+  }
+}
 function render(t) {
   updateCalm(t); sweepWakes(); if (sprites && s) sprites.setTheme(s.realm || 'terra');
   const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = s && s.realm === 'asgard' ? 0.85 : Math.max(0, Math.min(1, (zone - 0.5) / 0.4)) * (1 - Math.max(0, Math.min(1, (zone - 1) * WALL_R / 700))), R = opts.distance; // past the Wall the sky turns warm
-  const objects = []; BB.n = 0;
-  for (const sec of sectors.values()) if (Math.max(Math.abs(sec.sx - sectorOf(cam.x)), Math.abs(sec.sz - sectorOf(cam.z))) <= R) objects.push(...sec.objs);
+  sprites?.frame(); const objects = []; BB.n = 0; const sea = s ? roughOf(weatherNow(s)) : 1;
+  const halfView = Math.atan(Math.tan(0.525) * (innerWidth / innerHeight)) + 0.12; // half the horizontal field of view, plus a margin
+  for (const sec of sectors.values()) if (Math.max(Math.abs(sec.sx - sectorOf(cam.x)), Math.abs(sec.sz - sectorOf(cam.z))) <= R && sectorSeen(sec, halfView)) objects.push(...sec.objs);
   if (s) {
     if (s.ship) {
       const sk = s.sunkT === undefined ? 0 : Math.min(1, (s.t - s.sunkT) / SINK_S), P = playerGpu(s.shipClass || 'sailboat'), hm = shipMat(s.ship.x, s.ship.z, s.ship.yaw, t, -(s.ship.turn || 0) * Math.min(1, s.ship.speed / 8) * 0.14, sk);
@@ -145,6 +176,7 @@ function render(t) {
       objects.push({ m: P.hull, mat: hm, tint: ph });
       for (const q of P.sails) objects.push({ m: q.g, mat: sailMat(hm, q.x, s.ship.trim || 0), tint: ph });
       if (!sk) wake(objects, 'P', s.ship.x, s.ship.z, s.ship.yaw, (SHIPS[s.shipClass] || SHIPS.sailboat).L, (SHIPS[s.shipClass] || SHIPS.sailboat).B, Math.abs(s.ship.speed), t);
+      if (!sk) bowSplash('P', s.ship.x, s.ship.z, s.ship.yaw, (SHIPS[s.shipClass] || SHIPS.sailboat).L, (SHIPS[s.shipClass] || SHIPS.sailboat).B, Math.abs(s.ship.speed), t, sea, s.mode === 'ship' ? (k) => audio.splash(k) : null);
     }
     if (sprites && s.mode !== 'foot' || (sprites && !s.deck)) { // sea life and birds: flat sprites, mirrored to face the way they swim relative to the camera
       const L = lifeAt(s.realm || 'terra', s.seed, t, cam.x, cam.z, LIFE, s.mode === 'ship' && s.ship ? s.ship : null), rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
@@ -152,7 +184,7 @@ function render(t) {
       for (const c of L) bb(sprites.critter(c.kind, c.dx * rx + c.dz * rz >= 0 ? 'R' : 'L', c.fr), c.x, c.y + (c.air ? 0 : wave(c.x, c.z, t)), c.z, c.air ? 2.4 : 2);
     }
     for (const e of s.enemies.values()) {
-      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind, s.realm === 'asgard' ? 'v' : ''), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, e.id, e.x, e.z, e.yaw, enemyLen(e), enemyBeam(e), e.speed, t);
+      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind, s.realm === 'asgard' ? 'v' : ''), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) { wake(objects, e.id, e.x, e.z, e.yaw, enemyLen(e), enemyBeam(e), e.speed, t); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 160) bowSplash(e.id, e.x, e.z, e.yaw, enemyLen(e), enemyBeam(e), e.speed, t, sea); }
       const dd = Math.hypot(e.x - cam.x, e.z - cam.z); // a health bar above every enemy ship you can see: bigger with distance so it stays readable
       if (dd < 260 && sprites && e.maxHp) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((e.hp / e.maxHp) * 10))), e.kind === 'raider'), e.x, 15 + wave(e.x, e.z, t) * 0.9, e.z, Math.max(1, Math.min(3.2, dd / 40)));
     }
@@ -198,9 +230,12 @@ function render(t) {
     }
   }
   const far = R * SECTOR * 1.5 + 600, mix = (a, b) => a.map((v, i) => lerp(v, b[i], cold));
+  // the weather greys the sky and the light, thickens the haze and raises the swell
+  const wx = s ? weatherNow(s) : null, over = wx ? Math.min(1, Math.max(wx.cloud * 0.75 + wx.storm * 0.25, wx.fog)) : 0, rough = wx ? roughOf(wx) : 1, haze = wx ? 1 + 8 * wx.fog * wx.fog + 0.6 * wx.rain + 0.5 * wx.snow + 0.5 * wx.storm : 1;
+  const grey = wx && wx.fog > 0.5 ? [0.7, 0.74, 0.78] : [0.42, 0.47, 0.55], dull = (c) => c.map((v, i) => lerp(v, grey[i] * (wx && wx.storm > 0.5 ? 0.82 : 1), over * 0.8)), shade = (c) => c.map((v) => v * (1 - 0.32 * over));
   renderer.draw({
     cam: { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch, fov: 1.05 }, t, far, extent: R * SECTOR * 1.3 + 200, objects, bb: BB, calm: calmZ,
-    pal: { cold, density: 2.4 / (R * SECTOR * 0.8 + 300), fog: mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96]), deep: mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27]), shal: mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72]) },
+    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96])), deep: shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27])), shal: shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72])) },
   });
 }
 // pixel-art look: the world is drawn at a small internal height (opts.pixels, default 270) and the browser scales it up with hard edges
@@ -335,11 +370,12 @@ try {
   const clock = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 100)'], { type: 'text/javascript' })));
   clock.onmessage = () => { if (!(opts.afk && document.hidden && s && renderer)) { hiddenAt = 0; return; } const now = performance.now(); if (!hiddenAt) { hiddenAt = now; return; } const el = Math.min(2, (now - hiddenAt) / 1000); hiddenAt = now; T += el; advance(el, 150); };
 } catch { /* no workers here: AFK then only covers losing the mouse */ }
+const weatherFx = createWeatherFx((delay, gain) => audio.thunder(delay, gain));
 const dbg = debugEnabled() ? createDebug({
   get: () => s, say,
   teleport: () => { clearLife(); updateSectors(s.ship.x, s.ship.z, true); cam.blend = 1; view.yaw = s.ship.yaw; orbit.yaw = 0; },
   warp: (to) => { if ((s.realm || 'terra') === to) return; s.warp = { to, t0: s.t, ang: -1.5 }; startWarp(to); },
-  info: () => 'fps ' + (window.__fps || 0).toFixed(0) + '  sectors ' + sectors.size + (performance.memory ? '  heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : ''),
+  info: () => 'fps ' + (window.__fps || 0).toFixed(0) + '  cpu ' + (window.__ms?.step || 0).toFixed(2) + '+' + (window.__ms?.draw || 0).toFixed(2) + ' ms  sectors ' + sectors.size + (performance.memory ? '  heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : ''),
 }) : null;
 // ---------------------------------------------------------------- main loop
 // what the ears should hear: at sea, or ashore, and how busy the town around you is (louder near the plaza, bigger in cities)
@@ -372,17 +408,22 @@ function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now; T += dt;
   applyGuard();
   if (renderer.lost) { ui.error('The graphics device was lost: ' + renderer.lost + '. Reload the page.'); return; }
+  const p0 = performance.now();
   if (!(opts.afk && document.hidden)) advance(dt, 5);
+  const p1 = performance.now();
   updateCamera(dt, T);
   const fx = s ? (s.mode === 'ship' && s.ship ? s.ship.x : s.foot.x) : cam.x, fz = s ? (s.mode === 'ship' && s.ship ? s.ship.z : s.foot.z) : cam.z;
   updateSectors(fx, fz);
   render(T);
+  { const live = s && phase !== 'menu', w = live ? weatherNow(s) : null, indoors = live && w.rain + w.snow > 0 && s.mode === 'foot' && !s.deck && (standingOn(s) ? islandTown(standingOn(s)).buildings.some((b) => Math.abs(b.x - s.foot.x) < b.w / 2 && Math.abs(b.z - s.foot.z) < b.d / 2) : false);
+    weatherFx.draw(dt, w, live ? Math.sin(s.wind.dir - cam.yaw) : 0, indoors); audio.weather(w && !indoors ? w.rain : 0, w ? w.storm : 0); }
   if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
     ui.updateHud(s, { prompt: pr, yaw: cam.yaw }); showAfk();
     audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
+  const p2 = performance.now(), M = (window.__ms ||= { step: 0, draw: 0 }); M.step += (p1 - p0 - M.step) * 0.05; M.draw += (p2 - p1 - M.draw) * 0.05; // smoothed CPU milliseconds a frame
   fpsN++; fpsT += dt; if (fpsT > 1) { window.__fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
 }
 

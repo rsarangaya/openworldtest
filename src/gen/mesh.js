@@ -207,9 +207,14 @@ function plazaProps(m, isl, town) {
 }
 
 // ---------------------------------------------------------------- islands
-export function islandMesh(isl) {
+// built in two pieces (bare ground, then everything standing on it) so a big city is never made in a single frame
+export const islandMesh = (isl) => ({ ground: islandGround(isl), structs: islandStructs(isl) });
+export function islandGround(isl) { const it = islandGroundSteps(isl); for (;;) { const r = it.next(); if (r.done) return r.value; } }
+// the ground pauses between its heavy stages (heights, colours, rows of triangles) so the caller can spread it over several frames
+export function* islandGroundSteps(isl) {
   const m = new Mesh(), town = islandTown(isl), ext = isl.r * 1.5, N = clamp(Math.round((ext * 2) / (isl.port ? 4.5 : 6)), 24, 72), st = (ext * 2) / N, W = N + 1, H = new Float32Array(W * W);
-  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) H[j * W + i] = Math.max(-2, islandHeight(isl, isl.x - ext + i * st, isl.z - ext + j * st));
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { H[j * W + i] = Math.max(-2, islandHeight(isl, isl.x - ext + i * st, isl.z - ext + j * st)); if (i === N && j % 24 === 23) yield; }
+  yield;
   const h = (i, j) => H[clamp(j, 0, N) * W + clamp(i, 0, N)];
   const P = (i, j) => [isl.x - ext + i * st, h(i, j), isl.z - ext + j * st];
   const NR = (i, j) => { const nx = h(i - 1, j) - h(i + 1, j), nz = h(i, j - 1) - h(i, j + 1), l = Math.hypot(nx, 2 * st, nz); return [nx / l, (2 * st) / l, nz / l]; };
@@ -227,13 +232,15 @@ export function islandMesh(isl) {
     return c.map((v) => Math.min(1, v));
   };
   const VC = new Array(W * W), VN = new Array(W * W);
-  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { const p = P(i, j), nrm = NR(i, j); VN[j * W + i] = nrm; VC[j * W + i] = colorAt(p[0], p[1], p[2], nrm); }
+  for (let j = 0; j <= N; j++) { for (let i = 0; i <= N; i++) { const p = P(i, j), nrm = NR(i, j); VN[j * W + i] = nrm; VC[j * W + i] = colorAt(p[0], p[1], p[2], nrm); } if (j % 24 === 23) yield; }
+  yield;
   const V = (i, j) => [P(i, j), VC[j * W + i], VN[j * W + i]];
   const tri = (a, b, c) => { const A = V(...a), B = V(...b), C = V(...c); m.triN(A[0], B[0], C[0], A[1], B[1], C[1], A[2], B[2], C[2]); };
   // finer cells wherever a building stands, so the ground meets the walls and floors exactly (no terrain poking through a shop floor)
   const vtx = (x, z, yy) => { const y = yy ?? Math.max(-2, islandHeight(isl, x, z)), e = 0.7, nx = islandHeight(isl, x - e, z) - islandHeight(isl, x + e, z), nz = islandHeight(isl, x, z - e) - islandHeight(isl, x, z + e), l = Math.hypot(nx, 2 * e, nz), nrm = [nx / l, (2 * e) / l, nz / l]; return [[x, y, z], colorAt(x, y, z, nrm), nrm]; };
   const nearBuilding = (x0, z0, x1, z1) => town.buildings.some((b) => x1 > b.x - b.w / 2 - 2.2 && x0 < b.x + b.w / 2 + 2.2 && z1 > b.z - b.d / 2 - 2.2 && z0 < b.z + b.d / 2 + 2.2);
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    if (i === 0 && j % 12 === 11) yield;
     if (Math.max(h(i, j), h(i + 1, j), h(i + 1, j + 1), h(i, j + 1)) < -1.5) continue;
     const x0 = isl.x - ext + i * st, z0 = isl.z - ext + j * st;
     if (isl.port && nearBuilding(x0, z0, x0 + st, z0 + st)) {
@@ -246,7 +253,11 @@ export function islandMesh(isl) {
       }
     } else { tri([i, j], [i, j + 1], [i + 1, j + 1]); tri([i, j], [i + 1, j + 1], [i + 1, j]); }
   }
-  const split = m.v.length; // everything before this is bare ground; everything after is structures (they get crease outlines, the ground does not)
+  return m;
+}
+// everything built on the ground: buildings and the dock (these get crease outlines, the ground does not)
+export function islandStructs(isl) {
+  const m = new Mesh(), town = islandTown(isl);
   for (const b of town.buildings) building(m, isl, b);
   if (isl.port) { // dock: planks, pilings, lanterns, crates, barrels, rope
     const d = isl.port.dock, len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), n = Math.ceil(len / 2) + 1, ux = (d.x1 - d.x0) / len, uz = (d.z1 - d.z0) / len, rr = rngFor(isl.seed, 12);
@@ -256,8 +267,7 @@ export function islandMesh(isl) {
       if (k % 2 === 0) for (const s of [-1, 1]) m.box(x - uz * 1.8 * s, (DOCK_Y + 0.3 - 1.8) / 2, z + ux * 1.8 * s, 0.36, DOCK_Y + 2.1, 0.36, [0.28, 0.2, 0.13]);
     }
   }
-  const ground = new Mesh(); ground.v = m.v.slice(0, split); m.v = m.v.slice(split);
-  return { ground, structs: m };
+  return m;
 }
 
 // ---------------------------------------------------------------- ice wall: a continuous cliff, same height all the way round, banded deep blue to white, with an overhanging snow lip, icicles and rubble at the foot.

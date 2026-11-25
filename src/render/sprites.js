@@ -7,12 +7,17 @@ import { quantize, SOFT } from './palette.js';
 const PERSON_SCALE = 0.6; // the painted person is ~3.4 units tall; scale to a ~2 unit human
 export function createSprites(R) {
   const cache = new Map(); let epoch = R.atlasEpoch, theme = 'terra'; // the look of the realm in play (people and, later, more)
+  // new sprites are painted within a small time budget a frame (a new town needs hundreds): the rest appear over the next frames
+  let spent = 0; const BUDGET = 4;
+  const frame = () => { spent = 0; };
   function get(key, box, S, paint) {
     if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
     let s = cache.get(key); if (s) return s;
+    if (spent > BUDGET) return null;
+    const t0 = performance.now();
     const b = bake(box, SOFT ? S * 3 : S, paint); if (!SOFT) quantize(b.c);
     const uv = R.addSprite(b.c); if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
-    s = { uv, x0: box.x0, x1: box.x1, top: -box.y0, bot: -box.y1 }; cache.set(key, s); return s;
+    s = { uv, x0: box.x0, x1: box.x1, top: -box.y0, bot: -box.y1 }; cache.set(key, s); spent += performance.now() - t0; return s;
   }
   const prop = (p, bi) => {
     switch (p.k) {
@@ -51,5 +56,5 @@ export function createSprites(R) {
   const gate = () => get('gate', A.GATE_BOX, 12, (g) => A.paintGate(g));
   const hp = (n, skull) => (skull ? get('sk' + n, A.SKULL_HP_BOX, 12, (g) => A.paintSkullHp(g, n / 10)) : get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10)));
   const critter = (kind, dir, fr) => get(`cr${kind}${dir}${fr}`, A.CRIT_BOX[kind], 10, (g) => A.paintCritter(g, kind, dir, fr));
-  return { prop, person, setTheme, critter, fallen, hp, fx, gate, PERSON_SCALE };
+  return { frame, prop, person, setTheme, critter, fallen, hp, fx, gate, PERSON_SCALE };
 }

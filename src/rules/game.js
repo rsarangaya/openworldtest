@@ -1,7 +1,8 @@
 // Game rules, stepped at a fixed rate with no drawing code, so they run (and are tested) in plain Node.
 // Two modes: 'foot' (first person, on land) and 'ship' (third person, at sea).
 import { GOODS, SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS } from '../gen/world.js';
-import { sailEfficiency, windAt, windAngle, polar, pointOfSail } from './sea.js';
+import { sailEfficiency, windAt, windAngle, polar, pointOfSail, setRough, calm } from './sea.js';
+import { weatherAt, isCold, roughOf, windMul, gust } from './weather.js';
 import { weaponOf, equip, WEAPON_ORDER } from './weapons.js';
 import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } from './rep.js';
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
@@ -24,7 +25,7 @@ import { islandProps } from '../gen/props.js';
 import { townsfolk, folkPos } from '../gen/world.js';
 
 export const DT = 1 / 60;
-export const ROW_SPEED = 4.5, MAX_SPEED = 15, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
+export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
 const wrapPi = (a) => a - TAU * Math.floor((a + Math.PI) / TAU);
 
 // a start spot with open space all round it (nothing solid within 2.4)
@@ -348,11 +349,11 @@ export function stepFleet(s, dt) {
     let tg = null, td = order === 'attack' ? 400 : order === 'escort' || order === 'guard' ? 180 : 0;
     if (td) for (const e of s.enemies.values()) { if (e.hp <= 0 || !isHostile(s, e)) continue; const d = Math.hypot(e.x - f.x, e.z - f.z); if (d < td) { td = d; tg = e; } }
     let want, spd;
-    if (tg) { const a = Math.atan2(tg.z - f.z, tg.x - f.x); want = td < 70 ? a + (Math.sin(a - f.yaw) >= 0 ? -Math.PI / 2 : Math.PI / 2) : a; spd = Math.min(k.speed * 2.4, 11); }
+    if (tg) { const a = Math.atan2(tg.z - f.z, tg.x - f.x); want = td < 70 ? a + (Math.sin(a - f.yaw) >= 0 ? -Math.PI / 2 : Math.PI / 2) : a; spd = Math.min(k.speed * 2.4, 22); }
     else if (order === 'guard') { const d = Math.hypot(f.ax - f.x, f.az - f.z); want = Math.atan2(f.az - f.z, f.ax - f.x); spd = d > 50 ? k.speed * 1.5 : 0; }
-    else { const d = Math.hypot(sx - f.x, sz - f.z); want = Math.atan2(sz - f.z, sx - f.x); spd = d > 12 ? Math.min(k.speed * 3.2, 3 + d * 0.25, 13) : Math.max(0, p.speed * 0.9); }
-    f.yaw = wrapPi(f.yaw + Math.max(-0.5 * dt, Math.min(0.5 * dt, wrapPi(want - f.yaw))));
-    f.speed += (spd - f.speed) * Math.min(1, dt * 0.6);
+    else { const d = Math.hypot(sx - f.x, sz - f.z); want = Math.atan2(sz - f.z, sx - f.x); spd = d > 12 ? Math.min(k.speed * 4, 6 + d * 0.5, 36) : Math.max(0, p.speed * 0.9); }
+    f.yaw = wrapPi(f.yaw + Math.max(-1 * dt, Math.min(1 * dt, wrapPi(want - f.yaw))));
+    f.speed += (spd - f.speed) * Math.min(1, dt * 1.2);
     const ox = f.x, oz = f.z; f.x += Math.cos(f.yaw) * f.speed * dt; f.z += Math.sin(f.yaw) * f.speed * dt; const hh = HULL[f.kind] || HULL.trader;
     if (hullHit(s, f.x, f.z, f.yaw, hh[0], hh[1]) || Math.hypot(f.x, f.z) > WALL_R - 60) { f.x = ox; f.z = oz; f.yaw += 1.2 * dt * 6; f.speed *= 0.5; }
     if (tg && f.cd <= 0 && td < CANNON_RANGE) { const a = Math.atan2(tg.z - f.z, tg.x - f.x), dA = wrapPi(a - f.yaw); if (Math.abs(Math.abs(dA) - Math.PI / 2) < 0.5) { fire(s, 'player', f, dA > 0 ? 1 : -1, tg, k.dmg * 1.2); f.cd = CANNON_CD * 1.5; } }
@@ -506,9 +507,13 @@ export function warpNow(s) {
   s.mode = 'ship'; s.foot = { ...s.foot, x: p.x, z: p.z }; s.edgeT = s.t; s.wind = windAt(s.t, null);
   say(s, to === 'terra' ? 'Back in the Outer Sea. The Wall lies ahead.' : 'You have crossed into a new world.'); return true;
 }
+// the weather where you are (see rules/weather.js)
+export const weatherNow = (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; return weatherAt(s.seed, s.t, isCold(realmOf(s), p.x, p.z, WALL_R)); };
+const WEATHER_SAY = { rain: 'Rain sweeps in.', storm: 'A storm is breaking. Shorten sail or stay close to land.', fog: 'Fog rolls over the water.', snow: 'Snow begins to fall.', clear: 'The sky clears.' };
+function stepWeather(s) { const w = weatherNow(s); setRough(roughOf(w)); if (s.wxKind && w.kind !== s.wxKind && WEATHER_SAY[w.kind]) say(s, WEATHER_SAY[w.kind]); s.wxKind = w.kind; }
 function stepShip(s, inp, dt) {
   const p = s.ship, gate = gatePos(s.baseSeed || s.seed);
-  s.wind = windAt(s.t, windGoal(s));
+  s.wind = windAt(s.t, windGoal(s)); const wx = weatherNow(s); s.wind = { dir: s.wind.dir + gust(wx, s.t), speed: Math.min(1.35, s.wind.speed * windMul(wx)) }; // storms blow harder and swing about
   if (s.cine) inp = {}; // the breakthrough scene drives the ship
   let rudder = inp.rudder || 0, sailIn = inp.sail || 0;
   if (s.cine) { rudder = Math.max(-1, Math.min(1, wrapPi(s.cine.ang - p.yaw) * 2.5)); sailIn = 1; p.sail = 1; s.row = false; s.auto = false; }
@@ -528,7 +533,7 @@ function stepShip(s, inp, dt) {
   if (hitNow && hullHit(s, ox, oz, p.yaw, cls.L, cls.B)) { // turning swung the hull over the shore (or she was already inside): never lock the helm, just shoulder her out to sea
     const d = Math.hypot(p.x - hitNow.x, p.z - hitNow.z) || 1; p.x += ((p.x - hitNow.x) / d) * 4 * dt; p.z += ((p.z - hitNow.z) / d) * 4 * dt;
   } else if (hitNow) { // moving into land: stop
-    if (p.speed > 3) { s.hull -= p.speed * 0.7; say(s, 'Aground! The hull groans.'); }
+    if (p.speed > 6) { s.hull -= p.speed * 0.35; say(s, 'Aground! The hull groans.'); }
     p.x = ox; p.z = oz; p.speed = -p.speed * 0.3;
     if (s.auto) { s.auto = false; say(s, 'Autosail off.'); }
   }
@@ -550,6 +555,7 @@ function stepShip(s, inp, dt) {
       if (d >= OUTER_EDGE) { const a = Math.atan2(p.z, p.x), dest = destinationAt(a); if (dest) { s.warp = { to: dest.id, t0: s.t, ang: a }; s.events.push({ type: 'warp', to: dest.id }); } }
     }
   } else if (d > RIM_EXIT && !s.warp) { s.warp = { to: 'terra', t0: s.t, ang: Math.atan2(p.z, p.x) }; s.events.push({ type: 'warp', to: 'terra' }); }
+  if (wx.storm > 0.6 && p.sail > 0.55 && !s.cine && calm(p.x, p.z) > 0.8 && s.t - (s.stormT || 0) > 8) { s.stormT = s.t; if (s.hull > 10) { s.hull = Math.max(10, s.hull - 2); s.hitT = s.t; say(s, 'The storm batters her! Reef your sails (S) or find the lee of an island.'); } } // in open water under too much sail; weather alone never sinks you
   if (Math.abs(p.speed) > 0.5) { s.foodT += dt; if (s.foodT > 45) { s.foodT = 0; if (s.food > 0) s.food--; } }
   if (s.food <= 0 && Math.abs(p.speed) > 0.5) { s.hull -= 0.25 * dt; if (s.t - s.msgT > 12) { s.msgT = s.t; say(s, 'You are starving! Buy provisions.'); } }
   p.cd[0] = Math.max(0, p.cd[0] - dt); p.cd[1] = Math.max(0, p.cd[1] - dt);
@@ -597,7 +603,7 @@ function stepShip(s, inp, dt) {
 function stepMap(s) { if (realmOf(s) !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, realmOf(s)); } return; } const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing)) visit(s, isl); } }
 export function step(s, input, dt = DT) {
   if (s.over || s.ending) return;
-  s.t += dt;
+  s.t += dt; stepWeather(s);
   if (s.sunkT !== undefined) { // your own ship is going down: no more steering, she rolls over and slips under, then it is game over
     const a = s.t - s.sunkT, p = s.ship; p.x += Math.cos(p.yaw) * p.speed * dt; p.z += Math.sin(p.yaw) * p.speed * dt; p.speed *= 1 - Math.min(1, dt * 0.9); updateFx(s, dt);
     if (a < SINK_S - 1 && Math.floor(a * 3) !== Math.floor((a - dt) * 3)) puff(s, 'smoke', p.x + (hash(s.seed, Math.floor(a * 3)) % 5) - 2, 3 + a, p.z + (hash(s.seed, Math.floor(a * 3), 5) % 5) - 2, 1.6, { vy: 2, sc: 2 });
@@ -668,7 +674,7 @@ export const signContract = (s, o) => acceptContract(s, o, say);
 export const settleBoard = (s, isl) => settleContracts(s, isl, say);
 export const dropContract = (s, id) => abandonContract(s, id, say);
 // ---------------------------------------------------------------- fast travel (after the Wall is broken): to any port you have walked, within this world
-export const TRAVEL_SPEED = 10, TRAVEL_MIN = 20;
+export const TRAVEL_SPEED = 20, TRAVEL_MIN = 20;
 function placesOf(s) {
   const m = mapOf(s), realm = realmOf(s), pl = ((m.places ||= {})[realm] ||= {});
   if (realm === 'terra') { const miss = Object.keys(m.visited).filter((id) => !pl[id]); if (miss.length) { // old saves: find the docks of the ports already visited

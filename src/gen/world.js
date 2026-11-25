@@ -248,10 +248,10 @@ export function islandTown(isl) {
 
 // ---------------------------------------------------------------- ships at sea
 export const KINDS = {
-  trader: { hp: 40, speed: 3, hostile: false, dmg: 0, gold: [80, 200], label: 'Merchantman' },
-  navy: { hp: 75, speed: 4.2, hostile: 'bounty', dmg: 9, gold: [120, 260], label: 'Navy cutter' },
-  raider: { hp: 38, speed: 4.6, hostile: true, dmg: 7, gold: [60, 180], label: 'Raider' },
-  ghost: { hp: 62, speed: 4, hostile: true, dmg: 10, gold: [150, 320], label: 'Ghost ship' },
+  trader: { hp: 40, speed: 6, hostile: false, dmg: 0, gold: [80, 200], label: 'Merchantman' },
+  navy: { hp: 75, speed: 8.4, hostile: 'bounty', dmg: 9, gold: [120, 260], label: 'Navy cutter' },
+  raider: { hp: 38, speed: 9.2, hostile: true, dmg: 7, gold: [60, 180], label: 'Raider' },
+  ghost: { hp: 62, speed: 8, hostile: true, dmg: 10, gold: [150, 320], label: 'Ghost ship' },
 };
 // is this point on (or right beside) an island: land, beach, docks or the town on it
 export function onLand(seed, x, z, pad = 40) { const cx = Math.floor(x / SECTOR), cz = Math.floor(z / SECTOR); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(seed, cx + i, cz + j)) if (Math.hypot(isl.x - x, isl.z - z) < isl.r * 1.8 + pad) return true; return false; }
