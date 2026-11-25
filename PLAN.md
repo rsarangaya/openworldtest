@@ -49,7 +49,7 @@ The player starts as an ordinary person on an expedition. Once the opening story
 
 ## Decided: art direction
 
-First person on land, third person at sea (the original mechanics, which the user liked), with **pixel-art anime graphics in the style of the user's MultiTest game**: low internal resolution, one fixed palette, navy outlines, flat colours, flat sprite people. No blocky voxel look, no grain. The top-down 2D renderer built along the way is not used. See STATUS.md.
+First person on land, third person at sea (the original mechanics, which the user liked), with **pixel-art anime graphics**: low internal resolution, one fixed palette, navy outlines, flat colours, flat sprite people. No blocky voxel look, no grain. The top-down 2D renderer built along the way is not used. See STATUS.md.
 
 ## Phases (nothing started past phase 0)
 
@@ -198,3 +198,23 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 ### Update (2026-11-24): the Wall has no gate, one weak spot; Asgard's look (decided)
 - **The Wall** is a continuous ice cliff, same height all round, banded deep blue to white with a snow lip, icicles and rubble. One stretch (the weak spot, seeded; `gateAngle` in code) is paler and cracked. It needs the ram at speed above 3.2. When broken it **stays open** (ragged edges, ice rubble) and you can sail back through. More weak spots in other directions come with more worlds (one per world, on that world's bearing).
 - **Asgard must look and feel different from Terra:** Vikings, not villagers (fur, braids and beards, horned and plain helmets, round shields, axes), timber long-halls with carved dragon-head gables and turf or shingle roofs, stave halls, rune stones, drying racks, smoke holes, fjord cliffs and pines, snow, longships (square striped sail, dragon prow, shields along the rail) for local and enemy ships, a cold palette, aurora. Asgardian sea life and birds are different from Terra's (ice whales and narwhals, seals, orca, ravens and white eagles, no tropical fish). Each world gets its own people, building, ship and creature set.
+
+## Where the plan stands (2026-11-25)
+**Done since the last note:** contracts board and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, optimization pass.
+
+**Open, in a suggested order**
+1. Check by eye and ear what has only been tested (fist, tavern menu, sounds, new landmarks).
+2. First monster (see below).
+3. Asgard second pass: rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.
+4. More town types: mining, smugglers, temple; layouts and clothing per type.
+5. Day and night.
+6. Underwater and salvage, then Atlantis; Olympus.
+7. Mercenary companies, fleet trade routes, land battles.
+
+### Mythical creatures (suggested 2026-11-25, waiting for the user's choice)
+One monster active at a time, in rare places, flat pixel sprites, hinted first by rumours; mostly fought with existing cannons, special shot, boarding and melee.
+- Outer Sea: sea serpent, ice leviathan (a waking "island"), ghost whale in fog.
+- Asgard: Jormungandr's young (storms), draugr longships, frost giant, Fenrir wolf pack, valkyries.
+- Atlantis (best with underwater): kraken (surface phase first), sirens, hippocampus (tameable).
+- Olympus: cyclops throwing boulders, harpies, hydra (fire shot), Scylla and Charybdis.
+Suggested first: sea serpent, then draugr longships, then the kraken's surface phase.

@@ -1,4 +1,4 @@
-// The one fixed palette the whole game is snapped to (the same 44 colours as the MultiTest game): dusty beiges, greys, pinks, navy outlines.
+// The one fixed palette the whole game is snapped to: dusty beiges, greys, pinks, navy outlines.
 // The GPU pixel pass and the sprite baker both use it, so sprites and the 3D world always match.
 // 16-bit style: black for outlines, 14 hue families x 6 shades (muted), greys, skin tones, a few creams and bright accents (107 colours)
 export const LOOK = typeof location !== 'undefined' ? (/[?&]look=(\w+)/.exec(location.search) || [])[1] : undefined; // previews: open the game with ?look=soft or ?look=mid

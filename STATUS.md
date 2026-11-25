@@ -1,45 +1,65 @@
 # Status
 
-Last updated: 2026-11-24 (end of day). **Free-roam sailing game: first person on land, third person at sea, pixel-art look. Built so far: the sea, towns and shops, the 8-quest story to the Wall, reputation and the law, bounty missions, boarding ships, ship parts and special shot, crew and fleets, hidden fighters, a hunting navy, town bombardment, and a world map that unlocks when the Wall is broken. Next: the contracts board (see PLAN.md).**
+Last updated: 2026-11-25. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (commit 73a8b16).
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 75 tests, all passing
-npm run build      # writes index.html (196.6 kB, 77.4 kB gzipped)
-npm run dev        # unminified build (copy it aside as index.readable.html if you want both)
+npm test           # 87 tests, all passing
+npm run build      # writes index.html (255.5 kB, 101.1 kB gzipped)
+npm run dev        # unminified build
 ```
 
-Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes. URL options: `?look=soft` (smooth colours, 720p) and `?look=mid` (540p).
+Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
+URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log, M map (only after the Wall is broken). At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map (after the Wall).
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log, M map (after the Wall; it has a Fast travel tab), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-23)
+## Where things stand (2026-11-25)
 
-Built since the first rounds (details in Rounds 11-18 below): ship classes and a shipyard with trade-in; a small starter boat with one triangular sail; real points of sail (stall head to wind, claw upwind about 45 degrees off, fastest on a beam reach) with a trim gauge; a big swell the ships ride, calm near islands; bow wake; speedometer; distinct enemy ships with health bars; denser seas with respawn and guaranteed raiders; compass targets for every quest; procedural music and town ambience; flat plateau islands; hull-shaped collision (no ships in islands); town notice boards with rival-crew stories and news about the player; a sword and killable NPCs (shops close, relatives reopen after 240 s).
+**In the game**
+- Story: 8 quests to the Wall; one weak spot, broken with the ram in a breakthrough scene; the breach stays open.
+- Open world after: Outer Sea, edge of the world picks the next world by bearing, fast travel to visited ports.
+- Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters.
+- Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets. Speeds doubled.
+- Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
+- World life: weather (rain, storms, fog, snow), sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
+- Asgard (first pass): Norse names, cold islands, longhouses, viking people, longships, its own animals.
+- Tools: AFK mode, debug panel, CPU time in the panel.
 
-Roadmap and build order: see `PLAN.md` (next: step 3 reputation, local + world; then governments/guards/bounties; ship parts and weapons; crew, fleets and mercenaries; storms, contracts, underwater, land battles).
+**Not verified by a person or by eye**
+- Sound (never heard by me): splash, rain, thunder, whale song, bird cries, wall break.
+- In the running game: the bare fist, the tavern menu, contracts in the tavern, the trade-port crane and fortress walls.
+- Real tab switching with AFK on; frame rate on a normal foreground tab; real mouse play.
 
-## Art direction (final): first person + pixel art, like MultiTest
+**Known gaps**
+- Asgard still uses Terra's island generator and layout; no rune stones, aurora, fjord coasts, mead hall, Norse music or its own weak spot.
+- Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
+- No day and night, underwater, monsters, mercenary companies or fleet trade routes.
+- Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
 
-The reference is the user's own **MultiTest** folder (a three.js first-person hack and slash: 960x540 pixel canvas, one fixed 44-colour palette, navy outlines, flat colours, procedural pixel sprites). This game copies that *look* with a much smaller engine (no three.js).
+The round-by-round history follows (newest at the end).
+
+## Art direction (final): first person + pixel art
+
+The look: a small pixel canvas scaled up with hard edges, one fixed palette, navy outlines, flat colours and procedural pixel sprites, drawn by a small engine of our own (no libraries).
 
 **Built, working, seen in Chrome:**
-- **Pixel pass:** the 3D world renders at 270 pixels high (Options -> Pixel detail) and the browser scales it up with hard edges. A final GPU pass snaps every pixel to MultiTest's palette and draws navy outlines wherever one surface is in front of another. No dithering, no grain (it was tried and removed: it hurt the eyes).
+- **Pixel pass:** the 3D world renders at 270 pixels high (Options -> Pixel detail) and the browser scales it up with hard edges. A final GPU pass snaps every pixel to one fixed palette and draws navy outlines wherever one surface is in front of another. No dithering, no grain (it was tried and removed: it hurt the eyes).
 - **Pixel billboard sprites:** people, trees, bushes, rocks, flowers, grass tufts, the well, market stalls, lamps, benches, crates, barrels, and the shop counters and shelves are flat anime pixel sprites (modest eyes (kept small on purpose), hair, little bodies, four facing directions and walk frames). Each is painted once, snapped to the palette, packed into one GPU atlas, and drawn as an instanced camera-facing quad. Shopkeepers stand inside their shops behind a counter; villagers stroll round the plaza.
 - **Mechanics as originally liked:** first person on land (mouse look, WASD, jump), third-person chase camera at sea, blended when you board or go ashore.
 - **No clipping:** the player is blocked by trees, rocks, the well, stalls, lamps, barrels, counters, shelves, shopkeepers and villagers; villagers walk a circle that clears every prop; props keep their distance from each other; shopkeepers clear their counters. All tested.
 - **Cheap:** about 3 ms CPU per frame, about 14 ms GPU, at a 270p internal size. (Do not trust the in-page fps counter when the tab is in the background: Chrome throttles it to about 1 fps.)
 
-**Grain / crawling fix (user report, with a screenshot of the ship):** the shimmer came from smooth gradients landing on different palette colours frame to frame. Measured as "% of pixels that change between two frames 0.7 s apart with the camera held still": **12.6% before, about 1-3% after** (spikes of 5-7% when a whole sea band or the ship steps). What changed, following how MultiTest stays calm (unlit flat tones, pre-made pixel textures, "no outlines past 60 m (they shimmer)"):
+**Grain / crawling fix (user report, with a screenshot of the ship):** the shimmer came from smooth gradients landing on different palette colours frame to frame. Measured as "% of pixels that change between two frames 0.7 s apart with the camera held still": **12.6% before, about 1-3% after** (spikes of 5-7% when a whole sea band or the ship steps). What changed, with calm techniques (unlit flat tones, pre-made pixel textures, "no outlines past 60 m (they shimmer)"):
 - No dither at all; colours are flat palette tones. All vertex-colour gradients (wall shading, roofs, sails, dock, ice) are flat per face.
 - Cel lighting in 3 flat levels, fog in 8 flat steps, no per-cell ground speckle, no fine colour noise on terrain.
 - Outlines only on surfaces closer than 60 units (none along the far horizon).
 - The sky has hard-edged pixel clouds that do not move. The sea **does move** (deliberate trade-off, kept at the user's request): slow swells shown as a few flat water tones, no ripples, glitter or foam noise.
 - The ship's bob is stepped (small discrete steps, smaller angles) and its hair-thin rigging is gone or thick; shopkeepers stand still.
-- MultiTest itself measured 0% in a static street scene, so its pipeline adds no noise of its own; anything left here comes from things that genuinely move (sea, ship steps, villagers).
+- A static scene with this pipeline adds no noise of its own; anything left here comes from things that genuinely move (sea, ship steps, villagers).
 
 **Fixed (user report: "I can't move, and all the people are condensed in one area"):** the start point was the plaza centre, which is where the well stands (solid), so the player spawned inside it and every step was refused. Now the player starts on the nearest spot with 2.4 units of open space all round (new test: every direction can move from the start on three seeds). Villagers: half still wander the plaza, the other half walk a wider loop (radius about 9-10.6) so people are spread through the town; the existing no-clipping test covers the new loop. Tests: 24/24.
 
@@ -92,7 +112,7 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - No reputation, guards or law yet: killing people only counts murders (`s.murders`) and closes shops for a while.
 - Landmasses are single islands, not continents.
 
-## Next steps
+## Next steps (old list, superseded by the top of this file and PLAN.md)
 
 1. Reputation, local per town and world per realm (PLAN.md step 3), fed by murders, piracy, quests and trade; prices, shop access and the notice board react.
 2. Governments, guards and bounties (step 4), then ship parts and weapons (step 5), then crew, fleets and mercenaries (step 6).
@@ -482,7 +502,7 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - 87 tests pass, build 255.3 kB. Every option exercised with a stand-in page in Node; not seen in the browser (Chrome extension not connected). Not pushed.
 
 ## Round 66 (2026-11-25): one bare fist, low on the right
-- Replaces the two corner fists of Round 63 (the user disliked them). View taken from HoneyHan's held weapon (upgrades branch, run in the built-in browser): low on the right, angled up toward the middle. One right fist with curled fingers, thumb along the inner side, wrist, cuff and sleeve; it jabs toward the crosshair on attack. Held weapons unchanged.
+- Replaces the two corner fists of Round 63 (the user disliked them). Viewpoint of a held weapon: low on the right, angled up toward the middle. One right fist with curled fingers, thumb along the inner side, wrist, cuff and sleeve; it jabs toward the crosshair on attack. Held weapons unchanged.
 - 87 tests pass, build 255.5 kB. The drawing was checked on its own with the game's pixel size; not yet seen over the 3D view (Chrome extension not connected). Not pushed.
 
 ## Round 67 (2026-11-25): the fist read as a left hand
