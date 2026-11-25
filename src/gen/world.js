@@ -229,7 +229,7 @@ export function islandTown(isl) {
       if (k === 'guard') { // a barred cell in the back right corner: bars along its front (with a gate you can be locked behind) and its left side; the sergeant's desk is at the front left
         const cx = x + 0.7, bz = z - 0.8, bar = (x0, x1, z0, z1) => (b.bars ||= []).push([x0, x1, z0, z1]); // bars block walking but are drawn as thin iron bars (mesh.js), not walls
         bar(cx, x + 1.4, bz - 0.1, bz + 0.1); bar(x + 3.9, x + w / 2, bz - 0.1, bz + 0.1); bar(cx, cx + 0.2, z - d / 2, bz + 0.1);
-        b.jail = { spawn: { x: x + 2.6, z: z - 2.2 }, gate: [x + 1.9, x + 3.9, bz - 0.15, bz + 0.15], cell: [cx, x + w / 2, z - d / 2, bz] };
+        b.jail = { spawn: { x: x + 1.7, z: z - 1.8 } /* clear of the bunk: overlapping it froze the player in the cell */, gate: [x + 1.9, x + 3.9, bz - 0.15, bz + 0.15], cell: [cx, x + w / 2, z - d / 2, bz] };
       }
       npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r, isl.theme), x: k === 'guard' ? x - 2.4 : x, z: k === 'guard' ? z + 1.4 : z - 1.4, y: sp.pad + 0.1, island: isl.id, shop: buildings.length - 1, seed: (isl.seed + i * 7919) >>> 0 });
       return;

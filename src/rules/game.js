@@ -24,6 +24,8 @@ import { hash, rngFor } from '../gen/rng.js';
 import { shipName, captainName } from '../gen/names.js';
 import { islandProps } from '../gen/props.js';
 import { townsfolk, folkPos } from '../gen/world.js';
+import { eventFor } from './events.js';
+import { stepSide, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -35,7 +37,7 @@ export function newGame(seed = 1717) {
   const targets = questWorld(seed), home = sectorIslands(seed, 0, 0)[0], plaza = islandTown(home).plaza;
   const s = {
     seed, t: 0, mode: 'foot', gold: 500, food: 0, hull: 100, maxHull: 100, hold: 20, cargo: {}, upgrades: {}, flags: {}, found: new Set(), dead: new Set(),
-    kills: 0, killsBy: {}, npcs: {}, murders: 0, rep: { world: 0, local: {} }, bounty: 0, bountyGold: 0, weapon: 'fists', weapons: {}, jailUntil: -1, fleet: [], fleetOrder: 'follow', crew: [], payT: 0, towns: {}, bombard: false, foes: [], parts: {}, ammo: { chain: 0, fire: 0 }, shot: 'round', deck: null, hunts: {}, handed: 0, jailed: {}, prisoner: null, hp: 100, maxHp: 100, hurtT: -99, guards: [], sinking: [], fx: [], hitT: -99, alert: {}, guardT: {}, score: 0, quest: 0, targets, ship: null, foodT: 0, msgT: 0,
+    kills: 0, killsBy: {}, npcs: {}, murders: 0, rep: { world: 0, local: {} }, bounty: 0, bountyGold: 0, weapon: 'fists', weapons: {}, jailUntil: -1, fleet: [], fleetOrder: 'follow', crew: [], payT: 0, towns: {}, bombard: false, foes: [], side: [], sdone: {}, comp: null, qa: null, fallen: [], ev: null, parts: {}, ammo: { chain: 0, fire: 0 }, shot: 'round', deck: null, hunts: {}, handed: 0, jailed: {}, prisoner: null, hp: 100, maxHp: 100, hurtT: -99, guards: [], sinking: [], fx: [], hitT: -99, alert: {}, guardT: {}, score: 0, quest: 0, targets, ship: null, foodT: 0, msgT: 0,
     foot: { x: plaza.x, z: plaza.z, y: plaza.y, yaw: 0, vy: 0 }, wind: windAt(0), enemies: new Map(), shots: [], log: [], events: [], over: false, ending: false,
   };
   const sw = islandTown(home).npcs.find((n) => n.kind === 'shipwright'); if (sw) s.foot.yaw = Math.atan2(sw.z - plaza.z, sw.x - plaza.x);
@@ -158,12 +160,14 @@ function stepGuards(s, dt) {
   if (!isl || !wantedHere(s, isl)) { if (s.guards.length) s.guards = []; if (!isl) s.alerted = false; return; }
   const pl = stationOf(isl) || islandTown(isl).plaza, rad = stationOf(isl) ? 4.5 : 14;
   if (s.guards.length < guardCount(isl) && s.t >= (s.guardT[isl.id] || 0)) {
-    s.guardT[isl.id] = s.t + 4; for (let k = 0; k < 12; k++) { const a = hash(s.seed, isl.id, s.t | 0, k) % (stationOf(isl) ? 314 : 628) / 100, /* the station's own side only: guards come out of its front door, never from inside it */ x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad; if (Math.hypot(x - f.x, z - f.z) > 9 && canStand(s, x, z, groundAt(s, x, z))) { s.guards.push({ id: hash(s.seed, isl.id, s.t | 0, k), seed: hash(isl.id, k, 9), isl: isl.id, x, z, y: groundAt(s, x, z), hp: GUARD_HP, cd: 1 }); break; } }
+    s.guardT[isl.id] = s.t + 4; for (let k = 0; k < 12; k++) { const a = hash(s.seed, isl.id, s.t | 0, k) % (stationOf(isl) ? 314 : 628) / 100, /* the station's own side only: guards come out of its front door, never from inside it */ x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad; if (Math.hypot(x - f.x, z - f.z) > (Math.hypot(pl.x - f.x, pl.z - f.z) < 7 ? 2.5 : 9) /* at their own door they may step out close by */ && canStand(s, x, z, groundAt(s, x, z))) { s.guards.push({ id: hash(s.seed, isl.id, s.t | 0, k), seed: hash(isl.id, k, 9), isl: isl.id, x, z, y: groundAt(s, x, z), hp: GUARD_HP, cd: 1 }); break; } }
   }
   for (const g of s.guards) {
     const dx = f.x - g.x, dz = f.z - g.z, d = Math.hypot(dx, dz) || 1; g.cd = Math.max(0, g.cd - dt); g.face = Math.atan2(dz, dx);
-    if (d > 2) { // walk at you; a wall in the way makes them steer round it (turn one way, and keep to that side until the way is clear)
-      const sp = GUARD_SPEED * dt, base = Math.atan2(dz, dx); let moved = false;
+    const reach = shareRoom(s, g, f) ? 3.2 : 2; // inside the same shop he can strike across the counter
+    if (d > reach) { // walk at you; a wall in the way makes them steer round it (turn one way, and keep to that side until the way is clear)
+      if (!(d > g.best - 1)) { g.best = d; g.bestT = s.t; } else if (g.best === undefined) { g.best = d; g.bestT = s.t; } else if (s.t - g.bestT > 5) { comeRound(s, g, f); g.best = undefined; } // no headway: he takes another way round
+      const [wx, wz] = viaDoor(s, g, f.x, f.z), sp = GUARD_SPEED * dt, base = Math.atan2(wz - g.z, wx - g.x); let moved = false;
       for (const m of [0, 0.5, 1, 1.6, 2.2]) { for (const sg of m ? [g.side || 1, -(g.side || 1)] : [1]) { const an = base + m * sg, mx = Math.cos(an) * sp, mz = Math.sin(an) * sp; if (canStand(s, g.x + mx, g.z + mz, g.y)) { g.x += mx; g.z += mz; if (m) g.side = sg; moved = true; break; } } if (moved) break; }
       g.y = groundAt(s, g.x, g.z); g.walk = (g.walk || 0) + dt; }
     else if (g.cd <= 0) { g.cd = 1; g.atk = s.t; s.hp -= GUARD_HIT; s.hurtT = s.t; s.events.push({ type: 'hit' }); }
@@ -217,7 +221,20 @@ function placeTarget(s, w, h) {
   for (let k = 0; k < 160; k++) { const a = r() * TAU, d = isl.port ? 9 + r() * Math.max(6, isl.r * 0.45) : 5 + r() * 10, x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, g = groundAt(s, x, z); if (g >= 0.8 && canStand(s, x, z, g) && roomy(s, x, z)) { h.x = x; h.z = z; h.y = g; return; } }
   const sp = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 6, 22); if (sp) { h.x = sp.x; h.z = sp.z; } else { h.x = pl.x + 6; h.z = pl.z; } h.y = groundAt(s, h.x, h.z);
 }
-function walkToward(s, e, tx, tz, sp) {
+const shareRoom = (s, a, b) => islandsAt(s, b.x, b.z).some((i) => islandTown(i).buildings.some((h) => [a, b].every((p) => Math.abs(p.x - h.x) < h.w / 2 && Math.abs(p.z - h.z) < h.d / 2)));
+// a guard hung up on walls or props comes up the clear approach in front of the door you are behind (steering alone cannot plan a way there)
+function comeRound(s, g, f) {
+  for (const i of islandsAt(s, f.x, f.z)) for (const b of islandTown(i).buildings) if (Math.abs(f.x - b.x) < b.w / 2 && Math.abs(f.z - b.z) < b.d / 2) for (const k of [5, 4, 3, 2]) { const z = b.z + b.d / 2 + k, y = groundAt(s, b.x, z); if (canStand(s, b.x, z, y)) { g.x = b.x; g.z = z; g.y = y; return; } }
+  const p = freeSpotNear(s, f.x, f.z, f.x - Math.cos(f.yaw), f.z - Math.sin(f.yaw), 5, 11); if (p) { g.x = p.x; g.z = p.z; g.y = groundAt(s, p.x, p.z); } // in the open: he turns up behind you
+}
+// someone chasing a target indoors goes by the door (every door is in the middle of the building's front, +z)
+function viaDoor(s, e, tx, tz) {
+  const inside = (b, x, z) => Math.abs(x - b.x) < b.w / 2 && Math.abs(z - b.z) < b.d / 2;
+  for (const i of islandsAt(s, tx, tz)) for (const b of islandTown(i).buildings) if (inside(b, tx, tz) && !inside(b, e.x, e.z)) { const front = b.z + b.d / 2; return [b.x, Math.abs(e.x - b.x) > 0.6 || e.z < front ? front + 1.2 : front - 1.4]; }
+  return [tx, tz];
+}
+function walkToward(s, e, gx, gz, sp) {
+  const [tx, tz] = viaDoor(s, e, gx, gz);
   const base = Math.atan2(tz - e.z, tx - e.x);
   for (const m of [0, 0.5, 1, 1.6, 2.2]) for (const sg of m ? [e.side || 1, -(e.side || 1)] : [1]) { const an = base + m * sg, mx = Math.cos(an) * sp, mz = Math.sin(an) * sp; if (canStand(s, e.x + mx, e.z + mz, e.y ?? 0)) { e.x += mx; e.z += mz; if (m) e.side = sg; e.y = groundAt(s, e.x, e.z); e.walk = (e.walk || 0) + sp; e.face = base; return true; } }
   return false;
@@ -267,7 +284,7 @@ function stepHunts(s, dt) {
     const isl = here.find((i) => i.port), lost = Math.floor(s.gold * 0.1); s.gold -= lost; s.hp = s.maxHp * 0.5; freePrisoner(s, 'Your prisoner escapes while you lie senseless.');
     for (const w of board(s)) { const h = s.hunts[w.id]; if (h && h.st === 'free') { h.hp = w.hp; h.x = undefined; } }
     const pl = isl ? islandTown(isl).plaza : f, sp = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 4.8, 14); if (sp) s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: f.yaw, vy: 0 };
-    say(s, `You were beaten senseless. You wake in the street, ${lost} gold lighter.`); s.events.push({ type: 'arrest', yaw: s.foot.yaw });
+    say(s, `You were beaten senseless. You wake ${isl ? 'in the street' : 'where you fell'}, ${lost} gold lighter.`); s.events.push({ type: 'arrest', yaw: s.foot.yaw });
   }
 }
 
@@ -400,8 +417,12 @@ function swing(s) {
   for (const t of board(s)) { const h = s.hunts[t.id]; if (t.kind !== 'foot' || !h || h.x === undefined || (h.st !== 'free' && h.st !== 'sub')) continue; const dx = h.x - f.x, dz = h.z - f.z, d = Math.hypot(dx, dz); if (d < w.reach && d < bd && (dx * fx + dz * fz) / (d || 1) > w.cone * 0.6) { hitTarget(s, t, h, w.dmg, islandsAt(s, f.x, f.z).find((i) => i.id === t.island.id)); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; } }
   if (s.deck && !s.deck.won) for (const d of s.deck.defs) { if (d.st !== 'free') continue; const dx = d.x - f.x, dz = d.z - f.z, dd = Math.hypot(dx, dz); if (dd < w.reach && dd < bd && (dx * fx + dz * fz) / (dd || 1) > w.cone * 0.6) { hitDefender(s, d, w.dmg); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; } }
   for (const g of s.guards) { const dx = g.x - f.x, dz = g.z - f.z, d = Math.hypot(dx, dz); if (d < w.reach && d < bd && (dx * fx + dz * fz) / (d || 1) > w.cone * 0.6) { bd = d; g.hp -= w.dmg; g.hitT = s.t; spray(s, g.x, g.y + 1.3, g.z, 4); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); if (g.hp <= 0) { deed(s, 'killWarden', g.isl, 0.5); s.bountyGold += 150; s.bounty = Math.max(s.bounty, 1); say(s, 'You cut down a guard.'); s.events.push({ type: 'kill' }); } return; } }
+  if (swingSide(s, G)) return;
   if (w.ranged) s.events.push({ type: 'cannon', x: f.x, z: f.z });
   if (best) { spray(s, bx, groundAt(s, bx, bz) + 1.3, bz, 4); hurtNpc(s, ...best, w.dmg, bi, bx, bz); } s.events.push({ type: 'slash', hit: !!best, w: s.weapon, swing: true });
+}
+function unfreeze(s, f) {
+  for (let r = 0.2; r < 2.5; r += 0.2) for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU, x = f.x + Math.cos(a) * r, z = f.z + Math.sin(a) * r; if (canStand(s, x, z, f.y)) { f.x = x; f.z = z; return; } }
 }
 function stepFoot(s, inp, dt) {
   const f = s.foot;
@@ -409,6 +430,7 @@ function stepFoot(s, inp, dt) {
   if (inp.wsel) equip(s, WEAPON_ORDER[inp.wsel - 1]);
   f.cd = Math.max(0, (f.cd || 0) - dt); if (inp.attack && f.cd <= 0) { f.cd = weaponOf(s).cd; swing(s); }
   const sp = (inp.run ? 7.5 : 4) * dt, fx = Math.cos(f.yaw), fz = Math.sin(f.yaw);
+  if (!s.deck && blocked(s, f.x, f.z)) unfreeze(s, f);
   let dx = fx * (inp.mz || 0) - fz * (inp.mx || 0), dz = fz * (inp.mz || 0) + fx * (inp.mx || 0);
   const l = Math.hypot(dx, dz); if (l > 1) { dx /= l; dz /= l; }
   dx *= sp; dz *= sp;
@@ -612,6 +634,24 @@ function stepShip(s, inp, dt) {
   }
 }
 
+// side stories, town events and companions get the ground helpers they need
+const G = { islandsAt: (s, x, z) => islandsAt(s, x, z), nearby: (s, x, z, r) => nearbyIslands(s, x, z, r), walk: (s, e, x, z, d) => walkToward(s, e, x, z, d), ground: (s, x, z) => groundAt(s, x, z), say, spray,
+  near: (s, x, z, r) => { const y0 = groundAt(s, x, z); for (let d = r; d < r + 8; d += 0.6) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, y = groundAt(s, px, pz); if (y >= 0.8 && Math.abs(y - y0) < 1.6 && roomy(s, px, pz)) return { x: px, z: pz, y }; } return null; }, // dry land beside a point
+  spot: (s, isl, seed) => { const pl = isl.port ? islandTown(isl).plaza : isl.landing || isl, r = rngFor(seed, 77); for (let k = 0; k < 120; k++) { const a = r() * TAU, d = (isl.port ? 8 : 4) + r() * (isl.port ? 12 : 10), x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, y = groundAt(s, x, z); if (y >= 0.8 && roomy(s, x, z)) return { x, z, y }; } const p = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 3, 26); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; } };
+export const sideOffersFor = (s, isl) => sideOffers(s, isl, G);
+export const takeSide = (s, offer) => acceptSide(s, offer, G);
+export const pickSide = (s, id, i) => chooseSide(s, id, i, G);
+export const dropSide = (s, id) => abandonSide(s, id, G);
+const crowdSpots = (s, isl, n) => { const P = islandTown(isl).plaza, out = []; for (let r = 4.2; r < 8 && out.length < n; r += 0.9) for (let k = 0; k < 12 && out.length < n; k++) { const a = (k * 5 % 12) * (TAU / 12) + r, x = P.x + Math.cos(a) * r, z = P.z + Math.sin(a) * r, y = groundAt(s, x, z); if (y >= 0.8 && !blocked(s, x, z) && Math.hypot(x - s.foot.x, z - s.foot.z) > 1.5 && out.every((q) => Math.hypot(q[0] - x, q[2] - z) > 1.3)) out.push([x, y, z]); } return out; };
+// once a second on foot: what is going on in the town you are in
+function stepEvents(s) {
+  if (s.mode !== 'foot' || s.deck) return;
+  const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => i.port); if (!isl) { s.ev = null; return; }
+  const ev = townState(s, isl.id) >= 2 ? null : eventFor(s, isl);
+  if (ev && (s.ev?.iid !== isl.id || s.ev.key !== ev.key)) say(s, `${isl.port.name}: ${ev.name}. ${ev.line}`);
+  if (!ev) s.ev = null; else if (s.ev?.iid !== isl.id || s.ev.key !== ev.key) s.ev = { iid: isl.id, key: ev.key, crowd: crowdSpots(s, isl, ev.folk || 0) };
+  if (ev?.smoke) { const bs = islandTown(isl).buildings, b = bs[(isl.seed >>> 0) % bs.length]; if (b) puff(s, 'smoke', b.x + (Math.floor(s.t) % 3) - 1, b.pad + b.h + 1, b.z, 2.2, { vy: 2.4, sc: 2.2 }); }
+}
 // input: { rudder, sail, fireL, fireR } at sea; { mx, mz, run, yaw } on foot
 function stepMap(s) { if (realmOf(s) !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, realmOf(s)); } return; } const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing) && visit(s, isl) && STYLES[isl.style]?.label && s.mode === 'foot') say(s, `${isl.port.name}, a ${STYLES[isl.style].label}. ${STYLES[isl.style].perk}`); } }
 export function step(s, input, dt = DT) {
@@ -624,7 +664,7 @@ export function step(s, input, dt = DT) {
     if (a >= SINK_S) s.over = true; return;
   }
   if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
-  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) stepContracts(s, say); stepGuards(s, dt); updateFx(s, dt);
+  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepSide(s, dt, G); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) { stepContracts(s, say); stepEvents(s); } stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
 }
@@ -658,6 +698,7 @@ export function prompt(s) {
   if (s.mode === 'ship') { const g = nearestShip(s); return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
   if (s.deck && !nearSub(s)) return s.deck.won ? 'F  Decide the ship\'s fate' : 'F  Cut the grapples and retreat';
   const sb = nearSub(s); if (sb) return s.prisoner ? 'You are already holding a prisoner' : `F  Bind ${sb.name} (${sb.crime})`;
+  const qa = nearActor(s); if (qa) return qa.kind === 'find' ? 'F  Search here' : `F  Speak with ${qa.name}`;
   const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.kind})`;
   for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
@@ -674,6 +715,7 @@ export function interact(s) {
     unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, 'Ashore.'); return { type: 'ashore' };
   }
   const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
+  const qa = nearActor(s); if (qa) return useActor(s, qa, G);
   const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; }
   if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; const dl = dialog(s, n), tip = learn(s, n, isl); if (tip) dl.lines = [...dl.lines, tip]; return { type: 'npc', npc: n, island: isl, ...dl }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
@@ -703,7 +745,7 @@ export function travelBlock(s) {
   if (s.deck) return 'Not in the middle of a boarding.';
   if (s.mode === 'foot' && !onPier(s)) return 'Walk back to your ship or to a pier to set off.';
   for (const e of s.enemies.values()) if (KINDS[e.kind].hostile && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) < 260 && (KINDS[e.kind].hostile === true || s.bounty)) return 'Enemy ships are too close.';
-  if (s.guards?.length || s.foes?.length) return 'Not while someone is after you.';
+  if (s.guards?.length || s.foes?.length || s.qa?.some((a) => a.awake)) return 'Not while someone is after you.';
   if (s.sinking?.length || s.sunkT !== undefined) return 'Not now.';
   return null;
 }

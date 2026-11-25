@@ -8,6 +8,7 @@ import { captainName, shipName, islandName } from '../gen/names.js';
 import { GOODS, islandTown } from '../gen/world.js';
 import { SHIPS } from './ships.js';
 import { board } from './hunt.js';
+import { eventFor } from './events.js';
 import { townState, TOWN_STATE } from './game.js';
 
 const cap = (w) => w[0].toUpperCase() + w.slice(1);
@@ -71,6 +72,7 @@ export function newsFor(s, isl) {
   const fame = s.kills + (s.found?.size || 0) * 2 + ((s.killsBy?.raider || 0) >= 2 ? 3 : 0);
   town.know = isl.port?.home ? 'It all happened right here in our harbour.' : fame >= 3 ? `People in ${isl.name} talk about little else.` : `Word of it reached ${isl.name} a few days ago.`;
   if (isl.port) { items.push({ tag: 'Prices', head: 'Harbourmaster', body: `${cap(isl.port.cheap)} is plentiful and cheap here this week. ${cap(isl.port.dear)} is short and dear. Buy and sell accordingly.` }); }
+  const ev = eventFor(s, isl); if (ev) items.push({ tag: 'Happening now', head: ev.name, body: ev.line });
   items.push({ tag: 'Overheard', head: 'North of the ice', body: asgardLine(s, isl.seed, n) }); // the long legend: it starts on day one
   for (const f of [pick(r, LOCAL)]) { const [h, b] = f(town, r); items.push({ tag: 'Local', head: h, body: b }); }
   if (isl.port) for (const w of board(s).slice(0, 2)) items.push({ tag: 'Wanted', head: w.name, body: `${w.crime}. Last heard of ${w.kind === 'ship' ? 'sailing the lanes in the ' + w.ship : 'near ' + w.where}. ${w.aliveOnly ? 'Wanted ALIVE only.' : 'Dead or alive.'} Reward ${w.reward} gold.` });

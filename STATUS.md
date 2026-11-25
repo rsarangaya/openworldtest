@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-25. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (commit 73a8b16).
+Last updated: 2026-11-25. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (rounds 68-71 included).
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 87 tests, all passing
-npm run build      # writes index.html (255.5 kB, 101.1 kB gzipped)
+npm test           # 94 tests, all passing
+npm run build      # writes index.html (285.7 kB, 112.8 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -507,3 +507,31 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 
 ## Round 67 (2026-11-25): the fist read as a left hand
 - User: the single fist looked like the left arm. The hand is now mirrored (thumb on the right, little finger on the left); the forearm still comes from the lower right. 87 tests pass. Checked only as a drawing preview. Not pushed.
+
+## Round 68 (2026-11-25): layered stories, town events, companions, new hands (pushed with the next commit)
+- Stories (rules/sidequests.js): saved as a small record, steps rebuilt from templates. Step kinds talk (with choices), find, fight. Four town stories (heirloom, missing brother, half a map, debt), two companion stories, five short event jobs. Taken from the notice board or the tavern (Anyone need help?), max 3, followed with a second compass line, listed in the Tab log (Follow / Give up).
+- Town events (rules/events.js): nine, about 55% of ports per notice issue; announced on arrival and on the board; some change food or goods prices, add a crowd or smoke, or post a job.
+- Companions: swordswoman, cartographer, the missing brother. One at a time, follows, fights, comments, can die; two can join the crew afterwards.
+- Hands: the bare-fist drawing is now used for every weapon (left hand mirrored), held from the lower right; walk bob only while moving; a pull-back before each swing.
+- Tests: 90 pass, including every story played to the end. Menus checked with a stand-in page in Node.
+- NOT seen in the running game (Chrome extension not connected): any of it, including the new people on the ground, the crowd, the HUD layout and the hands over the 3D view. CPU time not measured. In the drawings the second hand on sword and axe is mostly hidden behind the first.
+- Not built yet from PLAN.md: board / bring / timer steps, the other events and companions, rival-crew races at sea, Asgard versions.
+
+## Round 69 (2026-11-25): bug and speed check of round 68 (pushed with the next commit)
+- Fixed: a story gang that knocked you out kept knocking you out (6 times in 30 s in a probe); 177 of 942 event-crowd places were inside props; the walk bob and idle stopped after the first swing; the pistol flash was invisible (no CSS size or place); pistol shots at a story gang made no sound; a second would-be companion vanished silently; rehiring a companion could duplicate a crew id.
+- Checked: 3707 story steps across 157 ports all put the right people on the ground; the built file starts up to the WebGPU check in a stand-in page.
+- Speed (Node, game rules only): a step is 13.5 us idle, 15.6 us with two stories and a companion; the HUD story line 2.4 us. No change needed. Drawing cost is still unmeasured.
+- 91 tests pass. Still not seen in the running game.
+
+## Round 70 (2026-11-25): headless playthrough and the bugs it found (pushed with the next commit)
+- A bot played through the rules (walking and sailing with a path finder): opening, quests, all 11 side stories, events, contract, bounty hand-in, crew and ship, boarding, the Wall, Asgard, fast travel, jail, navy hunters, bombardment, a sea bounty, save/load, ten idle minutes. It used free gold, healing and jumps where noted in its log; the main quest was not followed strictly in order (the warden step was checked separately).
+- Fixed, from today's work: walking into a house-fire town with no buildings crashed the game; the story compass vanished when the followed story was in another world; stories and event crowds were not cleared on changing worlds.
+- Fixed, older: every arrest to a cell left you frozen in the bunk (all 42 stations); saves already stuck are freed on the next step. Guards often never reached you (stuck on buildings, or behind a shop door or counter, or never appearing while you stood in their station).
+- 94 tests pass. Still not seen in the running game: drawing, menus, mouse and keyboard, sound.
+
+
+## Round 71 (2026-11-25): top compass, map zoom and a chart look (pushed with the next commit)
+- Compass strip at the top centre (src/compass.js): compass points only, plus your ship's direction and distance when you are ashore. The objective box moved below it.
+- Map: scroll to zoom (up to 10x), drag to move, + / - / Find me; redrawn as a parchment sea chart (soft explored water, lumpy islands, town marks, ice wall, compass rose, scale, your ship). The map is still locked until the Wall is broken.
+- Fixed: the page-wide canvas style also pinned the map canvas over the map window's corner; Terra's chart drew the wrong world's islands while you were in another world.
+- Chart and compass seen in a preview page; the controls checked with a stand-in page. Not seen inside the running game.

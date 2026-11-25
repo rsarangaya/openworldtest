@@ -1,3 +1,4 @@
+import { COMPANIONS } from './rules/sidequests.js';
 // Entry point: game loop, input, cameras, and the bridge between the rules (rules/*), the generator (gen/*) and the renderer.
 import { createRenderer } from './render/gpu.js';
 import { model, mul } from './render/math.js';
@@ -201,6 +202,7 @@ function render(t) {
     const pw = s.prisoner && s.hunts[s.prisoner], pww = pw && byId(s, s.prisoner); if (pw && !pw.aboard && pww && pw.x !== undefined) bb(sprites.person('sailor', pww.seed, 'down', 1 + (((pw.walk || 0) * 1.4 | 0) & 1)), pw.x, pw.y ?? groundAt(s, pw.x, pw.z), pw.z, sprites.PERSON_SCALE); // the bound prisoner walks behind you
     for (const [id, h] of Object.entries(s.hunts || {})) if (h.st === 'killed' && s.t - h.deadT < CORPSE_S && h.x !== undefined && Math.hypot(h.x - cam.x, h.z - cam.z) < 220) { const k = byId(s, id); if (k?.seed !== undefined) bb(sprites.fallen('sailor', k.seed), h.x, (h.y || 0) + 0.05, h.z, sprites.PERSON_SCALE * Math.max(0.05, 1 - Math.max(0, (s.t - h.deadT) / CORPSE_S - 0.8) / 0.2)); }
     const px = s.mode === 'foot' ? s.foot.x : s.ship.x, pz = s.mode === 'foot' ? s.foot.z : s.ship.z;
+    const co = s.comp; if (co && co.x !== undefined && s.mode === 'foot' && !s.deck) { const la = s.t - (co.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person(COMPANIONS[co.key].kind, co.seed, 'down', ((t * 4) | 0) & 1), co.x + Math.cos(co.face || 0) * lu * 0.6, co.y ?? groundAt(s, co.x, co.z), co.z + Math.sin(co.face || 0) * lu * 0.6, sprites.PERSON_SCALE); } // whoever walks with you
     const bd = board(s); // once a frame, not once per island
     for (const isl of nearbyIslands(s, px, pz, 1)) if (Math.hypot(isl.x - px, isl.z - pz) < isl.r * 1.7 + 60) {
       const kb = (q, x, z) => { const a = q ? s.t - q.hit : 9; if (!(a < 0.28)) return [x, z, 1]; const f = Math.sin((a / 0.28) * Math.PI), dx = x - px, dz = z - pz, d = Math.hypot(dx, dz) || 1; return [x + (dx / d) * 0.5 * f, z + (dz / d) * 0.5 * f, 1 - 0.14 * f]; }; // a hit person is knocked back and squashes
@@ -214,6 +216,14 @@ function render(t) {
         bb(sprites.person('villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
       }
       for (const o of s.foes) if (o.isl === isl.id) { const la = s.t - (o.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person(o.kind, o.seed, 'down', atkFrame(o, Math.hypot(o.x - s.foot.x, o.z - s.foot.z) < 2.6, 1 + (((o.walk || 0) * 1.4 | 0) & 1))), o.x + Math.cos(o.face || 0) * lu * 0.7, o.y, o.z + Math.sin(o.face || 0) * lu * 0.7, sprites.PERSON_SCALE); hpBar(o.id, o.kind, o.x, o.y, o.z); } // a hidden fighter, now revealed
+      for (const a of s.qa || []) if (a.isl === isl.id) { // people in your stories: a speaker, a mark to search, or a gang
+        if (a.kind === 'find') { bb(sprites.fx('flash'), a.x, a.y + 0.7 + Math.sin(s.t * 3) * 0.2, a.z, 0.3); continue; }
+        if (a.kind === 'talk') { bb(sprites.person('villager', a.seed, 'down', 0), a.x, a.y, a.z, sprites.PERSON_SCALE); bb(sprites.fx('flash'), a.x, a.y + 3.1, a.z, 0.22); continue; }
+        const la = s.t - (a.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person('sailor', a.seed, 'down', atkFrame(a, Math.hypot(a.x - s.foot.x, a.z - s.foot.z) < 2.6, 1 + (((a.walk || 0) * 1.4 | 0) & 1))), a.x + Math.cos(a.face || 0) * lu * 0.7, a.y, a.z + Math.sin(a.face || 0) * lu * 0.7, sprites.PERSON_SCALE * (a.boss ? 1.18 : 1));
+        if (a.awake) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((a.hp / a.max) * 10)))), a.x, a.y + (a.boss ? 3.4 : 2.9), a.z, 0.5);
+      }
+      for (const b of s.fallen || []) if (s.t - b.t < CORPSE_S && Math.hypot(b.x - isl.x, b.z - isl.z) < isl.r * 1.7) bb(sprites.fallen('sailor', b.seed), b.x, b.y + 0.05, b.z, sprites.PERSON_SCALE);
+      if (s.ev?.iid === isl.id) (s.ev.crowd || []).forEach(([x, y, z], k) => bb(sprites.person('villager', (isl.seed + k * 131) >>> 0, 'down', ((t * 2 + k) | 0) & 1), x, y, z, sprites.PERSON_SCALE)); // a crowd round the well
       for (const g of s.guards) if (g.isl === isl.id) { // a guard lunges at you when it strikes and flinches when you hit it
         const la = s.t - (g.atk ?? -9), fa = s.t - (g.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
         bb(sprites.person('warden', g.seed, 'down', atkFrame(g, Math.hypot(g.x - s.foot.x, g.z - s.foot.z) < 2.6, 1 + (((g.walk || 0) * 5 | 0) & 1))), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 - fl * 0.12));
@@ -314,6 +324,7 @@ function onInteract() {
   if (r.type === 'npc') {
     phase = 'panel'; unlock();
     ui.dialog(s, r, { island: standingOn(s), audio, say: (m) => say(s, m), onChange: () => saveGame(s), onClose: () => { phase = 'play'; lock(); saveGame(s); } });
+  } else if (r.type === 'side') { phase = 'panel'; unlock(); ui.side(s, r, () => { phase = 'play'; lock(); saveGame(s); });
   } else if (r.type === 'prize') { phase = 'panel'; unlock(); ui.prize(s, () => { phase = 'play'; lock(); saveGame(s); });
   } else if (r.type === 'news') { phase = 'panel'; unlock(); ui.news(s, r.island, () => { phase = 'play'; lock(); saveGame(s); });
   } else if (r.type === 'ashore') { view.yaw = s.foot.yaw; view.pitch = 0; saveGame(s); }
@@ -420,7 +431,7 @@ function loop(now) {
   if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
-    ui.updateHud(s, { prompt: pr, yaw: cam.yaw }); showAfk();
+    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)) }); showAfk();
     audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
   const p2 = performance.now(), M = (window.__ms ||= { step: 0, draw: 0 }); M.step += (p1 - p0 - M.step) * 0.05; M.draw += (p2 - p1 - M.draw) * 0.05; // smoothed CPU milliseconds a frame

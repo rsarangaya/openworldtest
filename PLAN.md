@@ -218,3 +218,59 @@ One monster active at a time, in rare places, flat pixel sprites, hinted first b
 - Atlantis (best with underwater): kraken (surface phase first), sirens, hippocampus (tameable).
 - Olympus: cyclops throwing boulders, harpies, hydra (fire shot), Scylla and Charybdis.
 Suggested first: sea serpent, then draugr longships, then the kraken's surface phase.
+
+## Living towns, layered quests, companions (planned 2026-11-25; first pass built, see STATUS.md round 68)
+Goal: towns with something going on, and side quests with more than one layer instead of "kill X" or "talk to Y". Lean rule: everything is **data + a pure function of (seed, town, issue)** like the notice boards. No new renderer work, no new meshes; a handful of new flat sprites at most. Only resolved ids go in the save.
+
+### A. Town events (`rules/events.js`, about 120 lines + data)
+- **One event per town per notice issue** (or none: about 50% of issues), picked from a weighted table by town type (fishing, trade, fortress, plain) and world. Shown on the notice board, mentioned by the tavern keeper and villagers, and announced when you walk in ("Port X: the Herring Festival is on").
+- **Each event is data:** `{ id, weight, types, look, effect, hook }`.
+  - `look`: reuse what exists: extra villagers in the plaza, banners and lanterns (one new sprite), a campfire or smoke (`fx`), shut shops, more guards. No new layout code.
+  - `effect`: prices (a good is cheap or dear), shop closed, guards plus or minus, crew cheaper, rep bonus. All already modelled.
+  - `hook`: an optional mini-quest (a quest template from part B, seeded from the event).
+- **Starter list (about 14):** festival (cheap food, a drinking contest, a race round the island); market day (a travelling trader with one rare part); tavern brawl (join, stop it for rep, or bet); fire in a house (carry water from the well in time); plague scare (doctor needs herbs from a wild island; shops half shut); blockade (raiders off the harbour, prices up until you break it); public trial (testify, bribe or free the accused); wedding (a gift, or the groom has fled); duel challenge (a local swordsman, fists or blades, purse on it); smugglers caught (help the guards or help them escape); missing child (tracks lead to a cave or a wreck); press gang (navy taking men, including your crew); storm damage (repair job for wood, pays in standing); a stranger in town (a companion lead, part C).
+- **Town states join in:** an event can set the existing town state (burning, blockaded), so siege, fire and plague share one field.
+
+### B. Layered quests (`rules/sidequests.js`, a small step engine + templates as data)
+- **A quest is a short chain of steps**, and each step reuses a system we already have:
+  `go` (sail or walk to a place, compass points there) · `talk` (a named NPC spawned on a real island) · `find` (dig, search a wreck, a chest in a house: the treasure X code) · `fight` (a group of N foes at a place: the `spawnFoe` / `stepFoes` code, which already works) · `board` (a named ship: boarding) · `bring` (carry an item or a person back: the prisoner-follow code) · `choose` (2-3 options, each opening a different next step) · `timer` (a deadline, like contracts).
+- **Templates with twists, not fixed scripts.** A template has slots (giver, item, place, group, rival) filled from the seed, and one or two **twists** picked at random so the same template plays differently. Examples:
+  1. *The Lost Heirloom*: find a ring -> the X is dug up already -> tracks point to a gang camp on another island -> fight them or buy it back -> twist: the giver stole it first (return it, keep it, or hand the giver to the guards).
+  2. *The Missing Brother*: talk to his crewmates -> his ship was taken by raiders -> board the raider -> he has joined them willingly (bring him home bound, leave him, or let him join your crew).
+  3. *A Cargo That Isn't*: a simple delivery -> the crates are contraband -> the navy stops you on the way (pay, fight, or dump the cargo) -> the receiver pays double or sells you out.
+  4. *The Cursed Map*: half a map from a dying sailor -> the other half is held by a rival crew (a named crew from the notice boards) -> race them to the island -> fight at the dig site.
+  5. *The Debt*: a shopkeeper is being leaned on -> follow the collector -> a loan shark with guards in a house -> pay the debt, fight, or take over the racket (rep goes either way).
+  6. *A Ghost on the Lanes*: sailors vanish -> a wreck with a log -> it leads to a ghost ship near the rim -> board it -> the captain begs you to finish his last delivery.
+- **Givers:** any town can post one or two (tavern menu "Anyone need help?", a villager with a "!" on a quest day, an event hook). They are ordinary people, killable, with local rep tied to the outcome.
+- **Layers stay honest:** each step tells you the next one in the quest log, with a one-line "what I know" journal. At most 3 side quests at once.
+- **Rival crews (already in the news) become real quest actors:** they hold the item, race you, or ask for help. Their size from the notice board decides the fight.
+
+### C. Companions who join for a while (`rules/companions.js`)
+- **One companion at a time, short-term**, met through an event or a quest step ("a stranger in town"). They follow you on foot (prisoner-follow code), fight the nearest foe (the foe code pointed the other way), have HP, can die, and leave when their part is done. Afterwards a few offer to join your crew permanently.
+- **Each one is data:** a name, a look (an existing person sprite with a palette tint), 6-10 lines, one perk, and a personal want:
+  - the *disgraced swordswoman*: fights well, wants to face the duellist who shamed her;
+  - the *old cartographer*: marks a hidden cache on the map, slow, must be protected;
+  - the *pickpocket kid*: opens locked chests, steals from shops if you let them (rep risk);
+  - the *runaway noble*: pays well, is being hunted by guards;
+  - the *tavern singer*: lifts crew morale, knows every rumour;
+  - the *navy deserter*: knows patrol routes (the navy hunts you less), wanted on sight;
+  - in Asgard: a *shieldmaiden* and a *rune-reader*.
+- **They talk:** a line when you enter a town, after a fight, at an event, when you do something they hate. This is cheap (a string table) and gives most of the "interesting character" feel.
+- **Their want is a quest:** finishing it is what makes them offer to stay.
+
+### Build order (each step: tests, Chrome check, size and CPU check, STATUS.md)
+1. Step engine + `go / talk / find / fight / choose` + two templates (Heirloom, Missing Brother). Quest log shows side quests.
+2. Town events: the data table, notice board and tavern lines, 6 events with looks and effects.
+3. Companions: follow + fight + talk + two characters.
+4. Remaining steps (`board`, `bring`, `timer`), the other templates, the rest of the events and characters, Asgard versions.
+**Budget:** under 25 kB of source for all three parts (mostly text), under 0.1 ms per step, one or two new sprites, no new meshes.
+
+## Held weapon and hands: review (2026-11-25)
+Seen as drawings (not in the game): the fist and the weapon hands do not match. The fist is big and detailed (thumb, tendons, long sleeve); the weapon hands are small, boxy and identical for both arms.
+1. **One hand drawing for everything.** Reuse the fist (the best drawing) for every weapon: draw the back of the hand, then the grip, then the fingers on top, so the hand wraps the handle. Same scale for fists and weapons. Removes the second arm builder, so the file gets smaller.
+2. **The second hand must be a left hand.** Today both hands are the same shape; mirror it (thumb on the other side) and bring its arm from the lower left, shorter, so it reads as two arms.
+3. **Hold weapons the way you would use them, all coming from the lower right**, tip near the crosshair, so the middle and left of the view stay clear: sword in a guard leaning about 25 degrees toward the middle; dagger low and short; spear held low and pointing forward at the crosshair (seen from behind, short); axe resting on the right shoulder; pistol pointing forward (seen from behind: rear sight and muzzle, not side-on and pointing at the sky).
+4. **Movement bob:** swap the always-on idle sway for a walk bob only while moving and a slower one when standing (CSS class toggled by the game; no cost).
+5. **A wind-up frame** before each swing (pull back, then strike) so attacks read better; still `steps()`.
+6. **Check at the real size:** at 112 px the finger lines may vanish after the palette snap; draw them two pixels thick or drop them.
+7. Optional: the left hand shows on its own for F actions (dig, bind, pick up), as one short sprite.

@@ -36,25 +36,37 @@ button.small { min-width:0; padding:.3em .8em; font-size:13px; margin:0 .15em; }
 #slash { left:50%; top:50%; width:46vmin; height:46vmin; margin:-23vmin 0 0 -23vmin; border-radius:50%; border-top:5px solid rgba(255,255,255,.9); opacity:0; pointer-events:none; }
 #slash.go { animation:slash .18s ease-out; }
 @keyframes slash { 0% { opacity:.95; transform:rotate(-75deg) scale(.7); } 100% { opacity:0; transform:rotate(35deg) scale(1.05); } }
-#weapon { left:30%; bottom:-6vh; z-index:6; width:66vh; height:64vh; transform-origin:50% 100%; display:none; pointer-events:none; filter:drop-shadow(0 .4vh .4vh #0009); animation:wIdle 2.6s steps(6) infinite; }
+#weapon { left:46%; bottom:-6vh; z-index:6; width:66vh; height:64vh; transform-origin:50% 100%; display:none; pointer-events:none; filter:drop-shadow(0 .4vh .4vh #0009); animation:wIdle 3.4s steps(6) infinite; }
+#weapon[data-walk] { animation:wWalk .56s steps(6) infinite; }
+@keyframes wWalk { 0%,100% { transform:translate(0,0) rotate(4deg); } 25% { transform:translate(.9vw,1.4vh) rotate(4deg); } 50% { transform:translate(0,0) rotate(4deg); } 75% { transform:translate(-.9vw,1.4vh) rotate(4deg); } }
 #weapon img { width:100%; height:100%; image-rendering:pixelated; display:block; }
+#weapon .mf { position:absolute; left:37%; top:41%; width:6vh; height:6vh; background:#ffd76a; opacity:0; }
 /* bare hand: one fist low on the right; it jabs toward the crosshair */
 #weapon[data-bare] { left:auto; right:7vw; width:54vh; height:54vh; bottom:-9vh; }
 #weapon[data-bare].a-fists { animation:jab .24s steps(5); }
 @keyframes jab { 0% { transform:translate(0,0) } 45% { transform:translate(-17vw,-12vh) scale(.82) } 100% { transform:translate(0,0) } }
 #weapon.a-sword { animation:aSword .32s steps(7); } #weapon.a-dagger { animation:aDagger .22s steps(5); } #weapon.a-spear { animation:aSpear .4s steps(8); } #weapon.a-axe { animation:aAxe .55s steps(9); } #weapon.a-pistol { animation:aPistol .35s steps(6); } #weapon.a-pistol .mf { animation:mf .14s steps(2); }
 @keyframes wIdle { 0%,100% { transform:translate(0,0) rotate(4deg); } 50% { transform:translate(-.4vw,-.8vh) rotate(6deg); } }
-@keyframes aSword { 0% { transform:rotate(30deg); } 35% { transform:translate(-16vw,-8vh) rotate(-62deg); } 100% { transform:translate(0,0) rotate(4deg); } }
-@keyframes aDagger { 0% { transform:rotate(4deg); } 35% { transform:translate(-6vw,-18vh) rotate(-6deg); } 100% { transform:translate(0,0) rotate(4deg); } }
-@keyframes aSpear { 0% { transform:rotate(4deg); } 40% { transform:translate(-8vw,-24vh) rotate(-3deg); } 100% { transform:translate(0,0) rotate(4deg); } }
-@keyframes aAxe { 0% { transform:rotate(-55deg) translate(0,-4vh); } 45% { transform:translate(-12vw,6vh) rotate(34deg); } 100% { transform:translate(0,0) rotate(4deg); } }
+@keyframes aSword { 0% { transform:rotate(4deg); } 18% { transform:translate(5vw,-3vh) rotate(30deg); } 45% { transform:translate(-16vw,-8vh) rotate(-62deg); } 100% { transform:translate(0,0) rotate(4deg); } }
+@keyframes aDagger { 0% { transform:rotate(4deg); } 18% { transform:translate(3vw,4vh); } 45% { transform:translate(-6vw,-18vh) rotate(-6deg); } 100% { transform:translate(0,0) rotate(4deg); } }
+@keyframes aSpear { 0% { transform:rotate(4deg); } 20% { transform:translate(5vw,6vh); } 48% { transform:translate(-8vw,-24vh) rotate(-3deg); } 100% { transform:translate(0,0) rotate(4deg); } }
+@keyframes aAxe { 0% { transform:rotate(4deg); } 25% { transform:translate(4vw,-7vh) rotate(38deg); } 55% { transform:translate(-12vw,6vh) rotate(34deg); } 100% { transform:translate(0,0) rotate(4deg); } }
 @keyframes aPistol { 0% { transform:rotate(4deg); } 18% { transform:translate(0,3vh) rotate(-16deg); } 100% { transform:translate(0,0) rotate(4deg); } }
 @keyframes mf { 0% { opacity:1; transform:rotate(45deg) scale(1.2); } 100% { opacity:0; transform:rotate(45deg) scale(.6); } }
 #hurt { left:0; top:0; right:0; bottom:0; pointer-events:none; opacity:0; box-shadow:inset 0 0 22vmin 7vmin rgba(220,30,30,.75); } #hurt.go { animation:hurt .4s ease-out; } @keyframes hurt { 0% { opacity:1; } 100% { opacity:0; } }
 #speedo { left:50%; bottom:18px; transform:translateX(-50%); text-align:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:4px 18px 6px; min-width:96px; display:none; color:var(--dim); }
 #speedo b { color:var(--gold); font:600 30px/1.1 system-ui; font-variant-numeric:tabular-nums; }
 #speedo .bar { margin:2px 0 0; }
-#obj { top:16px; left:50%; transform:translateX(-50%); text-align:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 16px; max-width:min(560px,90vw); }
+#compass { top:10px; left:50%; transform:translateX(-50%); width:360px; height:56px; }
+#compass .win { position:relative; width:360px; height:30px; overflow:hidden; background:var(--panel); border:1px solid var(--line); border-radius:8px; box-sizing:content-box; }
+#compass .strip { position:absolute; left:0; top:0; height:30px; }
+#compass i { position:absolute; bottom:0; transform:translateX(-50%); min-width:1px; height:5px; border-left:1px solid var(--dim); font:600 12px/1 system-ui; font-style:normal; color:var(--dim); }
+#compass i.main, #compass i.mid { border:0; height:auto; bottom:8px; }
+#compass i.main { font-size:16px; color:var(--ink); bottom:7px; } #compass i.north { color:#ff7a5c; }
+#compass .mark { position:absolute; left:50%; top:0; margin-left:-5px; border:5px solid transparent; border-top-color:var(--gold); }
+#compass .ship { position:absolute; top:24px; transform:translateX(-50%); text-align:center; display:none; white-space:nowrap; }
+#compass .ship svg { display:block; margin:0 auto; } #compass .ship small { display:block; font-size:11px; color:var(--gold); }
+#obj { top:76px; left:50%; transform:translateX(-50%); text-align:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 16px; max-width:min(560px,90vw); }
 #obj small { color:var(--dim); display:block; }
 #windArrow { display:inline-block; font-style:normal; line-height:0; transition:transform .1s; }
 #windArrow .dart { width:20px; height:24px; }
@@ -75,6 +87,7 @@ kbd { background:rgba(255,235,180,.14); border:1px solid var(--line); border-rad
 #cross { left:50%; top:50%; width:6px; height:6px; margin:-3px; border-radius:50%; background:#fff; opacity:.6; display:none; }
 #keys { left:18px; top:16px; font-size:12px; color:var(--dim); line-height:1.6; }
 #panel { background:rgba(0,0,0,.45); }
+#mapc { position:static; image-rendering:auto; } /* the page-wide canvas rule is for the game view only */
 #panel .box { min-width:min(520px,92vw); }
 #panel table { width:100%; border-collapse:collapse; margin:.4em 0; }
 #panel td, #panel th { padding:4px 6px; text-align:left; border-bottom:1px solid #ffffff14; }

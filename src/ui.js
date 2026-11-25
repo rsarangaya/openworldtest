@@ -1,3 +1,6 @@
+import { sideOf, titleOf, goalOf, sideTarget, MAX_SIDE } from './rules/sidequests.js';
+import { foodPrice } from './rules/trade.js';
+import { sideOffersFor, takeSide, pickSide, dropSide } from './rules/game.js';
 // All DOM: menus, intro, HUD, shop dialogs, quest log, pause, ending. The game rules never touch the DOM.
 import { QUESTS, currentQuest, questText } from './rules/quests.js';
 import { asgardLine } from './rules/lore.js';
@@ -13,7 +16,8 @@ import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
 import { newsFor, markRead } from './rules/news.js';
 import { SHIPS, SHIP_ORDER, TRADE_IN } from './rules/ships.js';
 import { localRep, worldRep, tier, buyMult } from './rules/rep.js';
-import { drawTerra, drawWorld } from './mapview.js';
+import { drawTerra, drawWorld, makeView, zoomView, panView, centreView, where } from './mapview.js';
+import { createCompass } from './compass.js';
 import { realmState, REALMS as WORLDS, HINTED } from './rules/map.js';
 import { ROLES, candidates, hire, dismiss, capacity, crewOf, aboard, wages, PAY_EVERY, FLEET_UPKEEP } from './rules/crew.js';
 import { fleetOf, sellShip, sellValue, orderOf, ORDER_TEXT, MAX_FLEET } from './rules/fleet.js';
@@ -85,22 +89,7 @@ export function createUI() {
     const INK = '#07080c', SKIN = '#dba67e', SKIN_L = '#eab98f', SKIN_D = '#b07a55', SLV = '#5b4632', SLV_D = '#463524', CUFF = '#cfc6b2', f1 = (n) => +n.toFixed(1);
     const Pg = (...p) => `<polygon points='${p.map(f1).join(' ')}'`, Rc = (x, y, w, h, r = 0) => `<rect x='${x}' y='${y}' width='${w}' height='${h}' rx='${r}'`, El = (cx, cy, rx, ry, rot) => `<ellipse cx='${f1(cx)}' cy='${f1(cy)}' rx='${rx}' ry='${ry}' transform='rotate(${f1(rot)} ${f1(cx)} ${f1(cy)})'`;
     const sil = (parts, h = 7) => parts.map(([s]) => `${s} fill='${INK}' stroke='${INK}' stroke-width='${h}' stroke-linejoin='round'/>`).join('') + parts.map(([s, c]) => `${s} fill='${c}' stroke='none'/>`).join('');
-    const arm = (side, y0, dxs = 0) => {
-      let dx = side * 0.5, dy = 1; const n = Math.hypot(dx, dy); dx /= n; dy /= n; const cx = 167 + side * 46, cy = y0 + 30, pt = (l, w) => [cx + dx * l - dy * w, cy + dy * l + dx * w], bx = side > 0 ? 172 : 118, fx = side > 0 ? 143 : 157;
-      const parts = [[Pg(...pt(20, -30), ...pt(20, 30), ...pt(300, 64), ...pt(300, -64)), SLV], [Pg(...pt(-4, -27), ...pt(-4, 27), ...pt(24, 32), ...pt(24, -32)), CUFF], [Pg(...pt(-18, -20), ...pt(-18, 20), ...pt(0, 26), ...pt(0, -26)), SKIN], [Rc(bx, y0 - 8, 46, 60, 18), SKIN]];
-      for (let k = 0; k < 4; k++) parts.push([Rc(fx, y0 + k * 14 - 3, 34, 15, 7.5), k % 2 ? SKIN : SKIN_L]); parts.push([El(167 + side * 6, y0 - 12, 15, 8, -side * 12), SKIN_L]);
-      let d = Pg(...pt(20, 0), ...pt(20, side < 0 ? 30 : -30), ...pt(300, side < 0 ? 64 : -64), ...pt(300, 0)) + ` fill='${SLV_D}'/>`;
-      for (let k = 0; k < 3; k++) d += `<path d='M${fx + 3} ${y0 + k * 14 + 11.5}L${fx + 31} ${y0 + k * 14 + 11.5}' stroke='${SKIN_D}' stroke-width='2.4' stroke-linecap='round' fill='none'/>`;
-      return `<g transform='translate(${dxs} 0)'>${sil(parts)}${d}${Rc(bx + 4, y0 - 4, 38, 14, 7)} fill='${SKIN_L}'/></g>`;
-    };
-    const W = (weapon, hands, flash = '', ang = -6, py = 150) => `<g transform='rotate(${ang} 167 ${py})'><g>${weapon}</g>${hands.map(([s, y]) => arm(s, y)).join('')}${flash}</g>`;
     const blade = (pts, tip, body, edge) => sil([[Pg(...pts), body]], 6) + Pg(...tip) + ` fill='${edge}'/>`, grip = (a, b) => sil([[Rc(159, a, 16, b - a, 3), '#6b4326']], 6), gold = (x, y, w, h) => sil([[Rc(x, y, w, h, 4), '#e3b73e']], 6);
-    const two = [[1, 116], [-1, 182]], one = [[1, 150]];
-    const sw = blade([150, -120, 167, -150, 184, -120, 184, 96, 150, 96], [167, -150, 184, -120, 184, 96, 167, 96], '#dfe5f1', '#a9b4c9') + gold(128, 92, 78, 15) + grip(104, 250) + sil([["<circle cx='167' cy='256' r='10'", '#e3b73e']], 6);
-    const dg = blade([157, -6, 167, -30, 177, -6, 177, 120, 157, 120], [167, -30, 177, -6, 177, 120, 167, 120], '#dfe5f1', '#a9b4c9') + gold(142, 118, 50, 12) + grip(126, 205);
-    const sp = sil([[Rc(161, -40, 12, 360, 3), '#7d5532'], [Pg(167, -135, 186, -38, 167, -48, 148, -38), '#cdd4e2'], [Rc(156, -46, 22, 10, 2), '#c2402f']], 6) + Pg(167, -135, 186, -38, 167, -48) + " fill='#9ba6bc'/>";
-    const ax = sil([[Rc(160, -30, 14, 300, 3), '#7d5532'], [Pg(160, -28, 104, -56, 92, 36, 160, 26), '#b6bed0'], [Rc(154, -34, 26, 14, 3), '#4a4f5e']], 6) + Pg(104, -56, 92, 36, 114, 30) + " fill='#eef2fa'/>";
-    const pi = sil([[Pg(142, 40, 192, 40, 192, 120, 142, 120), '#3a3f4c'], [Rc(152, 14, 30, 32, 3), '#555c6e'], [Rc(159, 2, 17, 14, 2), '#2a2e38'], [Pg(142, 120, 192, 120, 188, 200, 154, 200), '#6b4326']], 6);
     // the bare RIGHT fist (hand parts mirrored below): low on the right and angled up toward the middle, the way a weapon is held. Drawn upright (wrist at 0,0), then tipped over.
     const Path = (d) => `<path d='${d}'`, line = (d, w = 3, c = SKIN_D) => `<path d='${d}' stroke='${c}' stroke-width='${w}' stroke-linecap='round' fill='none'/>`;
     const hand = `<g transform='rotate(-36)'>`
@@ -113,7 +102,22 @@ export function createUI() {
       + line('M-22 -44 Q-18 -30 -20 -20', 3) + line('M2 -46 Q4 -34 2 -24', 3) + line('M22 -44 Q22 -34 18 -26', 3)                                   // tendons
       + sil([[Path('M-26 8 Q-50 -8 -50 -34 Q-52 -62 -38 -68 Q-24 -70 -24 -52 Q-26 -30 -14 -14 Q-10 0 -26 8 Z'), SKIN_L]], 7) + line('M-44 -50 Q-36 -56 -29 -50', 3) // the thumb: on the right, which makes this a right hand
       + '</g></g>';
-    return { hand, sword: W(sw, two), dagger: W(dg, one), spear: W(sp, [[1, 150], [-1, 216]]), axe: `<g transform='rotate(-6 167 150)'><g transform='rotate(-45 167 230)'>${ax}</g>${arm(-1, 177, -28)}${arm(1, 134, -71)}</g>`, pistol: W(pi, one), fists: W('', one) };
+    const sw = blade([150, -120, 167, -150, 184, -120, 184, 96, 150, 96], [167, -150, 184, -120, 184, 96, 167, 96], '#dfe5f1', '#a9b4c9') + gold(128, 92, 78, 15) + grip(104, 250) + sil([["<circle cx='167' cy='256' r='10'", '#e3b73e']], 6);
+    const dg = blade([157, -6, 167, -30, 177, -6, 177, 120, 157, 120], [167, -30, 177, -6, 177, 120, 167, 120], '#dfe5f1', '#a9b4c9') + gold(142, 118, 50, 12) + grip(126, 205);
+    const sp = sil([[Rc(161, -40, 12, 360, 3), '#7d5532'], [Pg(167, -135, 186, -38, 167, -48, 148, -38), '#cdd4e2'], [Rc(156, -46, 22, 10, 2), '#c2402f']], 6) + Pg(167, -135, 186, -38, 167, -48) + " fill='#9ba6bc'/>";
+    const ax = sil([[Rc(160, -30, 14, 300, 3), '#7d5532'], [Pg(160, -28, 104, -56, 92, 36, 160, 26), '#b6bed0'], [Rc(154, -34, 26, 14, 3), '#4a4f5e']], 6) + Pg(104, -56, 92, 36, 114, 30) + " fill='#eef2fa'/>";
+    const pi = sil([[Path('M152 44 L184 44 L188 176 L156 178 Z'), '#555c6e'], [Rc(147, 32, 42, 18, 4), '#2a2e38'], [Path('M158 120 L190 112 L196 150 L180 160 Z'), '#e3b73e'], [Path('M158 172 L188 170 L206 236 L174 246 Z'), '#6b4326']], 7) + Path('M172 46 L184 44 L188 176 L176 176 Z') + " fill='#3a3f4c'/>"; // a flintlock aimed at the crosshair
+    // every grip is the SAME hand as the bare fist: weapon first, then the hand over it so the fingers wrap the handle. side -1 mirrors it into a left hand.
+    const grab = (x, y, side = 1, ang = -32, k = 0.74) => `<g transform='translate(${x} ${y}) scale(${side} 1) rotate(${ang + 36}) scale(${k})'><g transform='translate(34 46)'>${hand}</g></g>`;
+    // a weapon drawn upright on x=167 is moved so its grip (167, gy) sits at (x, y), leaning `ang` toward the middle of the view
+    const held = (w, gy, x, y, ang) => `<g transform='translate(${x} ${y}) rotate(${ang}) translate(-167 ${-gy})'>${w}</g>`;
+    const on = (x, y, ang, along) => [x - along * Math.sin(ang * Math.PI / 180), y + along * Math.cos(ang * Math.PI / 180)].map(f1); // a point `along` units down the handle from the grip
+    return { hand,
+      sword: held(sw, 170, 232, 160, -28) + grab(...on(232, 160, -28, 88), -1, -30, 0.68) + grab(232, 160),
+      dagger: held(dg, 165, 246, 192, -38) + grab(246, 192),
+      spear: held(sp, 190, 252, 200, -50) + grab(...on(252, 200, -50, -120), -1, -28, 0.64) + grab(252, 200),
+      axe: held(ax, 205, 240, 172, -45) + grab(...on(240, 172, -45, 86), -1, -30, 0.68) + grab(240, 172),
+      pistol: held(pi, 205, 240, 190, -40) + grab(240, 190), fists: '' };
   })();
   let wShown = null; // the weapon held in front of you: a flat sprite that swings, thrusts or recoils when you attack
   const wURL = new Map(); // each weapon is drawn once at the game's own pixel size (coarser than the world on purpose: 112x110), snapped to the game palette with hard alpha, then shown with hard edges
@@ -124,22 +128,27 @@ export function createUI() {
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' ${bare ? "width='320' height='320' viewBox='-110 -118 320 320'" : "width='480' height='470' viewBox='-70 -160 480 470'"} stroke='#07080c' stroke-width='3' stroke-linejoin='round'>${bare ? WSVG.hand : WSVG[id] || WSVG.sword}</svg>`);
   };
   const showWeapon = (id) => { const e = $('weapon'); if (!e) return; if (!id) { e.style.display = 'none'; wShown = null; return; } e.style.display = 'block'; if (wShown !== id) { wShown = id; e.className = ''; e.toggleAttribute('data-bare', id === 'fists'); weaponImage(id, (url) => { if (wShown === id) e.innerHTML = id === 'fists' ? `<img src="${url}">` : `<img src="${url}">` + (id === 'pistol' ? '<i class=mf></i>' : ''); }); } };
-  ui.slash = (w, hit) => { const e = $('slash'), we = $('weapon'); const id = w || 'fists'; if (we && wShown) { we.className = ''; void we.offsetWidth; we.className = 'a-' + id; } if (!e) return; if (id === 'pistol' || id === 'spear' || id === 'dagger' || id === 'fists') return; e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); };
+  ui.slash = (w, hit) => { const e = $('slash'), we = $('weapon'); const id = w || 'fists'; if (we && wShown) { we.onanimationend = (e) => { if (e.target === we) we.className = ''; }; we.className = ''; void we.offsetWidth; we.className = 'a-' + id; } if (!e) return; if (id === 'pistol' || id === 'spear' || id === 'dagger' || id === 'fists') return; e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); };
   ui.hurt = () => { const e = $('hurt'); if (!e) return; e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); };
 
   ui.crosshair = (v) => { const c = $('cross'); if (c) c.style.display = v ? 'block' : 'none'; };
+  const compass = createCompass(); $('hud').appendChild(compass.el);
   ui.updateHud = (s, info) => {
-    showWeapon(s.mode === 'foot' && !s.over ? (s.weapon || 'fists') : null);
+    compass.update(info.yaw, s.mode === 'ship' && s.ship ? s.ship : s.foot, s.mode === 'foot' && s.ship && !s.deck ? s.ship : null);
+    showWeapon(s.mode === 'foot' && !s.over ? (s.weapon || 'fists') : null); $('weapon')?.toggleAttribute('data-walk', !!info.moving);
     const q = currentQuest(s), tg = q?.target?.(s), mode = s.mode, p = s.ship, ti = p ? trimInfo(s) : null;
     const so = $('speedo'); if (so) { if (mode === 'ship' && p) { const kn = (Math.abs(p.speed) * 1.2).toFixed(1), pc = Math.min(100, Math.round((Math.abs(p.speed) / (15 * (SHIPS[s.shipClass] || SHIPS.sailboat).speed)) * 100)), h = `<b>${kn}</b> kn<div class=bar><i style="width:${pc}%"></i></div>`; if (so._h !== h) { so._h = h; so.innerHTML = h; } so.style.display = 'block'; } else so.style.display = 'none'; }
     const dist = tg ? Math.hypot(tg.x - (mode === 'ship' ? p.x : s.foot.x), tg.z - (mode === 'ship' ? p.z : s.foot.z)) : 0;
     const bearing = tg ? Math.atan2(tg.z - (mode === 'ship' ? p.z : s.foot.z), tg.x - (mode === 'ship' ? p.x : s.foot.x)) : 0;
-    const key = [s.weapon, Math.round(s.hp), Math.round(s.bountyGold || 0), (s.crew || []).length, (s.fleet || []).length, s.fleetOrder || 0, s.shot || 0, (s.ammo || {}).chain || 0, (s.ammo || {}).fire || 0, s.prisoner || 0, Math.round(s.gold), s.food, Math.round(s.hull), cargoCount(s), mode, p ? Math.round(p.speed * 1.2) : 0, p ? Math.round(p.sail * 100) : 0, s.quest, s.flags.crossed ? 1 : 0, s.auto ? 1 : 0, s.bombard ? 1 : 0, s.row ? 1 : 0, Math.round((p?.trim || 0) * 10), p ? Math.round(trimInfo(s).best * 10) : 0, p ? ti.point : 0, tg ? Math.round(dist / 10) : -1, s.log.join('|'), info.prompt, Math.round((bearing - info.yaw) * 20), Math.round((s.wind.dir - info.yaw) * 20)].join();
+    const st = sideTarget(s), sp = mode === 'ship' ? p : s.foot, sd = st ? Math.hypot(st.x - sp.x, st.z - sp.z) : 0, sa = st ? Math.atan2(st.z - sp.z, st.x - sp.x) - info.yaw : 0;
+    const key = [st && st.goal, Math.round(sd / 10), Math.round(sa * 20), s.comp ? Math.round(s.comp.hp) : -1, s.weapon, Math.round(s.hp), Math.round(s.bountyGold || 0), (s.crew || []).length, (s.fleet || []).length, s.fleetOrder || 0, s.shot || 0, (s.ammo || {}).chain || 0, (s.ammo || {}).fire || 0, s.prisoner || 0, Math.round(s.gold), s.food, Math.round(s.hull), cargoCount(s), mode, p ? Math.round(p.speed * 1.2) : 0, p ? Math.round(p.sail * 100) : 0, s.quest, s.flags.crossed ? 1 : 0, s.auto ? 1 : 0, s.bombard ? 1 : 0, s.row ? 1 : 0, Math.round((p?.trim || 0) * 10), p ? Math.round(trimInfo(s).best * 10) : 0, p ? ti.point : 0, tg ? Math.round(dist / 10) : -1, s.log.join('|'), info.prompt, Math.round((bearing - info.yaw) * 20), Math.round((s.wind.dir - info.yaw) * 20)].join();
     if (key === hudKey) return; hudKey = key;
     $('stats').innerHTML = `<div class=row><span>Gold</span><b>${Math.round(s.gold)}</b></div><div class=row><span>Provisions</span><b class="${s.food < 5 && s.ship ? 'bad' : ''}">${s.food}</b></div><div class=row><span>Cargo</span><b>${cargoCount(s)}/${s.hold}</b></div>`
       + (mode === 'foot' ? `<div class=row><span>Weapon</span><b>${WEAPONS[s.weapon || 'fists'].n ? WEAPONS[s.weapon || 'fists'].n + '. ' : ''}${WEAPONS[s.weapon || 'fists'].name}</b></div>` : '') + (s.hp < s.maxHp - 0.5 ? `<div class=row><span>Health</span><b class="${s.hp < 35 ? 'bad' : ''}">${Math.round(s.hp)}</b></div>` : '') + (s.bountyGold > 0 ? `<div class=row><span>Wanted</span><b class=bad>${Math.round(s.bountyGold)}g</b></div>` : '') + (s.prisoner ? `<div class=row><span>Prisoner</span><b class=gold>${esc((byId(s, s.prisoner) || {}).name || '')}</b></div>` : '')
       + (p && ((s.ammo || {}).chain || (s.ammo || {}).fire) ? `<div class=row><span>Shot</span><b class=gold>${AMMO[(s.shot === 'chain' && s.ammo.chain) || (s.shot === 'fire' && s.ammo.fire) ? s.shot : 'round'].name}</b></div>` : '') + (p && crewOf(s).length ? `<div class=row><span>Crew</span><b>${aboard(s).length}/${capacity(s)}</b></div>` : '') + (fleetOf(s).length ? `<div class=row><span>Fleet</span><b class=gold>${fleetOf(s).length} · ${orderOf(s)}</b></div>` : '') + (p ? `<div class=row><span>Hull</span><b>${Math.round(s.hull)}</b></div><div class=bar><i style="width:${Math.round(s.hull / s.maxHull * 100)}%;background:${s.hull < s.maxHull * 0.35 ? 'var(--warn)' : 'var(--good)'}"></i></div><div class=row><span>Speed</span><b>${Math.round(p.speed * 1.2)} kn</b></div><div class=row><span>Sails</span><b>${Math.round(p.sail * 100)}%</b></div><div class=row><span>Heading</span><b class="${ti.drive < 0.3 ? 'bad' : ti.drive > 0.85 ? 'good' : ''}">${ti.point}</b></div><div class=row><span>Sail trim</span><b class="${ti.eff > 0.9 ? 'good' : ti.eff > 0.7 ? '' : 'bad'}">${Math.round(ti.eff * 100)}% wind</b></div><div class=trim><i class=best style="left:${50 + ti.best * 50}%"></i><i class=cur style="left:${50 + ti.trim * 50}%"></i></div><div class=trimk>Z ◀ sail ▶ C &nbsp; match the gold mark</div>` + (s.auto ? '<div class=row><span>Autosail</span><b class=gold>ON</b></div>' : '') + (s.bombard ? '<div class=row><span>Bombard</span><b class=bad>TOWNS ON</b></div>' : '') + (s.row ? '<div class=row><span>Oars</span><b class=gold>OUT</b></div>' : '') : '');
     $('obj').innerHTML = q ? `<b class=gold>${esc(q.title)}</b><small>${esc(questText(s, q))}</small>${tg ? `<small><svg id=arrow style="transform:rotate(${(bearing - info.yaw) * 57.2958}deg)" viewBox="0 0 24 28"><path d="M12 1 L19.5 25.5 L12 20 L4.5 25.5 Z" fill="#ffd76a" stroke="#07080c" stroke-width="1.7" stroke-linejoin="round"/></svg> ${esc(tg.label)} · ${dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.round(dist) + ' m'}</small>` : `<small>${esc(q.hint)}</small>`}` : '<b class=gold>The world is yours.</b>';
+    if (st) $('obj').innerHTML += `<br><b class=gold>${esc(st.title)}</b><small>${esc(st.goal)}</small><small><span style="display:inline-block;color:#8fe3ff;transform:rotate(${sa * 57.2958}deg)">▲</span> ${esc(st.label)} · ${sd > 1000 ? (sd / 1000).toFixed(1) + ' km' : Math.round(sd) + ' m'}</small>`;
+    if (s.comp) $('obj').innerHTML += `<small>${esc(s.comp.name)} · health ${Math.round(s.comp.hp)}</small>`;
     $('log').innerHTML = s.log.map((l) => `<div>${esc(l)}</div>`).join('');
     const pr = $('prompt'); pr.style.display = info.prompt ? 'block' : 'none'; pr.textContent = info.prompt || '';
     $('windArrow').innerHTML = '<svg class=dart  viewBox="0 0 24 28"><path d="M12 1 L19.5 25.5 L12 20 L4.5 25.5 Z" fill="#ffd76a" stroke="#07080c" stroke-width="1.7" stroke-linejoin="round"/></svg>'; $('windArrow').style.transform = `rotate(${(s.wind.dir - info.yaw) * 57.2958}deg)`; $('windTxt').textContent = `wind ${Math.round(s.wind.speed * 100)}%`;
@@ -167,13 +176,14 @@ export function createUI() {
     const tavern = () => {
       tavPage = null;
       const tip = res.lines.slice(3).map((l) => `<p><small>${esc(l)}</small></p>`).join(''); // e.g. a chart the keeper scrawls you the first time
-      const opts = [['rumour', 'Ask for a rumour'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town']];
+      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town']];
       el.innerHTML = `<div class=box style="text-align:center">${head}<p>Pull up a stool. What will it be?</p>${tip}${opts.map(([k, n]) => `<button data-t=${k}>${n}</button><br>`).join('')}<button id=pC>Leave</button></div>`;
       $('pC').onclick = close;
       el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => choose(b.dataset.t)));
     };
     const choose = (k) => {
       if (k === 'jobs' || k === 'crew') { tavPage = k; shop(); return; }
+      if (k === 'help') { const st = storiesFor(s, ctx.island); page('Troubles', st.html); el.querySelectorAll('[data-q]').forEach((b) => (b.onclick = () => { takeSide(s, st.offs[+b.dataset.q]); ctx.onChange?.(); choose('help'); })); return; }
       if (k === 'rumour') {
         const issue = Math.floor(s.t / 300), n = rumours++, items = newsFor(s, ctx.island).items.filter((q) => q.tag !== 'Overheard' && q.tag !== 'Prices'), item = items[n % Math.max(1, items.length)];
         page('Rumours', `<p>${esc(asgardLine(s, res.npc.seed + n * 977, issue + n))}</p>${item ? `<p><small class=gold>${esc(item.head)}</small><br>${esc(item.body)}</p>` : ''}`, '<button id=pM>Another</button> ');
@@ -186,7 +196,7 @@ export function createUI() {
     const shop = () => {
       let h = `<div class=box>${head}<h2>${res.panel === 'market' ? 'Market' : res.panel === 'shipyard' ? 'Shipyard' : res.panel === 'arms' ? 'Armoury' : res.panel === 'guard' ? 'Guard Station' : res.panel === 'tavern' ? 'Tavern' : 'The Warden'}</h2><div>Gold: <b class=gold>${Math.round(s.gold)}</b>${port ? ` · Standing here: <b>${tier(localRep(s, port.iid))}</b> · Realm: <b>${tier(worldRep(s))}</b>` : ''}</div>`;
       if (res.panel === 'market') {
-        h += `<p>Provisions (${foodCost(port)}g each): you have <b>${s.food}</b>/${MAX_FOOD} <button class=small data-a=f1>+1</button><button class=small data-a=f5>+5</button><button class=small data-a=fm>Fill</button></p>`;
+        h += `<p>Provisions (${foodPrice(s, port)}g each): you have <b>${s.food}</b>/${MAX_FOOD} <button class=small data-a=f1>+1</button><button class=small data-a=f5>+5</button><button class=small data-a=fm>Fill</button></p>`;
         h += '<table><tr><th>Goods</th><th class=n>Buy</th><th class=n>Sell</th><th class=n>Have</th><th></th></tr>';
         for (const g of GOODS) h += `<tr><td>${g}${g === port.cheap ? ' <span class=gold>cheap</span>' : g === port.dear ? ' <span class=bad>dear</span>' : ''}</td><td class=n>${buyPrice(s, port, g)}</td><td class=n>${sellPrice(s, port, g)}</td><td class=n>${s.cargo[g] || 0}</td><td class=n><button class=small data-a="b:${g}">Buy</button><button class=small data-a="s:${g}">Sell</button></td></tr>`;
         h += `</table><p class=hint>Hold: ${cargoCount(s)}/${s.hold}. Buy where a good is cheap, sell where it is dear.</p>`;
@@ -242,14 +252,26 @@ export function createUI() {
   };
   // the world map (M): Terra's local map and the grand map of every world you have heard of
   ui.map = (s, onClose, onTravel) => {
-    const el = $('panel'); let tab = 'terra', t0 = performance.now(), timer = 0, N = 640;
+    const el = $('panel'); let tab = 'terra', t0 = performance.now(), timer = 0, N = 640, view = makeView();
     const close = () => { clearInterval(timer); on('panel', false); onClose?.(); };
-    const draw = () => { const c = $('mapc'); if (!c || !ui.panelOpen()) { clearInterval(timer); return; } const ctx = c.getContext('2d'), t = (performance.now() - t0) / 1000; if (tab === 'terra') drawTerra(ctx, s, N, t); else drawWorld(ctx, s, N, t); };
+    const draw = () => { const c = $('mapc'); if (!c || !ui.panelOpen()) { clearInterval(timer); return; } const ctx = c.getContext('2d'), t = (performance.now() - t0) / 1000; if (tab === 'terra') drawTerra(ctx, s, N, t, view); else drawWorld(ctx, s, N, t, view); };
+    // wheel or + / - zooms, drag moves the chart, "Me" brings it to where you are
+    const controls = () => {
+      const c = $('mapc'), scale = () => N / (c.clientWidth || N), mid = N / 2;
+      c.onwheel = (e) => { e.preventDefault(); const r = c.getBoundingClientRect(); zoomView(view, N, (e.clientX - r.left) * scale(), (e.clientY - r.top) * scale(), e.deltaY < 0 ? 1.25 : 0.8); draw(); };
+      let from = null;
+      c.onpointerdown = (e) => { from = [e.clientX, e.clientY]; c.setPointerCapture?.(e.pointerId); };
+      c.onpointermove = (e) => { if (!from) return; panView(view, N, (e.clientX - from[0]) * scale(), (e.clientY - from[1]) * scale()); from = [e.clientX, e.clientY]; draw(); };
+      c.onpointerup = c.onpointercancel = () => { from = null; };
+      $('mIn').onclick = () => { zoomView(view, N, mid, mid, 1.5); draw(); };
+      $('mOut').onclick = () => { zoomView(view, N, mid, mid, 1 / 1.5); draw(); };
+      $('mMe').onclick = () => { tab = 'terra'; centreView(view, where(s)); show(); };
+    };
     const travelHtml = () => { const why = travelBlock(s), list = travelList(s); return `<div style="max-height:48vh;overflow:auto"><p><small>Sail to a port you have already walked. The voyage takes time at sea and uses provisions (you have <b>${s.food}</b>).</small></p>${why ? `<p class=bad>${esc(why)}</p>` : ''}${list.length ? '<table>' + list.map((t) => `<tr><td><b>${esc(t.name)}</b><br><small>${t.dist > 1000 ? (t.dist / 1000).toFixed(1) + ' km' : Math.round(t.dist) + ' m'} · ${Math.max(1, Math.round(t.time / 60))} min · ${t.food} provisions</small></td><td class=n><button class=small data-go="${esc(t.id)}" ${why || s.food < t.food ? 'disabled' : ''}>Sail</button></td></tr>`).join('') + '</table>' : '<p class=hint>No ports visited here yet. Walk into a port to add it.</p>'}</div>`; };
     const show = () => {
       const heard = WORLDS.filter((r) => !r.home && realmState(s, r.id) >= HINTED).length;
-      el.innerHTML = `<div class=box style="max-width:min(720px,96vw)"><h2>Map</h2><div><button class=small id=mT ${tab === 'terra' ? 'disabled' : ''}>Terra</button> <button class=small id=mW ${tab === 'world' ? 'disabled' : ''}>All worlds (${heard} heard of)</button> <button class=small id=mV ${tab === 'travel' ? 'disabled' : ''}>Fast travel</button></div>${tab === 'travel' ? travelHtml() : ''}<canvas id=mapc width=${N} height=${N} style="width:min(640px,60vh);height:min(640px,60vh);image-rendering:pixelated;display:${tab === 'travel' ? 'none' : 'block'};margin:.6em auto;border:2px solid #07080c"></canvas><small>${tab === 'terra' ? 'Only waters you have sailed, places you have walked and charts you were given are drawn.' : 'Other worlds appear when you hear of them, and in colour when you reach them.'}</small><p><button id=mC>Close (M)</button></p></div>`;
-      $('mC').onclick = close; $('mT').onclick = () => { tab = 'terra'; show(); }; $('mW').onclick = () => { tab = 'world'; show(); }; $('mV').onclick = () => { tab = 'travel'; show(); }; el.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => { const id = b.dataset.go; close(); onTravel?.(id); })); draw(); clearInterval(timer); timer = setInterval(draw, 500);
+      el.innerHTML = `<div class=box style="max-width:min(720px,96vw)"><h2>Map</h2><div><button class=small id=mT ${tab === 'terra' ? 'disabled' : ''}>Terra</button> <button class=small id=mW ${tab === 'world' ? 'disabled' : ''}>All worlds (${heard} heard of)</button> <button class=small id=mV ${tab === 'travel' ? 'disabled' : ''}>Fast travel</button></div>${tab === 'travel' ? travelHtml() : ''}<canvas id=mapc width=${N} height=${N} style="width:min(640px,54vh);height:min(640px,54vh);display:${tab === 'travel' ? 'none' : 'block'};margin:.6em auto;border:2px solid #07080c;cursor:grab;touch-action:none"></canvas>${tab === 'travel' ? '' : '<div style="text-align:center"><button class=small id=mOut>&minus;</button> <button class=small id=mIn>+</button> <button class=small id=mMe>Find me</button> <small>scroll to zoom, drag to move</small></div>'}<small>${tab === 'terra' ? 'Only waters you have sailed, places you have walked and charts you were given are drawn.' : 'Other worlds appear when you hear of them, and in colour when you reach them.'}</small><p><button id=mC>Close (M)</button></p></div>`;
+      $('mC').onclick = close; $('mT').onclick = () => { tab = 'terra'; view = makeView(); show(); }; $('mW').onclick = () => { tab = 'world'; view = makeView(); show(); }; $('mV').onclick = () => { tab = 'travel'; show(); }; el.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => { const id = b.dataset.go; close(); onTravel?.(id); })); if (tab !== 'travel') controls(); draw(); clearInterval(timer); timer = setInterval(draw, 500);
     };
     show(); on('panel', true);
   };
@@ -266,22 +288,42 @@ export function createUI() {
     const jobs = `<p><b class=gold>Contracts</b> <small>(${mine.length}/${MAX_ACTIVE} carried)</small></p>` + (mine.length ? '<table>' + mine.map((c) => `<tr><td>${esc(contractText(s, c))}</td><td class=n><button class=small data-k="x:${c.id}">Drop</button></td></tr>`).join('') + '</table>' : '') + (offs.length ? '<table>' + offs.map((o) => `<tr><td>${esc(o.text)}<br><small>${Math.round(o.window / 60)} min</small></td><td class=n><button class=small data-k="a:${o.id}">${quoteContract(s, o)}g · Sign</button></td></tr>`).join('') + '</table>' : '<p class=hint>No more work posted this issue.</p>');
     return { offs, html: jobs };
   };
+  // layered stories on offer in this town: on the notice board and from the tavern keeper
+  const storiesFor = (s, isl) => {
+    const offs = sideOffersFor(s, isl);
+    return { offs, html: `<p><b class=gold>Troubles</b> <small>(${sideOf(s).length}/${MAX_SIDE} stories)</small></p>` + (offs.length ? '<table>' + offs.map((o, i) => `<tr><td><b>${esc(o.title)}</b><br><small>${esc(o.text)}</small></td><td class=n><button class=small data-q=${i}>Help · ~${o.pay}g</button></td></tr>`).join('') + '</table>' : '<p class=hint>Nobody needs anything just now.</p>') };
+  };
   const jobClick = (s, offs, key) => { const kind = key.slice(0, 1), id = key.slice(2); if (kind === 'a') { const o = offs.find((q) => q.id === id); if (o) signContract(s, o); } else dropContract(s, id); };
   // the town notice board
   ui.news = (s, isl, onClose) => {
     const el = $('panel'), n = newsFor(s, isl); markRead(s, isl); settleBoard(s, isl);
     const draw = () => {
-      const { offs, html: jobs } = jobsFor(s, isl);
-      el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto"><h2>${esc(n.title)}</h2><div class=npc>Issue ${n.issue}${n.fresh ? ' · <span class=gold>new notices pinned</span>' : ' · nothing new since you last looked'}</div>${jobs}${n.items.map((i) => `<p><small class=gold>${esc(i.tag)}</small><br><b>${esc(i.head)}</b><br>${esc(i.body)}</p>`).join('')}<button id=nC>Step away</button></div>`;
+      const { offs, html: jobs } = jobsFor(s, isl), st = storiesFor(s, isl);
+      el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto"><h2>${esc(n.title)}</h2><div class=npc>Issue ${n.issue}${n.fresh ? ' · <span class=gold>new notices pinned</span>' : ' · nothing new since you last looked'}</div>${st.html}${jobs}${n.items.map((i) => `<p><small class=gold>${esc(i.tag)}</small><br><b>${esc(i.head)}</b><br>${esc(i.body)}</p>`).join('')}<button id=nC>Step away</button></div>`;
       $('nC').onclick = () => { on('panel', false); onClose?.(); };
       el.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { jobClick(s, offs, b.dataset.k); draw(); }));
+      el.querySelectorAll('[data-q]').forEach((b) => (b.onclick = () => { takeSide(s, st.offs[+b.dataset.q]); draw(); }));
+    };
+    draw(); on('panel', true);
+  };
+  // a person in one of your stories: a few lines, then maybe a choice
+  ui.side = (s, r, onClose) => {
+    const el = $('panel'); let i = 0;
+    const close = () => { on('panel', false); onClose?.(); };
+    const draw = () => {
+      const last = i >= r.lines.length - 1;
+      el.innerHTML = `<div class=box><div class=npc>${esc(r.name)} · ${esc(r.title)}</div><p>${esc(r.lines[i])}</p>${!last ? '<button id=sN>Continue</button>' : r.opts ? r.opts.map((o, k) => `<button data-o=${k}>${esc(o)}</button><br>`).join('') + '<button id=sC>Think it over</button>' : '<button id=sC>Farewell</button>'}</div>`;
+      if (!last) $('sN').onclick = () => { i++; draw(); }; else $('sC').onclick = close;
+      el.querySelectorAll('[data-o]').forEach((b) => (b.onclick = () => { if (pickSide(s, r.id, +b.dataset.o)) close(); else b.disabled = true; }));
     };
     draw(); on('panel', true);
   };
   ui.questLog = (s, onClose) => {
     const el = $('panel');
-    el.innerHTML = `<div class=box><h2>Quest log</h2>${QUESTS.map((q, i) => `<p style="opacity:${i > s.quest ? 0.4 : 1}"><b class="${i < s.quest ? '' : 'gold'}">${i < s.quest ? '✔ ' : i === s.quest ? '➤ ' : ''}${esc(q.title)}</b><br><small>${i <= s.quest ? esc(questText(s, q)) : '???'}</small></p>`).join('')}${contractList(s).length ? '<p><b class=gold>Contracts</b></p>' + contractList(s).map((c) => `<p><small>${esc(contractText(s, c))}</small></p>`).join('') : ''}<button id=qC>Close</button></div>`;
+    el.innerHTML = `<div class=box><h2>Quest log</h2>${QUESTS.map((q, i) => `<p style="opacity:${i > s.quest ? 0.4 : 1}"><b class="${i < s.quest ? '' : 'gold'}">${i < s.quest ? '✔ ' : i === s.quest ? '➤ ' : ''}${esc(q.title)}</b><br><small>${i <= s.quest ? esc(questText(s, q)) : '???'}</small></p>`).join('')}${contractList(s).length ? '<p><b class=gold>Contracts</b></p>' + contractList(s).map((c) => `<p><small>${esc(contractText(s, c))}</small></p>`).join('') : ''}${s.comp ? `<p>With you: <b class=gold>${esc(s.comp.name)}</b></p>` : ''}${sideOf(s).length ? '<p><b class=gold>Stories</b></p>' + sideOf(s).map((v) => `<p><b>${esc(titleOf(v))}</b><br><small>${esc(goalOf(s, v))}</small><br><button class=small data-tr="${v.id}">Follow</button> <button class=small data-ab="${v.id}">Give up</button></p>`).join('') : ''}<button id=qC>Close</button></div>`;
     $('qC').onclick = () => { on('panel', false); onClose?.(); }; on('panel', true);
+    el.querySelectorAll('[data-tr]').forEach((b) => (b.onclick = () => { s.tracked = b.dataset.tr; $('qC').click(); }));
+    el.querySelectorAll('[data-ab]').forEach((b) => (b.onclick = () => { dropSide(s, b.dataset.ab); ui.questLog(s, onClose); }));
   };
 
   // ------------------------------------------------------------ pause, ending, game over
