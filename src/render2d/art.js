@@ -92,6 +92,15 @@ export function paintBench(g) { cel(g, rr(-0.8, -0.65, 1.6, 0.2, 0.05), [0.6, 0.
 // enemy health bar floating over a ship: f = 0..1 of health left
 export const HP_BOX = { x0: -1.7, x1: 1.7, y0: -0.34, y1: 0.34 };
 export function paintHp(g, f) { line(g, -1.45, 0, 1.45, 0, 0.62, INK); if (f > 0.02) line(g, -1.4, 0, -1.4 + 2.8 * f, 0, 0.4, f > 0.55 ? '#5ad45a' : f > 0.25 ? '#f0c030' : '#e83a3a'); }
+// a raider's bar carries a skull on its left end
+export const SKULL_HP_BOX = { x0: -2.9, x1: 1.7, y0: -0.75, y1: 0.75 };
+export function paintSkullHp(g, f) {
+  paintHp(g, f); const x = -2.15;
+  fillPath(g, ell(x, -0.08, 0.6, 0.55), INK); line(g, x - 0.26, 0.42, x + 0.26, 0.42, 0.42, INK);
+  fillPath(g, ell(x, -0.1, 0.48, 0.43), '#f2efe4'); line(g, x - 0.19, 0.4, x + 0.19, 0.4, 0.24, '#f2efe4'); // cranium and jaw
+  for (const s of [-1, 1]) fillPath(g, ell(x + s * 0.19, -0.06, 0.15, 0.16), '#c02a22'); // red eyes
+  fillPath(g, poly(x, 0.1, x - 0.08, 0.24, x + 0.08, 0.24), INK); for (const s of [-1, 0, 1]) line(g, x + s * 0.12, 0.34, x + s * 0.12, 0.5, 0.05, INK);
+}
 export const XMARK_BOX = { x0: -0.9, x1: 0.9, y0: -0.7, y1: 0.7 };
 export function paintXMark(g) { line(g, -0.5, -0.45, 0.5, 0.45, 0.28, INK); line(g, 0.5, -0.45, -0.5, 0.45, 0.28, INK); line(g, -0.5, -0.45, 0.5, 0.45, 0.17, '#e83a3a'); line(g, 0.5, -0.45, -0.5, 0.45, 0.17, '#e83a3a'); }
 

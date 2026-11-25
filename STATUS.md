@@ -411,3 +411,15 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - **Bug (user report: animals stick to me like glue):** the "dolphins race your bow" feature teleported every dolphin within 300 units to your ship's bow and kept them there while you sailed. Removed completely. Animals now only live on their own loops in the world; the ship changes nothing except that the big ones (whales, orcas, narwhals, seals, turtles, fins) dive away when a ship under way passes within 42 units.
 - Density eased back (cells 210 units, 50% of sea cells hold a group, 60% in the open ocean) so you come across them rather than being surrounded; they still surface for longer than before.
 - Test replaced: dolphin positions are identical with the ship moving, drifting, or absent. 82 tests pass.
+
+## Round 55 (2026-11-24): AFK mode, a fuller wake, debug mode
+- **AFK mode (P key, or Options):** the game keeps running when you tab away or let go of the mouse; "AFK ON (P)" badge. Browsers stop animation frames in hidden tabs, so a small worker steps the rules there (nothing drawn). Off by default and saved in options. Enemies can still reach you while you are away.
+- **Wake (`src/wake.js`, replaces the old static foam mesh):** each ship remembers its stern's path for about 6.5 s; every frame the foam is built on the real water surface: two ragged churn strands and flecks that spread and thin (and curve with turns), the two arms of the V, foam along the hull and flickering bow spray; it fades out after you stop and resets after a teleport. One small dynamic buffer per ship.
+- **Debug mode (`src/debug.js`):** add `?debug` to the page address, then press ` (under Esc). Info line (realm, position, ships, fps, heap) and buttons: +1000 gold, full food and health, god mode, galleon, ram and all parts, break the Wall, go to the weak spot or the Outer Sea edge, jump to Asgard or Terra, spawn raider or navy, clear enemies or bounty, skip 10 minutes. It edits the real save; anyone who adds `?debug` to the live site can use it.
+- **Weather is not implemented** (only wind spells, the swell with calm water near islands, and the cold fog near the rim). No storms, rain, snow or day/night.
+- 83 tests pass (new: the wake lies on the water, trails, fades, resets). Seen in Chrome: the debug panel and a +1000 gold click, the AFK badge and the worker advancing the clock about 3.9 s in 4 s with the page reporting hidden (simulated, not a real tab switch), the new wake. Build 240.1 kB. Not pushed.
+
+## Round 56 (2026-11-24): raider skull, raiders come to jobs
+- A raider's health bar carries a skull (red eyes) on its left end; other ships keep the plain bar.
+- While "Clear the Lanes" or a cull contract is unfinished, there are raiders within 400 of your ship: fewer than 2 that close and one more arrives (200-350 away, mostly ahead, anywhere in open water if land is in the way), at most one every 8 s. It stops when the job's count is reached.
+- 84 tests pass. Seen in Chrome: the skull on a raider's bar, none on a trader. Build 240.6 kB. Pushed together with Round 55.

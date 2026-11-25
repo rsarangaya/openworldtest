@@ -2,9 +2,11 @@
 import { createRenderer } from './render/gpu.js';
 import { model, mul } from './render/math.js';
 import { SHIPS } from './rules/ships.js';
-import { islandMesh, wallMesh, shipMesh, shipParams, ballMesh, wakeMesh } from './gen/mesh.js';
+import { islandMesh, wallMesh, shipMesh, shipParams, ballMesh } from './gen/mesh.js';
 import { islandProps } from './gen/props.js';
 import { createSprites } from './render/sprites.js';
+import { newTrail, feed, buildWake } from './wake.js';
+import { createDebug, debugEnabled } from './debug.js';
 import { warpText } from './rules/realm.js';
 import { lifeAt, clearLife } from './rules/life.js';
 import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
@@ -37,7 +39,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 // ---------------------------------------------------------------- sectors: built on demand, one per frame, freed when far
 const sectors = new Map(), shipMeshes = new Map(), npcMeshes = new Map(), tasks = [];
-let ballGpu = null, sprites = null, wakeGpu = null;
+let ballGpu = null, sprites = null;
 const LIFE = [];
 const BB = { data: new Float32Array(12 * 8000), n: 0 }, propCache = new Map();
 function bb(sp, x, y, z, sc) { // one billboard instance: anchor + scale, quad extents, atlas rect
@@ -76,22 +78,15 @@ const enemyL = new Map(), enemyLen = (e) => { let l = enemyL.get(e.kind + e.seed
 // the sail pivots about its mast; the boom swings out to the side the wind blows toward
 const tr = (x) => { const o = model(0, 0, 0); o[12] = x; return o; };
 const sailMat = (hm, x, trim) => mul(hm, mul(tr(x), mul(model(0, 0, 0, -trim * 1.48), tr(-x))));
-// a V of foam splitting from the bow and a churned trail astern; three frames cycled so it streams outward.
-// Every vertex is laid on the real water surface each frame (the same swell the sea shader uses), so the foam never floats above the sea or sinks into a wave.
-// One small dynamic buffer per ship (about 8 kB), rewritten while she moves and freed shortly after she stops or leaves.
-const wakeBase = [0, 1 / 3, 2 / 3].map((ph) => wakeMesh(ph).data()), wakeBuf = new Map();
-let wakeFrame = 0;
-function wake(objects, id, x, z, yaw, L, speed, t) {
-  if (speed < 1.2) return; let w = wakeBuf.get(id); const base = wakeBase[((t * 4) | 0) % 3];
-  if (!w) { w = { h: renderer.upload({ data: () => new Float32Array(base.length), count: base.length / 9 }), arr: new Float32Array(base.length) }; wakeBuf.set(id, w); }
-  w.used = wakeFrame; const sc = L * Math.max(0.55, Math.min(1.15, speed / 9)), c = Math.cos(yaw), sn = Math.sin(yaw), a = w.arr;
-  for (let i = 0; i < base.length; i += 9) {
-    const lx = base[i] * sc, lz = base[i + 2] * sc, wx = x + c * lx - sn * lz, wz = z + sn * lx + c * lz; // local -> world (the ship faces (cos yaw, sin yaw))
-    a[i] = wx; a[i + 1] = wave(wx, wz, t) + 0.1 + base[i + 1]; a[i + 2] = wz; a[i + 3] = c * base[i + 3] - sn * base[i + 5]; a[i + 4] = base[i + 4]; a[i + 5] = sn * base[i + 3] + c * base[i + 5]; a[i + 6] = base[i + 6]; a[i + 7] = base[i + 7]; a[i + 8] = base[i + 8];
-  }
-  renderer.update(w.h, a); objects.push({ m: w.h, mat: IDENT, tint: [1, 1, 1] });
+// ship wakes: foam on the water built from where each stern has been (see wake.js); one small dynamic buffer per ship, freed soon after it is gone
+const wakes = new Map(); let wakeFrame = 0;
+function wake(objects, id, x, z, yaw, L, B, speed, t) {
+  let w = wakes.get(id); if (!w) { if (speed < 1.2) return; w = newTrail(); w.h = renderer.upload({ data: () => w.arr, count: 0 }); wakes.set(id, w); }
+  w.used = wakeFrame; feed(w, x, z, yaw, L, speed, t); if (!w.pts.length && speed < 1.2) return;
+  const n = buildWake(w, x, z, yaw, L, B, speed, t); if (!n) return; w.h.count = n; renderer.update(w.h, w.arr.subarray(0, n * 9)); objects.push({ m: w.h, mat: IDENT, tint: [1, 1, 1] });
 }
-const sweepWakes = () => { wakeFrame++; if (wakeFrame % 120) return; for (const [id, w] of wakeBuf) if (wakeFrame - w.used > 120) { renderer.free(w.h); wakeBuf.delete(id); } };
+const sweepWakes = () => { wakeFrame++; if (wakeFrame % 120) return; for (const [id, w] of wakes) if (wakeFrame - w.used > 120) { renderer.free(w.h); wakes.delete(id); } };
+const beamCache = new Map(), enemyBeam = (e) => { let b = beamCache.get(e.kind + e.seed); if (!b) { b = shipParams(e.seed, e.kind).B; beamCache.set(e.kind + e.seed, b); } return b; };
 const shipGpu = (seed, kind, cls = '') => { const k = kind + seed + cls; let g = shipMeshes.get(k); if (!g) { g = renderer.upload(shipMesh(shipParams(seed, kind, cls))); shipMeshes.set(k, g); } return g; };
 
 // ---------------------------------------------------------------- cameras
@@ -149,7 +144,7 @@ function render(t) {
       const ph = sk ? [1 - sk * 0.5, 1 - sk * 0.5, 1 - sk * 0.4] : s.t - s.hitT < 0.22 ? [1.6, 0.6, 0.55] : [1, 1, 1]; // the hull flashes red when hit
       objects.push({ m: P.hull, mat: hm, tint: ph });
       for (const q of P.sails) objects.push({ m: q.g, mat: sailMat(hm, q.x, s.ship.trim || 0), tint: ph });
-      if (!sk) wake(objects, 'P', s.ship.x, s.ship.z, s.ship.yaw, (SHIPS[s.shipClass] || SHIPS.sailboat).L, Math.abs(s.ship.speed), t);
+      if (!sk) wake(objects, 'P', s.ship.x, s.ship.z, s.ship.yaw, (SHIPS[s.shipClass] || SHIPS.sailboat).L, (SHIPS[s.shipClass] || SHIPS.sailboat).B, Math.abs(s.ship.speed), t);
     }
     if (sprites && s.mode !== 'foot' || (sprites && !s.deck)) { // sea life and birds: flat sprites, mirrored to face the way they swim relative to the camera
       const L = lifeAt(s.realm || 'terra', s.seed, t, cam.x, cam.z, LIFE, s.mode === 'ship' && s.ship ? s.ship : null), rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
@@ -157,15 +152,15 @@ function render(t) {
       for (const c of L) bb(sprites.critter(c.kind, c.dx * rx + c.dz * rz >= 0 ? 'R' : 'L', c.fr), c.x, c.y + (c.air ? 0 : wave(c.x, c.z, t)), c.z, c.air ? 2.4 : 2);
     }
     for (const e of s.enemies.values()) {
-      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind, s.realm === 'asgard' ? 'v' : ''), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, e.id, e.x, e.z, e.yaw, enemyLen(e), e.speed, t);
+      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind, s.realm === 'asgard' ? 'v' : ''), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, e.id, e.x, e.z, e.yaw, enemyLen(e), enemyBeam(e), e.speed, t);
       const dd = Math.hypot(e.x - cam.x, e.z - cam.z); // a health bar above every enemy ship you can see: bigger with distance so it stays readable
-      if (dd < 260 && sprites && e.maxHp) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((e.hp / e.maxHp) * 10)))), e.x, 15 + wave(e.x, e.z, t) * 0.9, e.z, Math.max(1, Math.min(3.2, dd / 40)));
+      if (dd < 260 && sprites && e.maxHp) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((e.hp / e.maxHp) * 10))), e.kind === 'raider'), e.x, 15 + wave(e.x, e.z, t) * 0.9, e.z, Math.max(1, Math.min(3.2, dd / 40)));
     }
     for (const q of Object.values(s.npcs || {})) if (q.dead && q.x !== undefined && s.t - q.t < CORPSE_S && Math.hypot(q.x - cam.x, q.z - cam.z) < 220) { // a body lies where it fell, then shrinks away
       const a = (s.t - q.t) / CORPSE_S, fade = a > 0.8 ? 1 - (a - 0.8) / 0.2 : 1, pop = Math.min(1, (s.t - q.t) / 0.25); // it topples over in a quarter second
       bb(sprites?.fallen(q.kind, q.seed), q.x - 0.9 * (1 - pop), q.y + 0.05 + 0.5 * Math.sin(pop * Math.PI), q.z, sprites.PERSON_SCALE * Math.max(0.05, fade));
     }
-    for (const f of s.fleet || []) { const fm = shipMat(f.x, f.z, f.yaw, t), flash = s.t - (f.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(f.seed, f.kind, s.realm === 'asgard' ? 'v' : ''), mat: fm, tint: flash ? [1.6, 0.6, 0.55] : [0.8, 0.95, 1.35] }); if (Math.hypot(f.x - cam.x, f.z - cam.z) < 400) wake(objects, f.id, f.x, f.z, f.yaw, enemyLen(f), f.speed, t); const fd = Math.hypot(f.x - cam.x, f.z - cam.z); if (fd < 300 && sprites) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((f.hp / f.maxHp) * 10)))), f.x, 15 + wave(f.x, f.z, t) * 0.9, f.z, Math.max(1, Math.min(3.2, fd / 40))); } // your fleet: tinted blue so you can tell them from the enemy
+    for (const f of s.fleet || []) { const fm = shipMat(f.x, f.z, f.yaw, t), flash = s.t - (f.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(f.seed, f.kind, s.realm === 'asgard' ? 'v' : ''), mat: fm, tint: flash ? [1.6, 0.6, 0.55] : [0.8, 0.95, 1.35] }); if (Math.hypot(f.x - cam.x, f.z - cam.z) < 400) wake(objects, f.id, f.x, f.z, f.yaw, enemyLen(f), enemyBeam(f), f.speed, t); const fd = Math.hypot(f.x - cam.x, f.z - cam.z); if (fd < 300 && sprites) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((f.hp / f.maxHp) * 10)))), f.x, 15 + wave(f.x, f.z, t) * 0.9, f.z, Math.max(1, Math.min(3.2, fd / 40))); } // your fleet: tinted blue so you can tell them from the enemy
     for (const k of s.sinking) { const a = Math.min(1, (s.t - k.t0) / SINK_S); objects.push({ m: shipGpu(k.seed, k.kind), mat: shipMat(k.x, k.z, k.yaw, t, 0, a), tint: [1 - a * 0.5, 1 - a * 0.5, 1 - a * 0.4] }); } // a sunk ship rolls over and slips under, then is gone
     for (const f of s.fx) { const p = (s.t - f.t0) / f.life, sc = f.sc * (f.k === 'flash' ? 1 - p * 0.6 : f.k === 'smoke' ? 0.5 + p * 0.9 : f.k === 'hurt' ? 0.18 : 0.6 + p * 0.6) * (1 - p ** 3 * 0.7); bb(sprites?.fx(f.k), f.x, f.y, f.z, sc); }
     if (s.shots.length) { ballGpu ||= renderer.upload(ballMesh()); for (const b of s.shots) objects.push({ m: ballGpu, mat: model(b.x, 2.5 + Math.sin(b.life * 3) * 0.3, b.z), tint: [1, 1, 1] }); }
@@ -238,6 +233,8 @@ addEventListener('keydown', (e) => {
   audio.init();
   if (guard && ((e.ctrlKey || e.metaKey) || (/^F\d+$/.test(e.code) && e.code !== 'F12'))) e.preventDefault();
   if (e.code === 'Tab' || (e.code === 'Space' && phase === 'play')) e.preventDefault();
+  if (e.code === 'Backquote' && dbg && s && !e.repeat) { if (dbg.toggle()) unlock(); else if (phase === 'play') lock(); return; }
+  if (e.code === 'KeyP' && s && phase === 'play' && !e.repeat) { toggleAfk(); return; }
   if (e.code === 'Escape' && phase === 'play' && !locked()) { pause(); return; }
   if (e.code === 'Escape' && phase === 'paused' && !e.repeat) { ($('pR') || $('oB'))?.click(); return; } // Esc again resumes (or backs out of Options)
   if (e.repeat) { keys.add(e.code); return; }
@@ -273,7 +270,7 @@ document.addEventListener('pointerlockchange', () => {
   ui.crosshair(locked() && s?.mode === 'foot');
   if (locked()) return;
   if (expectUnlock) { expectUnlock = false; return; }
-  if (phase === 'play') pause();
+  if (phase === 'play' && !opts.afk && !dbg?.open) pause();
 });
 addEventListener('resize', resize);
 
@@ -329,18 +326,30 @@ function startWarp(to) {
     ui.fade(false); phase = 'play'; saveGame(s);
   }, 1500);
 }
+// ---------------------------------------------------------------- AFK mode: the game keeps running when you tab away or let go of the mouse (P, or Options).
+// Browsers stop animation frames in hidden tabs, so a tiny worker keeps the clock going there (nothing is drawn while hidden).
+let hiddenAt = 0, badge = null;
+const showAfk = () => { if (!badge) { badge = document.createElement('div'); badge.style.cssText = 'position:fixed;left:50%;top:8px;transform:translateX(130px);z-index:9;padding:3px 8px;border:1px solid #c9a13a;border-radius:4px;background:rgba(10,14,22,.85);color:#f3d98a;font:12px monospace;pointer-events:none'; badge.textContent = 'AFK ON (P)'; document.body.appendChild(badge); } badge.style.display = opts.afk && s ? 'block' : 'none'; };
+function toggleAfk() { setOptions({ ...opts, afk: !opts.afk }); if (s) say(s, opts.afk ? 'AFK mode on: the game keeps running when you tab away. Enemies can still reach you.' : 'AFK mode off: letting go of the mouse pauses again.'); }
+try {
+  const clock = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 100)'], { type: 'text/javascript' })));
+  clock.onmessage = () => { if (!(opts.afk && document.hidden && s && renderer)) { hiddenAt = 0; return; } const now = performance.now(); if (!hiddenAt) { hiddenAt = now; return; } const el = Math.min(2, (now - hiddenAt) / 1000); hiddenAt = now; T += el; advance(el, 150); };
+} catch { /* no workers here: AFK then only covers losing the mouse */ }
+const dbg = debugEnabled() ? createDebug({
+  get: () => s, say,
+  teleport: () => { clearLife(); updateSectors(s.ship.x, s.ship.z, true); cam.blend = 1; view.yaw = s.ship.yaw; orbit.yaw = 0; },
+  warp: (to) => { if ((s.realm || 'terra') === to) return; s.warp = { to, t0: s.t, ang: -1.5 }; startWarp(to); },
+  info: () => 'fps ' + (window.__fps || 0).toFixed(0) + '  sectors ' + sectors.size + (performance.memory ? '  heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : ''),
+}) : null;
 // ---------------------------------------------------------------- main loop
 // what the ears should hear: at sea, or ashore, and how busy the town around you is (louder near the plaza, bigger in cities)
 const soundScene = () => { if (s.mode !== 'foot') return { foot: false, town: 0 }; const i = standingOn(s), pz = i?.port && islandTown(i).plaza; if (!pz) return { foot: true, town: 0 }; const w = { village: 0.5, town: 0.8, city: 1 }[i.tier] || 0.5; return { foot: true, town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) }; };
 let prevMode = null, last = performance.now(), acc = 0, T = 0, fpsN = 0, fpsT = 0;
-function loop(now) {
-  requestAnimationFrame(loop);
-  const dt = Math.min(0.1, (now - last) / 1000); last = now; T += dt;
-  applyGuard();
-  if (renderer.lost) { ui.error('The graphics device was lost: ' + renderer.lost + '. Reload the page.'); return; }
+// one slice of game time: step the rules and react to what happened
+function advance(dt, maxSteps) {
   if (s && phase === 'play') {
     acc += dt;
-    for (let n = 0; acc >= DT && n < 5; n++, acc -= DT) {
+    for (let n = 0; acc >= DT && n < maxSteps; n++, acc -= DT) {
       const on = (k) => (keys.has(k) ? 1 : 0);
       step(s, s.mode === 'ship'
         ? { rudder: on('KeyD') - on('KeyA'), sail: on('KeyW') - on('KeyS'), trim: on('KeyC') - on('KeyZ'), fireL: keys.has('KeyQ'), fireR: keys.has('KeyE') }
@@ -356,6 +365,14 @@ function loop(now) {
     saveT += dt; if (saveT > 30) { saveT = 0; saveGame(s); }
     if (s.over) { phase = 'over'; unlock(); ui.gameOver({ hasSave: hasSave(), onLoad: continueFlow, onMenu: showMenu }); }
   }
+  dbg?.tick();
+}
+function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; T += dt;
+  applyGuard();
+  if (renderer.lost) { ui.error('The graphics device was lost: ' + renderer.lost + '. Reload the page.'); return; }
+  if (!(opts.afk && document.hidden)) advance(dt, 5);
   updateCamera(dt, T);
   const fx = s ? (s.mode === 'ship' && s.ship ? s.ship.x : s.foot.x) : cam.x, fz = s ? (s.mode === 'ship' && s.ship ? s.ship.z : s.foot.z) : cam.z;
   updateSectors(fx, fz);
@@ -363,7 +380,7 @@ function loop(now) {
   if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
-    ui.updateHud(s, { prompt: pr, yaw: cam.yaw });
+    ui.updateHud(s, { prompt: pr, yaw: cam.yaw }); showAfk();
     audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
   fpsN++; fpsT += dt; if (fpsT > 1) { window.__fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }

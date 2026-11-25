@@ -7,7 +7,7 @@ import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } f
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
 import { shipParams } from '../gen/mesh.js';
 import { explore, visit, learn, mapOf } from './map.js';
-import { stepContracts, offers as contractOffers, accept as acceptContract, settle as settleContracts, abandon as abandonContract } from './contracts.js';
+import { stepContracts, offers as contractOffers, accept as acceptContract, settle as settleContracts, abandon as abandonContract, active as activeContracts, progress as contractProgress } from './contracts.js';
 import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S } from './realm.js';
 import { REALMS } from './map.js';
 import { clearWorldCaches } from '../gen/world.js';
@@ -410,16 +410,18 @@ function stepFoot(s, inp, dt) {
 
 // ---------------------------------------------------------------- at sea
 const RESPAWN = 90; // seconds before a sunk ship's waters fill again (once you are out of sight)
-// the story's raider hunt must be doable: while "Clear the Lanes" is active there are always at least two raiders within reach
+// jobs against raiders must be doable: while "Clear the Lanes" or a cull contract is unfinished there are always raiders within RAIDER_REACH of you
+export const RAIDER_REACH = 400;
+export const raiderJob = (s) => currentQuest(s)?.id === 'raiders' || activeContracts(s).some((c) => c.type === 'cull' && contractProgress(s, c) < c.n);
 function ensureRaiders(s) {
-  if (currentQuest(s)?.id !== 'raiders' || s.t < (s.raiderT || 0)) return;
-  const p = s.ship; let n = 0; for (const e of s.enemies.values()) if (e.kind === 'raider' && e.hp > 0 && Math.hypot(e.x - p.x, e.z - p.z) < 600) n++;
+  if (!raiderJob(s) || s.t < (s.raiderT || 0)) return;
+  const p = s.ship; let n = 0; for (const e of s.enemies.values()) if (e.kind === 'raider' && e.hp > 0 && Math.hypot(e.x - p.x, e.z - p.z) < RAIDER_REACH) n++;
   if (n >= 2) return;
   s.raiderT = s.t + 8; s.spawnN = (s.spawnN || 0) + 1;
   const r = rngFor(s.seed, 4000 + s.spawnN);
-  for (let k = 0; k < 12; k++) {
-    const a = p.yaw + (r() - 0.5) * 2.4, d = 220 + r() * 140, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d;
-    if (hitIsland(s, x, z) || Math.hypot(x, z) > WALL_R - 150) continue;
+  for (let k = 0; k < 40; k++) { // mostly ahead of you; any open water round you if the way ahead is blocked
+    const a = p.yaw + (r() - 0.5) * (k < 12 ? 2.4 : TAU), d = 200 + r() * 150, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d;
+    if (hitIsland(s, x, z) || hullHit(s, x, z, a + Math.PI, 8, 3) || (realmOf(s) === 'terra' && Math.abs(Math.hypot(x, z) - WALL_R) < 150)) continue;
     const sr = rngFor(s.seed, 5000 + s.spawnN);
     s.enemies.set('q' + s.spawnN, { id: 'q' + s.spawnN, seed: hash(s.seed, 9000 + s.spawnN), kind: 'raider', x, z, yaw: a + Math.PI, name: shipName(sr, realmOf(s)), captain: captainName(sr, realmOf(s)), gen: false, speed: 0, hp: KINDS.raider.hp, maxHp: KINDS.raider.hp, cd: [1, 1] });
     return;

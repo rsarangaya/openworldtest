@@ -47,13 +47,14 @@ export function createUI() {
       <div class=opt><span>Pixel detail</span><input id=oR type=range min=135 max=540 step=45 value=${o.pixels}><span id=oRt></span></div>
       <div class=opt><span>View distance</span><input id=oD type=range min=1 max=3 step=1 value=${o.distance}><span id=oDt></span></div>
       <div class=opt><span>Fullscreen</span><input id=oF type=checkbox ${o.fullscreen ? "checked" : ""}><span></span></div>
+      <div class=opt><span>AFK: keep running when tabbed out (P)</span><input id=oA type=checkbox ${o.afk ? "checked" : ""}><span></span></div>
       <p class=hint>Fullscreen lets the game block browser shortcuts like Ctrl+W while you play. Lower pixel detail (chunkier pixels) and view distance for slower computers.</p><button id=oB>Back</button></div>`;
     const sync = () => {
-      const n = { volume: +$('oV').value, sens: +$('oS').value, pixels: +$('oR').value, distance: +$('oD').value, fullscreen: $('oF').checked };
+      const n = { volume: +$('oV').value, sens: +$('oS').value, pixels: +$('oR').value, distance: +$('oD').value, fullscreen: $('oF').checked, afk: $('oA').checked };
       $('oVt').textContent = Math.round(n.volume * 100) + '%'; $('oSt').textContent = n.sens.toFixed(1); $('oRt').textContent = n.pixels + 'p'; $('oDt').textContent = n.distance;
       setOptions(n);
     };
-    for (const id of ['oV', 'oS', 'oR', 'oD', 'oF']) $(id).oninput = sync; sync();
+    for (const id of ['oV', 'oS', 'oR', 'oD', 'oF', 'oA']) $(id).oninput = sync; sync();
     $('oB').onclick = back;
   };
 

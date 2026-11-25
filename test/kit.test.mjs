@@ -921,3 +921,29 @@ test('asgard: Norse names and cold islands, longhouses and longships build witho
   for (const k of ['trader', 'raider', 'navy', 'ghost']) { const p = shipParams(3, k, 'v'), so = []; assert.ok(p.viking && p.masts === 1); assert.ok(shipMesh(p, so).count > 500 && so.length === 1); assert.ok(!shipParams(3, k, '').viking, 'Terra ships are not longships'); }
   for (const isl of sectorIslands(SEED, 0, 0)) assert.equal(isl.theme, 'terra');
 });
+
+test('wake: foam lies on the water behind the ship, follows turns, stays inside its buffer, fades after stopping and resets after a jump', async () => {
+  const { newTrail, feed, buildWake, TTL, MAX_QUADS } = await import('../src/wake.js'); const { wave } = await import('../src/rules/sea.js');
+  const w = newTrail(); let x = 0, z = 0, yaw = 0, t = 0, n = 0;
+  for (let i = 0; i < 600; i++) { t += 1 / 30; yaw += i > 300 ? 0.008 : 0; x += Math.cos(yaw) * 15 / 30; z += Math.sin(yaw) * 15 / 30; feed(w, x, z, yaw, 6, 15, t); n = buildWake(w, x, z, yaw, 6, 2.2, 15, t); assert.ok(n <= MAX_QUADS * 6); }
+  assert.ok(n > 600, 'a full wake: ' + n);
+  let behind = 0; for (let i = 0; i < n * 9; i += 9) { const vx = w.arr[i], vy = w.arr[i + 1], vz = w.arr[i + 2]; assert.ok(Number.isFinite(vx + vy + vz)); const lift = vy - wave(vx, vz, t); assert.ok(lift > 0 && lift < 1.2, 'on the surface: ' + lift); if (Math.hypot(vx - x, vz - z) > 30) behind++; }
+  assert.ok(behind > 100, 'it trails far astern');
+  for (let i = 0; i < Math.ceil((TTL + 1) * 30); i++) { t += 1 / 30; feed(w, x, z, yaw, 6, 0, t); } assert.equal(buildWake(w, x, z, yaw, 6, 2.2, 0, t), 0, 'gone after stopping');
+  for (let i = 0; i < 30; i++) { t += 1 / 30; x += 0.5; feed(w, x, z, 0, 6, 15, t); } feed(w, x + 900, z, 0, 6, 15, t + 0.1); assert.ok(w.pts.length <= 1, 'a teleport clears the trail');
+});
+
+test('raiders come within 400 while the raider quest or a cull contract is unfinished, and not otherwise', async () => {
+  const { raiderJob, RAIDER_REACH, contractsFor, signContract } = await import('../src/rules/game.js');
+  const near = (g) => [...g.enemies.values()].filter((e) => e.kind === 'raider' && !e.gen && Math.hypot(e.x - g.ship.x, e.z - g.ship.z) < RAIDER_REACH).length;
+  const run = (g, secs) => { for (let i = 0; i < secs * 60; i++) { g.hull = g.maxHull = 100; step(g, {}, 1 / 60); } };
+  const fresh = (x, z) => { const g = newGame(SEED); g.mode = 'ship'; g.food = 99; g.ship = { x, z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; return g; };
+  const idle = fresh(1500, 1500); run(idle, 20); assert.ok(!raiderJob(idle)); assert.equal(near(idle), 0, 'no job, no summoned raiders');
+  const home = sectorIslands(SEED, 0, 0)[0];
+  for (const [x, z] of [[1500, 1500], [-2400, 900], [home.port.berth.x, home.port.berth.z]]) {
+    const g = fresh(x, z), o = contractsFor(g, home).find((c) => c.type === 'cull'); assert.ok(signContract(g, o) && raiderJob(g)); run(g, 20);
+    assert.ok([...g.enemies.values()].filter((e) => e.kind === 'raider' && Math.hypot(e.x - g.ship.x, e.z - g.ship.z) < RAIDER_REACH).length >= 1, 'a raider close by at ' + x + ',' + z);
+    g.killsBy.raider = o.n; assert.ok(!raiderJob(g), 'job done, no more summoning');
+  }
+  const q = fresh(1500, 1500); q.quest = QUESTS.findIndex((a) => a.id === 'raiders'); assert.ok(raiderJob(q)); run(q, 20); assert.ok(near(q) >= 1 || [...q.enemies.values()].some((e) => e.kind === 'raider' && Math.hypot(e.x - 1500, e.z - 1500) < 500));
+});

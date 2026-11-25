@@ -49,7 +49,7 @@ export function createSprites(R) {
   const fx = (k) => get('fx' + k, A.FX_BOX, 12, (g) => (k === 'hurt' ? A.paintHurt(g) : k === 'flash' ? A.paintFlash(g) : k === 'smoke' ? A.paintSmoke(g) : A.paintSplash(g)));
   const fallen = (kind, seed) => get(`fl${theme}${kind}${seed % 16}`, A.FALLEN_BOX, 12, (g) => { g.rotate(Math.PI / 2); A.paintPerson(g, A.personSpec(kind, seed % 16, theme), 'down', 0); });
   const gate = () => get('gate', A.GATE_BOX, 12, (g) => A.paintGate(g));
-  const hp = (n) => get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10));
+  const hp = (n, skull) => (skull ? get('sk' + n, A.SKULL_HP_BOX, 12, (g) => A.paintSkullHp(g, n / 10)) : get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10)));
   const critter = (kind, dir, fr) => get(`cr${kind}${dir}${fr}`, A.CRIT_BOX[kind], 10, (g) => A.paintCritter(g, kind, dir, fr));
   return { prop, person, setTheme, critter, fallen, hp, fx, gate, PERSON_SCALE };
 }
