@@ -4,6 +4,7 @@ import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, n
 import { stepOf, placeOf, sideTarget, COMPANIONS } from '../src/rules/sidequests.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
+import { mapAvailable } from '../src/rules/map.js';
 import { serialize, deserialize } from '../src/rules/save.js';
 import { sectorIslands, islandTown } from '../src/gen/world.js';
 import { buyPrice, foodPrice, sellPrice } from '../src/rules/trade.js';
@@ -138,4 +139,14 @@ test('guards reach a wanted player standing in any town square', () => {
     if (arrested) got++;
   }
   assert.equal(got, tried, got + ' of ' + tried);
+});
+
+test('the map is the cartographer\'s reward, always offered in Port Haven, or else comes with the Wall', () => {
+  const s = newGame(), home = sectorIslands(s.seed, 0, 0)[0]; assert.equal(mapAvailable(s), false);
+  for (let n = 0; n < 12; n++) { const t = newGame(); t.t = n * ISSUE_LEN + 1; assert.ok(sideOffersFor(t, home).some((o) => o.q.tpl === 'cartographer'), 'not offered in issue ' + n); }
+  const o = sideOffersFor(s, home).find((v) => v.q.tpl === 'cartographer'); takeSide(s, o); s.weapon = 'sword'; s.weapons = { sword: true };
+  play(s, o.q.id, 1); assert.equal(s.flags.chart, true); assert.equal(mapAvailable(s), true);
+  assert.equal(deserialize(serialize(s)).flags.chart, true);
+  assert.ok(!sideOffersFor(s, home).some((v) => v.q.tpl === 'cartographer' && v.q.id === o.q.id));
+  const w = newGame(); w.flags.crossed = true; assert.equal(mapAvailable(w), true);
 });

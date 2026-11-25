@@ -25,8 +25,8 @@ export const realmById = (id) => REALMS.find((r) => r.id === id);
 // decorative rings of the grand map (radii in Terra wall radii): the ice wall round Terra, and the mountains ring round everything
 export const GRAND_RINGS = [{ id: 'ice', r: 1.0, w: 0.07, color: [236, 244, 250] }, { id: 'mountains', r: 2.9, w: 0.2, color: [150, 110, 70] }];
 
-// the map itself (the thing you can open and read) only comes to those who break through the ice; discovery is recorded from the start so it is all there when it unlocks
-export const mapAvailable = (s) => !!s.flags?.crossed;
+// the map itself (the thing you can open and read) is the old cartographer's reward, or comes with breaking the ice; discovery is recorded from the start so it is all there when it unlocks
+export const mapAvailable = (s) => !!(s.flags?.chart || s.flags?.crossed); // the cartographer's chart (a side story), or else breaking the Wall
 const upd = (s) => (mapAvailable(s) ? '(Map updated)' : '(You commit it to memory.)'), updW = (s) => (mapAvailable(s) ? '(World map updated)' : '(You commit it to memory.)');
 export const mapOf = (s) => (s.map ||= { cells: { terra: {} }, realms: { terra: KNOWN }, heard: {}, visited: {} });
 const cellsOf = (s, realm) => (mapOf(s).cells[realm] ||= {});

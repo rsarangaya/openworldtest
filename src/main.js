@@ -293,7 +293,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyG' && s?.mode === 'ship') { const r = grapple(s); if (r.type === 'deck') { view.yaw = s.foot.yaw; view.pitch = 0; } }
   else if (e.code === 'KeyB') toggleBombard(s);
   else if (e.code === 'KeyT' && s?.mode === 'ship') cycleOrder(s, say);
-  else if (e.code === 'KeyM' && !mapAvailable(s)) say(s, 'You have no map. Nobody has charted past the Wall; perhaps whoever breaks through will.');
+  else if (e.code === 'KeyM' && !mapAvailable(s)) say(s, 'You have no map. An old cartographer in Port Haven might part with one for a favour.');
   else if (e.code === 'KeyM') { phase = 'panel'; unlock(); ui.map(s, () => { phase = 'play'; lock(); }, (id) => { phase = 'warp'; ui.fade(true); setTimeout(() => { travelTo(s, id); const f = s.mode === 'ship' ? s.ship : s.foot; clearLife(); updateSectors(f.x, f.z, true); view.yaw = s.mode === 'ship' ? s.ship.yaw : s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22; keys.clear(); ui.fade(false); phase = 'play'; lock(); saveGame(s); }, 900); }); }
   else if (e.code === 'KeyR') toggleAuto(s);
   else if (e.code === 'KeyO') toggleRow(s);

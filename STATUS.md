@@ -7,7 +7,7 @@ Last updated: 2026-11-25. **Free-roam sailing game: first person on land, third 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 94 tests, all passing
+npm test           # 95 tests, all passing
 npm run build      # writes index.html (285.7 kB, 112.8 kB gzipped)
 npm run dev        # unminified build
 ```
@@ -15,7 +15,7 @@ npm run dev        # unminified build
 Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
 URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log, M map (after the Wall; it has a Fast travel tab), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log, M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
 ## Where things stand (2026-11-25)
 
@@ -535,3 +535,7 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - Map: scroll to zoom (up to 10x), drag to move, + / - / Find me; redrawn as a parchment sea chart (soft explored water, lumpy islands, town marks, ice wall, compass rose, scale, your ship). The map is still locked until the Wall is broken.
 - Fixed: the page-wide canvas style also pinned the map canvas over the map window's corner; Terra's chart drew the wrong world's islands while you were in another world.
 - Chart and compass seen in a preview page; the controls checked with a stand-in page. Not seen inside the running game.
+
+## Round 72 (2026-11-25): the map is a quest reward
+- Finishing The Last Chart (always offered in Port Haven until you have a map) gives the map; otherwise breaking the Wall does. Fast travel still needs the Wall.
+- 95 tests pass. Not seen in the running game.

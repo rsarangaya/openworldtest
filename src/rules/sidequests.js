@@ -54,7 +54,7 @@ const T = {
       start: { kind: 'fight', at: 'a', n: 3, boss: true, goal: `Find the duellist on ${c.a}.`, say: 'The duellist yields. She stands over him a long while, then sheathes her sword.', to: 'after' },
       after: { kind: 'talk', at: 'a', who: c.third, goal: 'Speak with her.', lines: ['A year I wanted that. I thought it would feel bigger.', 'I have no plans after today.'], opts: [{ t: 'Join my crew', hire: 'swordswoman', gold: c.pay, say: 'She nods once.' }, { t: 'Part as friends', gold: c.pay, rep: 4, say: 'She pays you from the duellist\'s purse and walks off.' }] },
     }) },
-  cartographer: { title: 'The Last Chart', need: 'a', pay: 240, join: 'cartographer', ask: (c) => `${c.third} wants to finish one last chart on ${c.a}, and needs an escort.`,
+  cartographer: { title: 'The Last Chart', need: 'a', pay: 240, join: 'cartographer', chart: true, ask: (c) => `${c.third} wants to finish one last chart on ${c.a}, and needs an escort. A copy of the chart is yours if you see it through.`,
     steps: (c) => ({
       start: { kind: 'find', at: 'a', goal: `Take the cartographer to the old marker on ${c.a}.`, say: '"There it is!" The marker is real. So, it seems, are the people who followed you.', to: 'amb' },
       amb: { kind: 'fight', at: 'a', n: 3, goal: 'Protect the cartographer.', say: 'Quiet again. The chart is finished.', to: 'after' },
@@ -89,6 +89,7 @@ export const placeOf = (s, q) => { const at = stepOf(s, q).at; return at === 'ho
 export function sideOffers(s, isl, g) {
   if (!isl?.port) return [];
   const issue = issueOf(s), ev = eventFor(s, isl), list = [...(ev?.hook ? [ev.hook] : []), STORY[hash(isl.seed >>> 0, issue, 31) % STORY.length]];
+  if (isl.port.home && !s.flags.chart && !s.flags.crossed && !list.includes('cartographer')) list.unshift('cartographer');
   const near = g.nearby(s, isl.x, isl.z, 3).filter((i) => i.id !== isl.id).sort((p, q) => Math.hypot(p.x - isl.x, p.z - isl.z) - Math.hypot(q.x - isl.x, q.z - isl.z));
   const wild = near.filter((i) => !i.port && i.landing).slice(0, 5), ports = near.filter((i) => i.port).slice(0, 4), out = [];
   list.forEach((tpl, k) => {
@@ -118,6 +119,7 @@ export const compLine = (s, when, g) => { const c = s.comp, l = c && COMPANIONS[
 
 function finish(s, q, g) {
   done(s)[q.id] = 1; s.side.splice(s.side.indexOf(q), 1); s.qa = null; g.say(s, `Story complete: ${titleOf(q)}.`); s.events.push({ type: 'quest' });
+  if (T[q.tpl].chart && !s.flags.chart && !s.flags.crossed) { s.flags.chart = true; g.say(s, 'You are given a copy of the chart. Press M to read your map.'); }
   if (s.comp?.q === q.id) { g.say(s, `${s.comp.name} takes their leave.`); s.comp = null; }
 }
 // move on from the current step; `o` is the chosen option (or the step itself) and carries rewards
