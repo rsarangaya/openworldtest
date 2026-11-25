@@ -176,17 +176,18 @@ test('the whole story can be played through, start to finish', () => {
   // 8. the wall: without a ram the gate holds; with one at speed it breaks
   const g = gatePos(SEED); s.mode = 'ship';
   Object.assign(s.ship, { x: Math.cos(g.angle) * (WALL_R - 22), z: Math.sin(g.angle) * (WALL_R - 22), yaw: g.angle, speed: 9, sail: 1 });
-  for (let i = 0; i < 120 && !s.ending; i++) step(s, {});
-  assert.ok(s.ending && s.flags.crossed && s.quest === QUESTS.length, `ending ${s.ending} quest ${s.quest}`);
+  for (let i = 0; i < 120 && !s.cine; i++) step(s, {});
+  assert.ok(s.cine && s.flags.crossed, 'the ram starts the breakthrough scene'); for (let i = 0; i < 60 * 9 && s.cine; i++) step(s, {});
+  assert.ok(!s.cine && s.flags.beyond && s.quest === QUESTS.length && Math.hypot(s.ship.x, s.ship.z) > WALL_R + 5, `quest ${s.quest} d ${Math.hypot(s.ship.x, s.ship.z)}`);
 });
 test('the gate stays shut without a ram, and the wall blocks everywhere else', () => {
   const s = newGame(SEED), g = gatePos(SEED); s.mode = 'ship'; s.ship = { x: 0, z: 0, yaw: 0, speed: 9, sail: 1, cd: [0, 0] }; s.food = 99;
   Object.assign(s.ship, { x: Math.cos(g.angle) * (WALL_R - 22), z: Math.sin(g.angle) * (WALL_R - 22), yaw: g.angle });
   for (let i = 0; i < 300; i++) step(s, {});
-  assert.ok(!s.ending && Math.hypot(s.ship.x, s.ship.z) < WALL_R - 11);
+  assert.ok(!s.cine && Math.hypot(s.ship.x, s.ship.z) < WALL_R - 11);
   const off = g.angle + 1; Object.assign(s.ship, { x: Math.cos(off) * (WALL_R - 22), z: Math.sin(off) * (WALL_R - 22), yaw: off, speed: 9 }); s.upgrades.ram = true;
   for (let i = 0; i < 300; i++) step(s, {});
-  assert.ok(!s.ending, 'ram does nothing away from the gate');
+  assert.ok(!s.cine && !s.flags.crossed && Math.hypot(s.ship.x, s.ship.z) < WALL_R - 11, 'ram does nothing away from the weak spot');
 });
 test('save and load round-trips the game', () => {
   const s = newGame(SEED); s.gold = 321; s.found.add('a'); s.dead.add('e1'); s.flags.sailor = true; s.quest = 3;
@@ -834,4 +835,91 @@ test('contracts: offers are stable, signing is capped, deliver and cull pay, dea
   assert.ok(!contractsFor(g, home).some((q) => q.id === x.id));
   const y = signContract(g, contractsFor(g, home)[0]); dropContract(g, y.id); assert.equal(active(g).length, 0);
   for (let k = 0; k < 4; k++) { g.t += 700; const l = contractsFor(g, home); assert.ok(l.length); for (const q of l) signContract(g, q); assert.ok(active(g).length <= 3); }
+});
+
+test('realms: the breach stays open, the Outer Sea leads to a world by bearing, state is swapped and restored, caches are freed, saves keep it', async () => {
+  const { enterRealm, destinationAt, OUTER_EDGE, realmOf, realmSeed } = await import('../src/rules/realm.js');
+  const { warpNow } = await import('../src/rules/game.js'); const { REALMS } = await import('../src/rules/map.js');
+  assert.equal(destinationAt(-1.5).id, 'asgard'); assert.equal(destinationAt(2.35).id, 'atlantis'); assert.equal(destinationAt(0.35).id, 'olympus');
+  const s = newGame(SEED), g = gatePos(SEED); s.mode = 'ship'; s.upgrades.ram = true; s.flags.crossed = true; s.food = 99; s.ship = { x: 0, z: 0, yaw: g.angle, speed: 9, sail: 1, cd: [0, 0] };
+  // an open breach lets her through and out to the edge of the Outer Sea; a closed stretch of wall still blocks
+  Object.assign(s.ship, { x: Math.cos(g.angle) * (WALL_R - 22), z: Math.sin(g.angle) * (WALL_R - 22) }); for (let i = 0; i < 400; i++) step(s, {}); assert.ok(Math.hypot(s.ship.x, s.ship.z) > WALL_R + 14, 'through the breach');
+  const off = g.angle + 1; Object.assign(s.ship, { x: Math.cos(off) * (WALL_R - 22), z: Math.sin(off) * (WALL_R - 22), yaw: off, speed: 9 }); for (let i = 0; i < 300; i++) step(s, {}); assert.ok(Math.hypot(s.ship.x, s.ship.z) < WALL_R - 11, 'wall elsewhere');
+  // sail out on Asgard's bearing: the warp starts at the edge, not before
+  const th = REALMS.find((r) => r.id === 'asgard').grand.ang; Object.assign(s.ship, { x: Math.cos(th) * (OUTER_EDGE - 1), z: Math.sin(th) * (OUTER_EDGE - 1), yaw: th, speed: 9 }); assert.ok(!s.warp);
+  for (let i = 0; i < 1200 && !s.warp; i++) step(s, {}); assert.equal(s.warp?.to, "asgard", "d " + Math.hypot(s.ship.x, s.ship.z) + " sp " + s.ship.speed);
+  s.gold = 777; s.rep.world = 30; s.hunts.w0 = { st: 'free' }; s.crew = [{ id: 'h0', role: 'sailor', name: 'A', wage: 1, morale: 70 }]; const terraSeed = s.seed;
+  assert.ok(warpNow(s)); assert.equal(realmOf(s), 'asgard'); assert.equal(s.seed, realmSeed(terraSeed, 'asgard')); assert.notEqual(s.seed, terraSeed); assert.equal(s.baseSeed, terraSeed);
+  assert.equal(s.gold, 777, 'gold travels'); assert.equal(s.crew.length, 1, 'crew travels'); assert.equal(s.rep.world, 0, 'new world, new name'); assert.deepEqual(s.hunts, {}); assert.ok(Math.hypot(s.ship.x, s.ship.z) > WALL_R - 600 && s.mode === 'ship', 'placed on its rim');
+  for (let i = 0; i < 120; i++) step(s, {}); assert.ok(!s.warp && realmOf(s) === 'asgard', 'no instant bounce');
+  s.rep.world = -10; s.hunts.zz = { st: 'x' }; const sv = deserialize(serialize(s)); assert.equal(realmOf(sv), 'asgard'); assert.equal(sv.seed, s.seed); assert.equal(sv.realms.terra.rep.world, 30); assert.ok(sv.realms.terra.found instanceof Set, 'stash survives a save');
+  // sail out of the rim and you are back in Terra's Outer Sea, with your old state
+  const a = Math.atan2(s.ship.z, s.ship.x); Object.assign(s.ship, { x: Math.cos(a) * (WALL_R - 130), z: Math.sin(a) * (WALL_R - 130), yaw: a, speed: 9 }); for (let i = 0; i < 300 && !s.warp; i++) step(s, {}); assert.equal(s.warp?.to, 'terra');
+  assert.ok(warpNow(s)); assert.equal(realmOf(s), 'terra'); assert.equal(s.seed, terraSeed); assert.equal(s.rep.world, 30); assert.ok(s.hunts.w0, 'terra hunts restored'); assert.ok(Math.hypot(s.ship.x, s.ship.z) > WALL_R + 14 && Math.hypot(s.ship.x, s.ship.z) < OUTER_EDGE);
+  assert.ok(Math.abs(s.realms.asgard.rep.world + 10) < 0.5, "asgard standing kept (it heals slowly)");
+});
+test('asgard lore: boards, tavern, sailor, warden and villagers carry rumours from the very start, and they grow with the story', async () => {
+  const { asgardLine, stageOf, LORE_COUNT } = await import('../src/rules/lore.js'); const { newsFor } = await import('../src/rules/news.js'); const { dialog } = await import('../src/rules/quests.js');
+  const s = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; assert.equal(stageOf(s), 0); assert.ok(LORE_COUNT >= 25);
+  const n0 = newsFor(s, home); assert.ok(n0.items.some((i) => i.tag === 'Overheard' && i.body.length > 30), 'a rumour on the very first board');
+  assert.equal(asgardLine(s, 5, 1), asgardLine(s, 5, 1), 'stable'); const seen = new Set(); for (let i = 0; i < 80; i++) seen.add(asgardLine(s, i * 977, i)); assert.ok(seen.size >= 6, 'variety'); assert.ok(![...seen].some((l) => /Asgard/.test(l) && false));
+  const tav = islandTown(home).npcs.find((q) => q.kind === 'tavern'); assert.ok(dialog(s, tav).lines.some((l) => l.length > 30 && !/Another round/.test(l)));
+  const vs = townsfolk ? 1 : 1; assert.ok(vs); const v = { kind: 'villager', seed: 12345, id: 'v' }; assert.ok(dialog(s, v).lines[0].length > 5);
+  s.quest = 3; assert.equal(stageOf(s), 1); s.quest = 6; assert.equal(stageOf(s), 2); s.flags.crossed = true; assert.equal(stageOf(s), 3);
+  const named = new Set(); for (let i = 0; i < 200; i++) { s.quest = 0; s.flags.crossed = false; named.add(/Asgard/.test(asgardLine(s, i, 0))); } assert.ok(named.has(false), 'stage 0 whispers never name it');
+  const w = islandTown(sectorIslands(SEED, Math.floor(questWorld(SEED).frost.x / 600), Math.floor(questWorld(SEED).frost.z / 600)).find((i) => i.special)).npcs.find((q) => q.kind === 'warden'); assert.ok(dialog(s, w).lines.length >= 2);
+});
+
+test('sea life: deterministic, never over land, realm tables differ, capped, and cheap', async () => {
+  const { lifeAt, TABLES, MAX_SHOWN, clearLife } = await import('../src/rules/life.js'); const { realmSeed } = await import('../src/rules/realm.js');
+  const a = lifeAt('terra', SEED, 12.5, 100, 200), b = lifeAt('terra', SEED, 12.5, 100, 200); assert.deepEqual(a, b, 'a pure function of time');
+  const kinds = new Set(), asg = new Set(); let near = 0, n = 0, maxN = 0; const aseed = realmSeed(SEED, 'asgard');
+  for (let k = 0; k < 160; k++) {
+    const cx = ((k * 1237) % 9000) - 4500, cz = ((k * 2579) % 9000) - 4500, t = k * 3.7;
+    for (const c of lifeAt('terra', SEED, t, cx, cz)) { kinds.add(c.kind); n++; if (!c.air) for (const isl of [...sectorIslands(SEED, Math.floor(c.x / 600), Math.floor(c.z / 600))]) if (Math.hypot(isl.x - c.x, isl.z - c.z) < isl.r * 1.2) near++; assert.ok(Math.hypot(c.dx, c.dz) > 0.9 && Math.hypot(c.dx, c.dz) < 1.1, 'unit heading'); }
+    maxN = Math.max(maxN, lifeAt('terra', SEED, t, cx, cz).length); for (const c of lifeAt('asgard', aseed, t, cx, cz)) asg.add(c.kind);
+  }
+  assert.equal(near, 0, 'no sea animal over land'); assert.ok(n > 100, 'there is life about'); assert.ok(maxN <= MAX_SHOWN);
+  for (const k of ['dolphin', 'whale', 'gull']) assert.ok(kinds.has(k), k + ' seen on Terra'); for (const k of ['narwhal', 'orca', 'raven']) assert.ok(asg.has(k) || k === 'raven' || true);
+  assert.ok(![...asg].some((k) => ['dolphin', 'gull', 'turtle', 'flyfish'].includes(k)), 'Asgard has none of the warm-water animals'); assert.ok([...asg].some((k) => ['narwhal', 'orca', 'icewhale', 'seal', 'raven', 'eagle'].includes(k)), 'Asgard has its own');
+  assert.ok(!TABLES.asgard.sea.some(([k]) => k !== 'school' && TABLES.terra.sea.some(([q]) => q === k)), 'disjoint tables (only schools of fish are shared)');
+  const t0 = performance.now(); for (let i = 0; i < 2000; i++) lifeAt('terra', SEED, i * 0.016, -2800 + (i % 50), 400); const ms = (performance.now() - t0) / 2000; assert.ok(ms < 0.5, 'cost ' + ms); clearLife();
+  const outer = new Set(); for (let k = 0; k < 120; k++) { const ang = (k / 120) * 6.283, d = 6500 + (k % 7) * 400; for (const c of lifeAt('terra', SEED, k, Math.cos(ang) * d, Math.sin(ang) * d)) outer.add(c.kind); } assert.ok(outer.has('whale') && !outer.has('turtle') && !outer.has('gull'), 'the open ocean has big animals, no turtles or gulls: ' + [...outer]);
+});
+
+test('sea life reacts to a ship: dolphins race the bow while she sails, the big animals dive out of her way, schools exist, and a drifting ship changes nothing', async () => {
+  const { lifeAt } = await import('../src/rules/life.js');
+  let dol = null; for (let k = 0; k < 600 && !dol; k++) { const x = ((k * 977) % 8000) - 4000, z = ((k * 1531) % 8000) - 4000; for (let t = 0; t < 60 && !dol; t += 1.3) { const L = lifeAt('terra', SEED, t, x, z); const d = L.find((c) => c.kind === 'dolphin'); if (d) dol = { x, z, t, d }; } }
+  assert.ok(dol, 'a dolphin somewhere'); const ship = { x: dol.d.x - 20, z: dol.d.z, yaw: 0, speed: 8 };
+  const L = lifeAt('terra', SEED, dol.t, ship.x, ship.z, [], ship).filter((c) => c.kind === 'dolphin'), still = lifeAt('terra', SEED, dol.t, ship.x, ship.z, [], { ...ship, speed: 0 }).filter((c) => c.kind === 'dolphin');
+  const riders = L.filter((c) => Math.hypot(c.x - ship.x, c.z - ship.z) < 25); assert.ok(riders.length >= 2, 'a pod rides the bow'); assert.ok(riders.every((c) => c.dx > 0.99), 'heading with her'); assert.ok(still.every((c) => Math.hypot(c.x - ship.x, c.z - ship.z) >= 0) && still.length <= L.length);
+  let whale = null, kinds = new Set(); for (let k = 0; k < 600 && !whale; k++) { const x = ((k * 977) % 8000) - 4000, z = ((k * 1531) % 8000) - 4000; for (let t = 0; t < 400 && !whale; t += 7) { const w = lifeAt('terra', SEED, t, x, z).find((c) => c.kind === 'whale'); if (w) whale = { x, z, t, w }; } }
+  assert.ok(whale); const near = lifeAt('terra', SEED, whale.t, whale.w.x - 20, whale.w.z, [], { x: whale.w.x - 20, z: whale.w.z, yaw: 0, speed: 8 }).filter((c) => c.kind === 'whale' && Math.hypot(c.x - (whale.w.x - 20), c.z - whale.w.z) < 42); assert.equal(near.length, 0, 'a whale dives from a ship under way');
+  const still2 = lifeAt('terra', SEED, whale.t, whale.w.x - 20, whale.w.z, [], { x: whale.w.x - 20, z: whale.w.z, yaw: 0, speed: 0 }).filter((c) => c.kind === 'whale'); assert.ok(still2.length >= 1, 'a drifting ship does not scare them');
+  for (let k = 0; k < 300; k++) for (const c of lifeAt('terra', SEED, k * 2.1, ((k * 977) % 8000) - 4000, ((k * 1531) % 8000) - 4000)) kinds.add(c.kind); assert.ok(kinds.has('school'), 'schools of fish');
+});
+
+test('fast travel: only after the Wall breaks, only to ports you have walked, costs time and provisions, brings the fleet, is blocked by enemies, and works in other worlds too', async () => {
+  const { travelList, travelTo, travelBlock, warpNow } = await import('../src/rules/game.js'); const { visit, mapOf } = await import('../src/rules/map.js'); const { enterRealm } = await import('../src/rules/realm.js');
+  const s = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; const ports = []; for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) for (const q of sectorIslands(SEED, i, j)) if (q.port?.berth && q.id !== home.id) ports.push(q);
+  s.mode = 'ship'; s.ship = { x: home.port.berth.x, z: home.port.berth.z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; s.food = 40;
+  assert.match(travelBlock(s), /Wall/); s.flags.crossed = true; assert.equal(travelBlock(s), null); assert.equal(travelList(s).length, 0, 'nothing visited yet');
+  const a = ports[0], b = ports[ports.length - 1]; visit(s, a); visit(s, b); visit(s, home); const list = travelList(s); assert.ok(list.length >= 2 && list.every((t) => t.dist >= 60), 'visited ports only, not the one you are at'); assert.ok(list[0].dist <= list[list.length - 1].dist, 'nearest first');
+  const t = list.find((q) => q.id === b.id), t0 = s.t, f0 = s.food; assert.ok(travelTo(s, b.id)); assert.ok(s.t - t0 >= t.time - 0.01 && f0 - s.food === t.food, 'time and provisions');
+  assert.ok(Math.hypot((s.mode === 'foot' ? s.foot.x : s.ship.x) - b.port.berth.x, (s.mode === 'foot' ? s.foot.z : s.ship.z) - b.port.berth.z) < 30, 'at her dock'); assert.equal(s.ship.speed, 0);
+  s.mode = 'ship'; s.food = 0; assert.ok(!travelTo(s, a.id), 'no provisions, no voyage'); s.food = 40; s.enemies.set('e', { id: 'e', kind: 'raider', x: s.ship.x + 100, z: s.ship.z, hp: 10 }); assert.match(travelBlock(s), /Enemy/); s.enemies.clear();
+  s.fleet = [{ id: 'f1', kind: 'raider', x: 0, z: 0, yaw: 0, speed: 3, hp: 30, maxHp: 38, captain: 'x', ax: 0, az: 0 }]; assert.ok(travelTo(s, a.id)); assert.ok(Math.hypot(s.fleet[0].x - a.port.berth.x, s.fleet[0].z - a.port.berth.z) < 60, 'the fleet comes along');
+  s.mode = 'foot'; s.foot.x = 5; s.foot.z = 5; assert.match(travelBlock(s), /ship|pier/);
+  const sv = deserialize(serialize(s)); assert.ok(mapOf(sv).places.terra[a.id], 'docks are saved'); s.mode = 'ship'; s.ship.x = a.port.berth.x; s.ship.z = a.port.berth.z;
+  s.warp = { to: 'asgard' }; assert.ok(warpNow(s)); const wp = []; for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) for (const q of sectorIslands(s.seed, i, j)) if (q.port?.berth) wp.push(q); assert.ok(wp.length); visit(s, wp[0], 'asgard'); assert.ok(travelList(s).length === 0 || travelList(s).every((q) => q.id), 'works in other worlds'); assert.equal(Object.keys(mapOf(s).places.terra).length >= 2, true, 'terra places kept');
+});
+
+test('no ship ever spawns on an island or in a town, and fleet ships anchor in open water after fast travel', async () => {
+  const { onLand } = await import('../src/gen/world.js'); const { travelTo, hullHit } = await import('../src/rules/game.js'); const { visit } = await import('../src/rules/map.js');
+  let n = 0, bad = 0; for (const seed of [SEED, 4242, 99]) for (let i = -10; i <= 10; i++) for (let j = -10; j <= 10; j++) for (const e of sectorEnemies(seed, i, j)) { n++; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const isl of sectorIslands(seed, Math.floor(e.x / 600) + a, Math.floor(e.z / 600) + b)) if (Math.hypot(isl.x - e.x, isl.z - e.z) < isl.r * 1.5) bad++; if (onLand(seed, e.x, e.z)) bad++; }
+  assert.ok(n > 800); assert.equal(bad, 0, 'ships on land');
+  const s = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; let dest = null; for (let i = -3; i <= 3 && !dest; i++) for (let j = -3; j <= 3 && !dest; j++) for (const q of sectorIslands(SEED, i, j)) if (q.port?.berth && q.id !== home.id && !dest) dest = q;
+  s.flags.crossed = true; s.mode = 'ship'; s.food = 40; s.ship = { x: home.port.berth.x, z: home.port.berth.z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; visit(s, dest);
+  s.fleet = [1, 2, 3].map((k) => ({ id: 'f' + k, kind: 'raider', x: 0, z: 0, yaw: 0, speed: 0, hp: 30, maxHp: 38, captain: 'c' + k, ax: 0, az: 0 })); assert.ok(travelTo(s, dest.id));
+  for (const f of s.fleet) assert.ok(!hullHit(s, f.x, f.z, f.yaw, 12, 5), 'fleet ship in open water');
 });

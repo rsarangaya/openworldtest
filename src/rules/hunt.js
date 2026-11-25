@@ -33,6 +33,7 @@ export function wanted(seed, i) {
   wcache.set(k, w); if (wcache.size > 400) wcache.delete(wcache.keys().next().value);
   return w;
 }
+export const clearHuntCaches = () => { seedCache.clear(); wcache.clear(); };
 export const RESOLVED = new Set(['killed', 'jailed']);
 export const resolved = (s, id) => RESOLVED.has(s.hunts?.[id]?.st);
 // the notice-board listing: the first BOARD_N targets not yet killed or jailed

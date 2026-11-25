@@ -16,6 +16,7 @@ const frostSpot = (seed) => { const g = gatePos(seed); return { x: Math.cos(g.an
 // ---------------------------------------------------------------- islands
 const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'] };
 const cache = new Map(), tags = new Map();
+export const clearWorldCaches = () => { folkCache.clear(); townCache.clear(); }; // town layouts and folk are rebuilt lazily; island lists stay (cheap, keyed by seed)
 
 function gen(seed, sx, sz) {
   const r = rngFor(seed, sx, sz, 1), out = [];
@@ -248,6 +249,8 @@ export const KINDS = {
   raider: { hp: 38, speed: 4.6, hostile: true, dmg: 7, gold: [60, 180], label: 'Raider' },
   ghost: { hp: 62, speed: 4, hostile: true, dmg: 10, gold: [150, 320], label: 'Ghost ship' },
 };
+// is this point on (or right beside) an island: land, beach, docks or the town on it
+export function onLand(seed, x, z, pad = 40) { const cx = Math.floor(x / SECTOR), cz = Math.floor(z / SECTOR); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(seed, cx + i, cz + j)) if (Math.hypot(isl.x - x, isl.z - z) < isl.r * 1.8 + pad) return true; return false; }
 export function sectorEnemies(seed, sx, sz) {
   const r = rngFor(seed, sx, sz, 2), out = [];
   if (sx === 0 && sz === 0) return out; // the starting waters are safe
@@ -257,7 +260,10 @@ export function sectorEnemies(seed, sx, sz) {
   for (let i = 0; i < n; i++) {
     const s = hash(seed, sx, sz, 100 + i), sr = rngFor(s, 1);
     const kind = z < 0.3 ? pick(r, ['trader', 'trader', 'navy', 'raider', 'raider']) : z < 0.7 ? pick(r, ['trader', 'raider', 'raider', 'navy']) : pick(r, ['ghost', 'ghost', 'raider']);
-    out.push({ id: `e${sx},${sz},${i}`, seed: s, kind, x: (sx + range(r, 0.1, 0.9)) * SECTOR, z: (sz + range(r, 0.1, 0.9)) * SECTOR, yaw: r() * TAU, name: shipName(sr), captain: captainName(sr) });
+    let ex = (sx + range(r, 0.1, 0.9)) * SECTOR, ez = (sz + range(r, 0.1, 0.9)) * SECTOR;
+    for (let k = 0; k < 12 && onLand(seed, ex, ez); k++) { ex = (sx + range(r, 0.05, 0.95)) * SECTOR; ez = (sz + range(r, 0.05, 0.95)) * SECTOR; } // never spawn a ship on an island, its docks or its town
+    if (onLand(seed, ex, ez)) continue;
+    out.push({ id: `e${sx},${sz},${i}`, seed: s, kind, x: ex, z: ez, yaw: r() * TAU, name: shipName(sr), captain: captainName(sr) });
   }
   return out;
 }

@@ -1,6 +1,8 @@
 // The story: a chain of quests from "buy a ship" to "break through the ice wall".
 // Quests are data. done(s) is checked every step; target(s) is what the compass points at.
 import { deed } from './rep.js';
+import { hash } from '../gen/rng.js';
+import { asgardLine } from './lore.js';
 import { learnQuest } from './map.js';
 import { cargoCount } from './trade.js';
 import { sectorOf, sectorIslands } from '../gen/world.js';
@@ -42,9 +44,9 @@ export const QUESTS = [
   { id: 'ram', title: 'Break the Ice', desc: 'The Warden sells an icebreaker ram for 500 gold. Earn it by trading, treasure and sinking ships.',
     done: (s) => !!s.upgrades.ram, target: (s) => aim(s, s.targets.frost, 'warden', 'Warden, Frostwatch'), reward: 0,
     hint: 'Buy low, sell high: each port has a cheap and a dear good. Sunk ships pay out.' },
-  { id: 'wall', title: 'The Wall', desc: 'There is a gate in the Wall, sealed with thin ice. Ram through it and see what lies beyond.',
-    done: (s) => !!s.flags.crossed, target: (s) => ({ ...s.targets.gate, label: 'The Gate' }), reward: 0,
-    hint: 'Sail to the marked gate at full speed.' },
+  { id: 'wall', title: 'The Wall', desc: 'One stretch of the Wall is paler and cracked: thin ice, but still ice. Ram through it and see what lies beyond.',
+    done: (s) => !!s.flags.crossed, target: (s) => ({ ...s.targets.gate, label: 'The Weak Spot' }), reward: 0,
+    hint: 'Sail to the marked weak spot at full speed.' },
 ];
 
 export const currentQuest = (s) => QUESTS[s.quest] || null;
@@ -67,15 +69,16 @@ export function dialog(s, npc) {
     case 'shipwright':
       return { lines: s.ship ? ['A fine boat you have there. Mind the rocks.'] : ['Looking for a ship? I have a few ships on the slip, from a handy sailboat to a galleon. They all float, most days.', 'The sailboat is three hundred gold and she is yours.'], panel: 'shipyard' };
     case 'merchant': return { lines: ['Provisions, powder, rum. Whatever your hold can carry.'], panel: 'market' };
-    case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', 'Folk say there are other worlds past the Wall. Folk say a lot of things.', s.ship ? 'Some hands in the corner are looking for a berth, if you need a crew.' : 'Get yourself a ship first, then come and talk about hands.'], panel: 'tavern' };
+    case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', asgardLine(s, npc.seed, Math.floor(s.t / 300)), s.ship ? 'Some hands in the corner are looking for a berth, if you need a crew.' : 'Get yourself a ship first, then come and talk about hands.'], panel: 'tavern' };
     case 'sailor':
       s.flags.sailor = true;
-      return { lines: ['You are asking about the Wall? I have seen it. A cliff of ice taller than any mast, all the way round the world.', 'There is a gate in it, but it is sealed. The Warden at Frostwatch, out on the rim, knows how to break it.', 'Keep a hand on your guns. The black sails have been busy.'], panel: null };
+      return { lines: ['You are asking about the Wall? I have seen it. A cliff of ice taller than any mast, all the way round the world.', 'There is one weak spot in it, pale and cracked, but still sealed. The Warden at Frostwatch, out on the rim, knows how to break it.', 'The land past the ice? Asgard, the old ones call it. I will not say more than that, not until you have seen the Warden.', 'Keep a hand on your guns. The black sails have been busy.'], panel: null };
     case 'warden':
       s.flags.warden = true;
-      return { lines: s.upgrades.ram ? ['That ram will do it. Make for the gate and do not slow down.'] : ['So the stories got you here. The gate is thin ice, but only an icebreaker ram will crack it.', 'I can fit one to your ship. Five hundred gold.'], panel: 'warden' };
+      return { lines: [asgardLine(s, npc.seed, 2), ...(s.upgrades.ram ? ['That ram will do it. Make for the weak spot and do not slow down.'] : ['So the stories got you here. The weak spot is thin ice, but only an icebreaker ram will crack it.', 'I can fit one to your ship. Five hundred gold.'])], panel: 'warden' };
     case 'smith': return { lines: !s.weapon || s.weapon === 'fists' ? ['Bare hands? That is no way to cross the sea, or to walk a strange town.', 'Have a look at what I have. A good blade pays for itself.'] : ['Keep it sharp. Anything else you need?'], panel: 'arms' };
     case 'guard': return { lines: s.bountyGold > 0 ? ['You are wanted. Pay what you owe and the matter is closed.'] : s.prisoner ? ['You have someone with you. Let us have a look.'] : ['Keep the peace in this town and we will get along. Break it and you will see our cell.', 'The wanted list is here if you want honest work.'], panel: 'guard' };
+    case 'villager': { const h = hash(npc.seed >>> 0, Math.floor(s.t / 400), 5); return { lines: [h % 5 < 2 ? asgardLine(s, npc.seed, Math.floor(s.t / 400)) : ['Fine weather for it.', 'Mind the guards, they have short tempers.', 'The tide is late today.', 'If you need a drink, the tavern is the place.', 'I have lived here all my life and never left. Never wanted to.'][h % 5]], panel: null }; }
     default: return { lines: ['...'], panel: null };
   }
 }

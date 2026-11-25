@@ -2,6 +2,7 @@
 // A new issue comes out every ISSUE_LEN seconds of play. An issue is a pure function of (world seed, town, issue number, what the player has done), so a
 // town always posts the same notices for the same issue, rival crews grow from issue to issue (follow them as you sail), and towns hear about the player.
 import { rngFor, pick } from '../gen/rng.js';
+import { asgardLine } from './lore.js';
 import { captainName, shipName, islandName } from '../gen/names.js';
 import { GOODS, islandTown } from '../gen/world.js';
 import { SHIPS } from './ships.js';
@@ -69,6 +70,7 @@ export function newsFor(s, isl) {
   const fame = s.kills + (s.found?.size || 0) * 2 + ((s.killsBy?.raider || 0) >= 2 ? 3 : 0);
   town.know = isl.port?.home ? 'It all happened right here in our harbour.' : fame >= 3 ? `People in ${isl.name} talk about little else.` : `Word of it reached ${isl.name} a few days ago.`;
   if (isl.port) { items.push({ tag: 'Prices', head: 'Harbourmaster', body: `${cap(isl.port.cheap)} is plentiful and cheap here this week. ${cap(isl.port.dear)} is short and dear. Buy and sell accordingly.` }); }
+  items.push({ tag: 'Overheard', head: 'North of the ice', body: asgardLine(s, isl.seed, n) }); // the long legend: it starts on day one
   for (const f of [pick(r, LOCAL)]) { const [h, b] = f(town, r); items.push({ tag: 'Local', head: h, body: b }); }
   if (isl.port) for (const w of board(s).slice(0, 2)) items.push({ tag: 'Wanted', head: w.name, body: `${w.crime}. Last heard of ${w.kind === 'ship' ? 'sailing the lanes in the ' + w.ship : 'near ' + w.where}. ${w.aliveOnly ? 'Wanted ALIVE only.' : 'Dead or alive.'} Reward ${w.reward} gold.` });
   if (isl.port && townState(s, isl.id)) items.push({ tag: 'Harbour', head: 'After the shelling', body: ['', 'Cannon fire from the sea has scorched the waterfront. Half the town is indoors and the council wants a name.', 'The town is burning. Shops are shut and the streets are empty. Somebody will answer for this.', 'The town has been pillaged. What the shells missed, the boarding parties took.'][townState(s, isl.id)] });

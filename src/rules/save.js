@@ -3,11 +3,13 @@ import { newGame } from './game.js';
 import { questWorld } from '../gen/world.js';
 
 const KEY = 'pirate.save.v1';
-export const serialize = (s) => JSON.stringify({ ...s, ...(s.deck ? { mode: 'ship' } : {}), deck: null, found: [...s.found], dead: [...s.dead], enemies: undefined, guards: [], foes: [], sinking: [], fx: [], sunkT: undefined, sunkSplash: undefined, shots: [], events: [], targets: undefined });
+const packRealms = (r) => r && Object.fromEntries(Object.entries(r).map(([k, v]) => [k, { ...v, found: [...(v.found || [])], dead: [...(v.dead || [])] }]));
+const unpackRealms = (r) => r && Object.fromEntries(Object.entries(r).map(([k, v]) => [k, { ...v, found: new Set(v.found), dead: new Set(v.dead) }]));
+export const serialize = (s) => JSON.stringify({ ...s, realms: packRealms(s.realms), cine: undefined, warp: undefined, ...(s.deck ? { mode: 'ship' } : {}), deck: null, found: [...s.found], dead: [...s.dead], enemies: undefined, guards: [], foes: [], sinking: [], fx: [], sunkT: undefined, sunkSplash: undefined, shots: [], events: [], targets: undefined });
 export function deserialize(json) {
-  const o = JSON.parse(json), base = newGame(o.seed);
-  const s = { ...base, ...o, found: new Set(o.found), dead: new Set(o.dead), enemies: new Map(), shots: [], events: [], targets: questWorld(o.seed) };
-  s.over = false; s.deck = null; s.foes = []; for (const q of Object.values(s.npcs || {})) delete q.away; s.guards = []; s.sinking = []; s.fx = []; s.alerted = false; s.ending = !!o.ending;
+  const o = JSON.parse(json), base = newGame(o.baseSeed || o.seed);
+  const s = { ...base, ...o, found: new Set(o.found), dead: new Set(o.dead), realms: unpackRealms(o.realms), cine: null, warp: null, enemies: new Map(), shots: [], events: [], targets: questWorld(o.seed) };
+  s.over = false; s.deck = null; s.foes = []; for (const q of Object.values(s.npcs || {})) delete q.away; s.guards = []; s.sinking = []; s.fx = []; s.alerted = false; s.ending = false; if (o.seed !== base.seed) s.targets = questWorld(o.seed);
   return s;
 }
 export const hasSave = () => { try { return !!localStorage.getItem(KEY); } catch { return false; } };

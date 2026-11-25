@@ -6,8 +6,12 @@ import { weaponOf, equip, WEAPON_ORDER } from './weapons.js';
 import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } from './rep.js';
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
 import { shipParams } from '../gen/mesh.js';
-import { explore, visit, learn } from './map.js';
+import { explore, visit, learn, mapOf } from './map.js';
 import { stepContracts, offers as contractOffers, accept as acceptContract, settle as settleContracts, abandon as abandonContract } from './contracts.js';
+import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S } from './realm.js';
+import { REALMS } from './map.js';
+import { clearWorldCaches } from '../gen/world.js';
+import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
 import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
@@ -482,10 +486,30 @@ export function toggleRow(s) {
 }
 // bearing (same convention as yaw) from the player to the current objective, or null when there is none: the wind favours it
 const windGoal = (s) => { const tg = currentQuest(s)?.target?.(s), f = s.mode === 'ship' ? s.ship : s.foot; return tg && f ? Math.atan2(tg.z - f.z, tg.x - f.x) : null; };
+// the breakthrough scene: the ram bites, the ice cracks (ship held), the wall gives way (flash, spray), she surges through the breach, then control returns
+function stepCine(s, dt) {
+  const c = s.cine; if (!c) return; const a = s.t - c.t0, X = Math.cos(c.ang) * WALL_R, Z = Math.sin(c.ang) * WALL_R;
+  if (!c.broke && Math.floor(a * 7) !== Math.floor((a - dt) * 7)) puff(s, 'splash', X + (hash(s.seed, Math.floor(a * 7)) % 40) - 20, 8 + (a * 6), Z + (hash(s.seed, Math.floor(a * 7), 4) % 40) - 20, 1.2, { vy: 3, sc: 2.4 });
+  if (!c.broke && a >= CINE_BREAK) { c.broke = true; s.events.push({ type: 'break' }); say(s, 'The Wall breaks! A breach opens in the ice.'); for (let i = 0; i < 12; i++) puff(s, i % 3 ? 'splash' : 'smoke', X + (hash(s.seed, i, 8) % 50) - 25, 6 + (i % 4) * 5, Z + (hash(s.seed, i, 9) % 50) - 25, 1.8, { vy: 4, sc: 3.4 }); }
+  if (a >= CINE_S) { s.cine = null; s.flags.beyond = true; s.events.push({ type: 'banner', text: 'Beyond the Wall', sub: 'The sea goes on. The map is yours now (M).' }); }
+}
+// the fade is done: swap worlds and put the ship on the matching edge of the new one
+export function warpNow(s) {
+  const w = s.warp; if (!w || !s.ship) return false; const from = realmOf(s), to = w.to;
+  if (!enterRealm(s, to)) { s.warp = null; return false; }
+  solidCache.clear(); stationCache.clear(); clearWorldCaches(); clearHuntCaches(); s.targets = questWorld(s.seed);
+  const p = s.ship; p.speed = 2;
+  if (to === 'terra') { const th = REALMS.find((r) => r.id === from)?.grand.ang ?? w.ang; p.x = Math.cos(th) * (OUTER_EDGE - 260); p.z = Math.sin(th) * (OUTER_EDGE - 260); p.yaw = th + Math.PI; }
+  else { const th = (REALMS.find((r) => r.id === to)?.grand.ang ?? 0) + Math.PI; let r = WALL_R - 200; for (; r > 3000; r -= 150) if (!hullHit(s, Math.cos(th) * r, Math.sin(th) * r, th + Math.PI, 12, 5)) break; p.x = Math.cos(th) * r; p.z = Math.sin(th) * r; p.yaw = th + Math.PI; }
+  s.mode = 'ship'; s.foot = { ...s.foot, x: p.x, z: p.z }; s.edgeT = s.t; s.wind = windAt(s.t, null);
+  say(s, to === 'terra' ? 'Back in the Outer Sea. The Wall lies ahead.' : 'You have crossed into a new world.'); return true;
+}
 function stepShip(s, inp, dt) {
-  const p = s.ship, gate = gatePos(s.seed);
+  const p = s.ship, gate = gatePos(s.baseSeed || s.seed);
   s.wind = windAt(s.t, windGoal(s));
+  if (s.cine) inp = {}; // the breakthrough scene drives the ship
   let rudder = inp.rudder || 0, sailIn = inp.sail || 0;
+  if (s.cine) { rudder = Math.max(-1, Math.min(1, wrapPi(s.cine.ang - p.yaw) * 2.5)); sailIn = 1; p.sail = 1; s.row = false; s.auto = false; }
   if (s.auto) { if (rudder || sailIn || inp.trim) { s.auto = false; say(s, 'Autosail off: you have the helm.'); } else { const a = autoSail(s, p); rudder = a.rudder; sailIn = 1; p.trim = bestTrim(p.yaw, s.wind, p.trim); } }
   p.trim = Math.max(-1, Math.min(1, (p.trim || 0) + (inp.trim || 0) * 1.2 * dt));
   p.turn = (p.turn || 0) + (rudder - (p.turn || 0)) * Math.min(1, dt * 3); // how hard the ship is turning: the renderer heels her over
@@ -495,7 +519,7 @@ function stepShip(s, inp, dt) {
   const trimMul = Math.max(trimFloor(s), trimQuality(p.trim, bestTrim(p.yaw, s.wind, p.trim))); // a badly trimmed sail spills the wind
   if (windAngle(p.yaw, s.wind) < 0.5 && p.sail > 0.2 && !s.row && s.t - (s.irT || -99) > 14) { s.irT = s.t; say(s, 'Head to wind: the sail flaps and you stall. Turn away from the wind, or take the oars.'); }
   const target = Math.max(s.row ? ROW_SPEED * cls.row * rowMul(s) * sailorMul(s) : 0, MAX_SPEED * cls.speed * speedMul(s) * sailorMul(s) * p.sail * trimMul * sailEfficiency(p.yaw, s.wind)) * (1 - 0.35 * (1 - s.hull / s.maxHull)) * (1 - cargoCount(s) * 0.01);
-  p.speed += (target - p.speed) * Math.min(1, dt * 0.8);
+  p.speed += ((s.cine ? (s.cine.broke ? Math.max(target, 11) : 0) : target) - p.speed) * Math.min(1, dt * (s.cine ? 1.6 : 0.8));
   const ox = p.x, oz = p.z;
   p.x += Math.cos(p.yaw) * p.speed * dt; p.z += Math.sin(p.yaw) * p.speed * dt;
   const hitNow = hullHit(s, p.x, p.z, p.yaw, cls.L, cls.B);
@@ -506,15 +530,24 @@ function stepShip(s, inp, dt) {
     p.x = ox; p.z = oz; p.speed = -p.speed * 0.3;
     if (s.auto) { s.auto = false; say(s, 'Autosail off.'); }
   }
-  const d = Math.hypot(p.x, p.z);
-  if (d > WALL_R - 12) {
-    const gd = Math.abs(wrapPi(Math.atan2(p.z, p.x) - gate.angle)) * WALL_R;
-    if (gd < GATE_HALF && s.upgrades.ram && p.speed > 3.2) { s.flags.crossed = true; s.ending = true; p.speed = 0; say(s, 'The ram shatters the ice. Beyond the Wall, a new world... Your charts take shape: the map is yours now (M).'); }
-    else {
-      p.x = ox; p.z = oz; p.speed = -Math.abs(p.speed) * 0.3;
-      if (s.t - s.msgT > 6) { s.msgT = s.t; say(s, gd < GATE_HALF ? (s.upgrades.ram ? 'Not fast enough! Back off, drop cargo or wait for a fair wind, and charge the gate (oars help).' : 'The gate is sealed with ice. You need an icebreaker ram.') : 'A sheer wall of ice. Find the gate.'); }
+  const d = Math.hypot(p.x, p.z), od = Math.hypot(ox, oz), terra = realmOf(s) === 'terra';
+  if (s.warp) p.speed *= 1 - Math.min(1, dt * 1.5); // crossing to another world: she slows as the fade comes
+  if (terra) {
+    if (d > WALL_R - 12 && d < WALL_R + 14) { // inside the ice itself: only the weak spot, once broken, lets you through
+      const gd = Math.abs(wrapPi(Math.atan2(p.z, p.x) - gate.angle)) * WALL_R, weak = gd < GATE_HALF, c = s.cine;
+      if (!s.flags.crossed && weak && s.upgrades.ram && p.speed > 3.2 && od <= WALL_R - 12) { // the ram bites: the breakthrough scene starts here
+        s.flags.crossed = true; s.cine = { t0: s.t, ang: Math.atan2(p.z, p.x) }; p.x = ox; p.z = oz; p.speed = Math.min(p.speed, 2.5); s.events.push({ type: 'cine' });
+        say(s, 'The ram bites into the ice. A crack runs up the Wall...');
+      } else if (s.flags.crossed && weak && (!c || c.broke)) { /* the breach: open water */ }
+      else {
+        p.x = ox; p.z = oz; p.speed = c ? p.speed * 0.5 : -Math.abs(p.speed) * 0.3;
+        if (!c && s.t - s.msgT > 6) { s.msgT = s.t; say(s, weak ? (s.upgrades.ram ? 'Not fast enough! Back off, drop cargo or wait for a fair wind, and charge the pale ice (oars help).' : 'The ice here is thin and cracked, but only an icebreaker ram will break it.') : 'A sheer wall of ice. Look for a stretch that is paler and cracked.'); }
+      }
+    } else if (d >= WALL_R + 14 && !s.warp) { // the Outer Sea: open water beyond the Wall, and at its edge the next world
+      if (d > OUTER_EDGE - EDGE_HINT && s.t - (s.edgeT || -99) > 60) { s.edgeT = s.t; say(s, 'The water changes ahead. The sea seems to go on forever.'); }
+      if (d >= OUTER_EDGE) { const a = Math.atan2(p.z, p.x), dest = destinationAt(a); if (dest) { s.warp = { to: dest.id, t0: s.t, ang: a }; s.events.push({ type: 'warp', to: dest.id }); } }
     }
-  }
+  } else if (d > RIM_EXIT && !s.warp) { s.warp = { to: 'terra', t0: s.t, ang: Math.atan2(p.z, p.x) }; s.events.push({ type: 'warp', to: 'terra' }); }
   if (Math.abs(p.speed) > 0.5) { s.foodT += dt; if (s.foodT > 45) { s.foodT = 0; if (s.food > 0) s.food--; } }
   if (s.food <= 0 && Math.abs(p.speed) > 0.5) { s.hull -= 0.25 * dt; if (s.t - s.msgT > 12) { s.msgT = s.t; say(s, 'You are starving! Buy provisions.'); } }
   p.cd[0] = Math.max(0, p.cd[0] - dt); p.cd[1] = Math.max(0, p.cd[1] - dt);
@@ -559,7 +592,7 @@ function stepShip(s, inp, dt) {
 }
 
 // input: { rudder, sail, fireL, fireR } at sea; { mx, mz, run, yaw } on foot
-function stepMap(s) { const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing)) visit(s, isl); } }
+function stepMap(s) { if (realmOf(s) !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, realmOf(s)); } return; } const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing)) visit(s, isl); } }
 export function step(s, input, dt = DT) {
   if (s.over || s.ending) return;
   s.t += dt;
@@ -570,7 +603,7 @@ export function step(s, input, dt = DT) {
     if (a >= SINK_S) s.over = true; return;
   }
   if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
-  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepHunts(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) stepContracts(s, say); stepGuards(s, dt); updateFx(s, dt);
+  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) stepContracts(s, say); stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
 }
@@ -632,5 +665,44 @@ export const contractsFor = (s, isl) => contractOffers(s, isl, nearbyIslands(s, 
 export const signContract = (s, o) => acceptContract(s, o, say);
 export const settleBoard = (s, isl) => settleContracts(s, isl, say);
 export const dropContract = (s, id) => abandonContract(s, id, say);
+// ---------------------------------------------------------------- fast travel (after the Wall is broken): to any port you have walked, within this world
+export const TRAVEL_SPEED = 10, TRAVEL_MIN = 20;
+function placesOf(s) {
+  const m = mapOf(s), realm = realmOf(s), pl = ((m.places ||= {})[realm] ||= {});
+  if (realm === 'terra') { const miss = Object.keys(m.visited).filter((id) => !pl[id]); if (miss.length) { // old saves: find the docks of the ports already visited
+    for (let i = -11; i <= 11 && miss.length; i++) for (let j = -11; j <= 11; j++) for (const isl of sectorIslands(s.seed, i, j)) if (m.visited[isl.id] && isl.port?.berth && !pl[isl.id]) pl[isl.id] = { n: m.visited[isl.id], x: isl.x, z: isl.z, b: { x: isl.port.berth.x, z: isl.port.berth.z, yaw: isl.port.berth.yaw } }; } }
+  return pl;
+}
+const hereOf = (s) => (s.mode === 'ship' && s.ship ? s.ship : s.foot);
+// why you cannot travel now, or null
+export function travelBlock(s) {
+  if (!s.flags?.crossed) return 'You have not broken through the Wall yet.';
+  if (s.cine || s.warp) return 'Not now.';
+  if (!s.ship) return 'You need your ship.';
+  if (s.deck) return 'Not in the middle of a boarding.';
+  if (s.mode === 'foot' && !onPier(s)) return 'Walk back to your ship or to a pier to set off.';
+  for (const e of s.enemies.values()) if (KINDS[e.kind].hostile && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) < 260 && (KINDS[e.kind].hostile === true || s.bounty)) return 'Enemy ships are too close.';
+  if (s.guards?.length || s.foes?.length) return 'Not while someone is after you.';
+  if (s.sinking?.length || s.sunkT !== undefined) return 'Not now.';
+  return null;
+}
+// every port you have visited in this world with the cost of getting there: sea time (a day of provisions per 45 s), nothing else
+export function travelList(s) {
+  const p = hereOf(s), out = [];
+  for (const [id, q] of Object.entries(placesOf(s))) { const d = Math.hypot(q.b.x - p.x, q.b.z - p.z); if (d < 60) continue; const time = Math.max(TRAVEL_MIN, d / TRAVEL_SPEED); out.push({ id, name: q.n, dist: d, time, food: Math.ceil(time / 45) }); }
+  return out.sort((a, b) => a.dist - b.dist);
+}
+export function travelTo(s, id) {
+  const why = travelBlock(s); if (why) { say(s, why); return false; }
+  const q = travelList(s).find((t) => t.id === id), spot = placesOf(s)[id]; if (!q || !spot) return false;
+  if (s.food < q.food) { say(s, `Not enough provisions for the voyage (need ${q.food}).`); return false; }
+  s.food -= q.food; s.t += q.time;
+  const b = spot.b, p = s.ship; p.x = b.x; p.z = b.z; p.yaw = b.yaw; p.speed = 0; p.sail = 0.5; s.auto = false; s.row = false; s.enemies = new Map(); s.shots = []; s.fx = []; s.mode = 'ship';
+  fleetOf(s).forEach((f, i) => { // each ship anchors in open water near the dock, never on the island
+    let px = b.x, pz = b.z; for (let k = 0; k < 40; k++) { const a = b.yaw + (k % 20) * 0.63, d = 22 + 14 * i + 12 * Math.floor(k / 20), x = b.x + Math.cos(a) * d, z = b.z + Math.sin(a) * d; if (!hullHit(s, x, z, b.yaw, 12, 5)) { px = x; pz = z; break; } }
+    f.x = px; f.z = pz; f.ax = px; f.az = pz; f.speed = 0; f.yaw = b.yaw; });
+  const l = findLand(s); if (l) { unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw, vy: 0 }; }
+  s.wind = windAt(s.t, null); say(s, `You sail to ${spot.n}. ${Math.round(q.time / 60) || 1} min at sea, ${q.food} provisions.`); return true;
+}
 export { cycleOrder };
 export { SECTOR };

@@ -243,22 +243,38 @@ export function islandMesh(isl) {
   return { ground, structs: m };
 }
 
-// ---------------------------------------------------------------- ice wall (only for the sectors the ring passes through)
-export function wallMesh(seed, sx, sz) {
+// ---------------------------------------------------------------- ice wall: a continuous cliff, same height all the way round, banded deep blue to white, with an overhanging snow lip, icicles and rubble at the foot.
+// One stretch (the weak spot, `gateAngle`) is paler and cracked. Once the ram has broken it (`open`) the wall is gone there and the edges are ragged.
+export function wallMesh(seed, sx, sz, open = false) {
   const x0 = sx * SECTOR - 40, x1 = (sx + 1) * SECTOR + 40, z0 = sz * SECTOR - 40, z1 = (sz + 1) * SECTOR + 40;
   const near = Math.hypot(clamp(0, x0, x1), clamp(0, z0, z1)), far = Math.max(Math.hypot(x0, z0), Math.hypot(x1, z0), Math.hypot(x0, z1), Math.hypot(x1, z1));
   if (near > WALL_R + 30 || far < WALL_R - 30) return null;
-  const m = new Mesh(), da = 22 / WALL_R, g = gateAngle(seed), WI = WALL_R - 6, WO = WALL_R + 8;
-  const ht = (a) => { const gd = Math.abs(((a - g + Math.PI * 3) % TAU) - Math.PI) * WALL_R; return gd < GATE_HALF ? 10 + 6 * fbm(seed, a * 900, 3, 2) : 60 + 40 * fbm(seed, a * 260, 5, 3) + 14 * Math.sin(a * 900); };
-  const col = (y, gate) => (gate ? lerp3([0.55, 0.85, 1], [0.85, 0.97, 1], clamp(y / 16, 0, 1)) : lerp3([0.45, 0.68, 0.85], [0.92, 0.97, 1], clamp(y / 90, 0, 1)));
-  for (let a = 0; a < TAU; a += da) {
+  const m = new Mesh(), da = 22 / WALL_R, g = gateAngle(seed), WI = WALL_R - 6, WO = WALL_R + 8, F = [0, 0.25, 0.5, 0.8, 1], RAD = [0, 0, 3, 8, 9];
+  const gdOf = (a) => Math.abs(((a - g + Math.PI * 3) % TAU) - Math.PI) * WALL_R;
+  const H = (a) => { const gd = gdOf(a); let h = 150 + 50 * fbm(seed, a * 260, 5, 3) + 12 * Math.sin(a * 900); if (open && gd < GATE_HALF + 36) h *= 0.12 + 0.88 * clamp((gd - GATE_HALF) / 36, 0, 1) ** 1.5 * (0.7 + 0.6 * fbm(seed, a * 1500, 3, 2)); return h; };
+  const BAND = [[0.2, 0.44, 0.8], [0.36, 0.62, 0.92], [0.64, 0.84, 0.98], [0.94, 0.98, 1]]; // base to top, flat colours
+  const WEAK = [[0.5, 0.82, 0.95], [0.66, 0.9, 0.98], [0.8, 0.95, 1], [0.97, 0.99, 1]];
+  const V = (rad, ang, y) => [Math.cos(ang) * rad, y, Math.sin(ang) * rad];
+  for (let a = 0, k = 0; a < TAU; a += da, k++) {
     const px = Math.cos(a) * WALL_R, pz = Math.sin(a) * WALL_R;
     if (px < x0 || px > x1 || pz < z0 || pz > z1) continue;
-    const b = a + da, h0 = ht(a), h1 = ht(b), gate = Math.abs(((a - g + Math.PI * 3) % TAU) - Math.PI) * WALL_R < GATE_HALF;
-    const V = (rad, ang, y) => [Math.cos(ang) * rad, y, Math.sin(ang) * rad];
-    m.quadV(V(WI, a, -3), V(WI, b, -3), V(WI, b, h1), V(WI, a, h0), dim(col(0, gate), 0.8), dim(col(0, gate), 0.8), col(h1 * 0.6, gate), col(h0 * 0.6, gate));
-    m.quadV(V(WO, b, -3), V(WO, a, -3), V(WO, a, h0), V(WO, b, h1), dim(col(0, gate), 0.8), dim(col(0, gate), 0.8), col(h0 * 0.8, gate), col(h1 * 0.8, gate));
-    m.quad(V(WI, a, h0), V(WI, b, h1), V(WO, b, h1), V(WO, a, h0), col(h0, gate));
+    const b = a + da, gd = gdOf(a), weak = gd < GATE_HALF;
+    if (open && weak) { // the breach: only a ragged rubble heap at the waterline
+      if (fbm(seed, a * 700, 3, 2) > 0.45) m.box(Math.cos(a + da / 2) * WALL_R, 1.2, Math.sin(a + da / 2) * WALL_R, 9, 5, 9, [0.82, 0.93, 1]);
+      continue;
+    }
+    const h0 = H(a), h1 = H(b), pal = weak ? WEAK : BAND, crack = weak && k % 3 === 0;
+    for (let i = 0; i < 4; i++) {
+      const jit = (k % 2 ? 0.82 : 0.94) + 0.12 * fbm(seed, a * 400 + i * 7, 2, 2), c = (crack && i < 3 ? pal[i].map((v) => v * 0.62) : pal[i].map((v) => Math.min(1, v * jit))), ci = pal[i].map((v) => Math.min(1, v * 0.97));
+      const y = (h, f) => -3 + (h + 3) * f;
+      m.quad(V(WI, a, y(h0, F[i])), V(WI, b, y(h1, F[i])), V(WI, b, y(h1, F[i + 1])), V(WI, a, y(h0, F[i + 1])), ci);
+      m.quad(V(WO + RAD[i], b, y(h1, F[i])), V(WO + RAD[i], a, y(h0, F[i])), V(WO + RAD[i + 1], a, y(h0, F[i + 1])), V(WO + RAD[i + 1], b, y(h1, F[i + 1])), c);
+    }
+    m.quad(V(WI, a, h0), V(WI, b, h1), V(WO + 9, b, h1), V(WO + 9, a, h0), [0.97, 0.99, 1]); // snow lip
+    const sp = fbm(seed, a * 130, 3, 2); if (sp > 0.6) { const hh = 26 + 70 * (sp - 0.6) * 2.5, cx = Math.cos(a + da / 2) * (WO + 2), cz = Math.sin(a + da / 2) * (WO + 2); m.box(cx, Math.max(h0, h1) + hh / 2 - 4, cz, 13, hh, 13, [0.9, 0.96, 1]); m.box(cx, Math.max(h0, h1) + hh - 2, cz, 7, 12, 7, [1, 1, 1]); } // tall spires break the skyline from far away
+    const n = fbm(seed, a * 900, 3, 2); // icicles under the lip and ice rubble at the foot
+    if (n > 0.5) m.tri(V(WO + 9, a, h0 - 3), V(WO + 9, b, h1 - 3), V(WO + 8, (a + b) / 2, Math.min(h0, h1) - 14 - 20 * n), [0.86, 0.95, 1]);
+    if (n < 0.42) m.box(Math.cos(a + da / 2) * (WO + 5), 1.5, Math.sin(a + da / 2) * (WO + 5), 7 + 8 * n, 4 + 6 * n, 7, [0.78, 0.9, 1]);
   }
   return m.count ? m : null;
 }

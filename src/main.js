@@ -5,10 +5,15 @@ import { SHIPS } from './rules/ships.js';
 import { islandMesh, wallMesh, shipMesh, shipParams, ballMesh, wakeMesh } from './gen/mesh.js';
 import { islandProps } from './gen/props.js';
 import { createSprites } from './render/sprites.js';
+import { warpText } from './rules/realm.js';
+import { lifeAt, clearLife } from './rules/life.js';
+import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
+import { quantize } from './render/palette.js';
+import { CINE_S } from './rules/realm.js';
 import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
 import { board, byId } from './rules/hunt.js';
-import { handIn, grapple, DECK_Y, fighterOf, toggleBombard, cycleOrder } from './rules/game.js';
+import { travelTo, warpNow, handIn, grapple, DECK_Y, fighterOf, toggleBombard, cycleOrder } from './rules/game.js';
 import { setShot, AMMO } from './rules/parts.js';
 import { mapAvailable } from './rules/map.js';
 import { newGame, step, interact, prompt, standingOn, nearbyIslands, say, camBlocked, toggleAuto, toggleRow, DT } from './rules/game.js';
@@ -18,7 +23,8 @@ import { createUI } from './ui.js';
 import { SOFT, MID } from './render/palette.js';
 import { createAudio } from './audio.js';
 
-const SEED = 1717; // the world "Terra": same seed, same sea, every time
+const BASE_SEED = 1717; // the world "Terra": same seed, same sea, every time
+let SEED = BASE_SEED; // the seed of the realm in play (a realm has its own)
 const $ = (id) => document.getElementById(id);
 const canvas = $('c'), ui = createUI(), audio = createAudio();
 let opts = loadOptions(), renderer, s = null, phase = 'boot'; // boot | menu | intro | play | panel | paused | ending | over
@@ -32,6 +38,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ---------------------------------------------------------------- sectors: built on demand, one per frame, freed when far
 const sectors = new Map(), shipMeshes = new Map(), npcMeshes = new Map(), tasks = [];
 let ballGpu = null, sprites = null, wakeGpu = null;
+const LIFE = [];
 const BB = { data: new Float32Array(12 * 8000), n: 0 }, propCache = new Map();
 function bb(sp, x, y, z, sc) { // one billboard instance: anchor + scale, quad extents, atlas rect
   if (!sp || BB.n >= 8000) return; const i = BB.n++ * 12, d = BB.data, u = sp.uv;
@@ -42,15 +49,20 @@ const key = (x, z) => `${x},${z}`;
 // which sprite frame an attacker shows: 4 = the blow (for a moment after it lands), 3 = the wind-up (the last third of a second before it, when you are in reach), else the walk frame
 const atkFrame = (e, near, walk) => { const la = s.t - (e.atk ?? -9); if (la >= 0 && la < 0.28) return 4; if (near && e.cd > 0 && e.cd < 0.32) return 3; return walk; };
 // a sector is created empty and its meshes are built one at a time within a few ms per frame, so sailing never hitches
+// the wall's mesh for one sector (flagged so it can be swapped alone when the breach opens)
+const wallTask = (sx, sz) => () => { if (s && s.realm && s.realm !== 'terra') return null; const w = wallMesh(s?.baseSeed || BASE_SEED, sx, sz, !!s?.flags?.crossed); return w ? { m: renderer.upload(w), mat: IDENT, tint: [1, 1, 1], wall: true } : null; };
 function queueSector(sx, sz) {
   const k = key(sx, sz); sectors.set(k, { sx, sz, objs: [] });
   for (const isl of sectorIslands(SEED, sx, sz)) tasks.push({ k, build: () => { const im = islandMesh(isl); return [{ m: renderer.upload(im.ground), mat: IDENT, tint: [1, 1, 1], detail: 2 }, { m: renderer.upload(im.structs), mat: IDENT, tint: [1, 1, 1], detail: 1 }]; } });
-  tasks.push({ k, build: () => { const w = wallMesh(SEED, sx, sz); return w ? { m: renderer.upload(w), mat: IDENT, tint: [1, 1, 1] } : null; } });
+  tasks.push({ k, build: wallTask(sx, sz) });
 }
 function pump(budgetMs) {
   const t0 = performance.now();
   do { const t = tasks.shift(); if (!t) return; const sec = sectors.get(t.k); if (!sec) continue; const o = t.build(); if (o) sec.objs.push(...[].concat(o)); } while (performance.now() - t0 < budgetMs);
 }
+const dropSectors = () => { for (const sec of sectors.values()) for (const o of sec.objs) renderer.free(o.m); sectors.clear(); tasks.length = 0; };
+// the wall's sectors are rebuilt when the breach opens
+const rebuildWall = () => { for (const [k, sec] of sectors) if (Math.abs(Math.hypot((sec.sx + 0.5) * 600, (sec.sz + 0.5) * 600) - WALL_R) < 520) { const keep = []; let had = false; for (const o of sec.objs) { if (o.wall) { renderer.free(o.m); had = true; } else keep.push(o); } if (had) { sec.objs = keep; tasks.push({ k, build: wallTask(sec.sx, sec.sz) }); } } }; // only the ice is swapped (the islands stay put), one sector per frame inside the pump budget
 function updateSectors(x, z, all = false) {
   const cx = sectorOf(x), cz = sectorOf(z), R = opts.distance, want = [];
   for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) if (!sectors.has(key(cx + i, cz + j))) want.push([cx + i, cz + j, i * i + j * j]);
@@ -96,6 +108,11 @@ function menuPose(t) {
 }
 function updateCamera(dt, t) {
   if (!s) { Object.assign(cam, menuPose(t)); return; }
+  if (s.cine && s.ship) { // the breakthrough: low and close beside the ship at the ice, then pulling back and up as she surges through
+    const c = s.cine, a = s.t - c.t0, k = Math.min(1, a / CINE_S), ca = Math.cos(c.ang), sa = Math.sin(c.ang), back = 20 + 34 * k, side = 14 * (1 - k) + 6, h = 4 + 12 * k * k;
+    cam.x = s.ship.x - ca * back - sa * side; cam.z = s.ship.z - sa * back + ca * side; cam.y = h; const tx = s.ship.x + ca * 18, tz = s.ship.z + sa * 18;
+    cam.yaw = Math.atan2(tz - cam.z, tx - cam.x); cam.pitch = -Math.atan2(h - 4, Math.hypot(tx - cam.x, tz - cam.z)); cam.blend = 1; return;
+  }
   const target = s.mode === 'ship' && s.ship ? 1 : 0;
   cam.blend += Math.sign(target - cam.blend) * Math.min(Math.abs(target - cam.blend), dt / 1.1);
   const k = cam.blend * cam.blend * (3 - 2 * cam.blend), f = poseFoot(), p = cam.blend > 0 && s.ship ? poseShip() : f;
@@ -113,7 +130,7 @@ function updateCalm(t) {
 }
 function render(t) {
   updateCalm(t);
-  const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = Math.max(0, Math.min(1, (zone - 0.5) / 0.4)), R = opts.distance;
+  const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = Math.max(0, Math.min(1, (zone - 0.5) / 0.4)) * (1 - Math.max(0, Math.min(1, (zone - 1) * WALL_R / 700))), R = opts.distance; // past the Wall the sky turns warm
   const objects = []; BB.n = 0;
   for (const sec of sectors.values()) if (Math.max(Math.abs(sec.sx - sectorOf(cam.x)), Math.abs(sec.sz - sectorOf(cam.z))) <= R) objects.push(...sec.objs);
   if (s) {
@@ -123,6 +140,11 @@ function render(t) {
       objects.push({ m: P.hull, mat: hm, tint: ph });
       for (const q of P.sails) objects.push({ m: q.g, mat: sailMat(hm, q.x, s.ship.trim || 0), tint: ph });
       if (!sk) wake(objects, hm, (SHIPS[s.shipClass] || SHIPS.sailboat).L, Math.abs(s.ship.speed), t);
+    }
+    if (sprites && s.mode !== 'foot' || (sprites && !s.deck)) { // sea life and birds: flat sprites, mirrored to face the way they swim relative to the camera
+      const L = lifeAt(s.realm || 'terra', s.seed, t, cam.x, cam.z, LIFE, s.mode === 'ship' && s.ship ? s.ship : null), rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
+      let wd = 1e9, bd = 1e9, bk = 'gull'; for (const c of L) { const d = Math.hypot(c.x - cam.x, c.z - cam.z); if (c.air) { if (d < bd) { bd = d; bk = c.kind; } } else if (c.kind === 'whale' || c.kind === 'icewhale' || c.kind === 'orca' || c.kind === 'narwhal') wd = Math.min(wd, d); } audio.critters({ whale: wd, bird: bd, birdKind: bk });
+      for (const c of L) bb(sprites.critter(c.kind, c.dx * rx + c.dz * rz >= 0 ? 'R' : 'L', c.fr), c.x, c.y + (c.air ? 0 : wave(c.x, c.z, t)), c.z, c.air ? 2.4 : 2);
     }
     for (const e of s.enemies.values()) {
       const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, em, enemyLen(e), e.speed, t);
@@ -220,7 +242,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyB') toggleBombard(s);
   else if (e.code === 'KeyT' && s?.mode === 'ship') cycleOrder(s, say);
   else if (e.code === 'KeyM' && !mapAvailable(s)) say(s, 'You have no map. Nobody has charted past the Wall; perhaps whoever breaks through will.');
-  else if (e.code === 'KeyM') { phase = 'panel'; unlock(); ui.map(s, () => { phase = 'play'; lock(); }); }
+  else if (e.code === 'KeyM') { phase = 'panel'; unlock(); ui.map(s, () => { phase = 'play'; lock(); }, (id) => { phase = 'warp'; ui.fade(true); setTimeout(() => { travelTo(s, id); const f = s.mode === 'ship' ? s.ship : s.foot; clearLife(); updateSectors(f.x, f.z, true); view.yaw = s.mode === 'ship' ? s.ship.yaw : s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22; keys.clear(); ui.fade(false); phase = 'play'; lock(); saveGame(s); }, 900); }); }
   else if (e.code === 'KeyR') toggleAuto(s);
   else if (e.code === 'KeyO') toggleRow(s);
   else if (e.code === 'Tab') { phase = 'panel'; unlock(); ui.questLog(s, () => { phase = 'play'; lock(); }); }
@@ -265,7 +287,7 @@ function showMenu() {
   ui.menu({ hasSave: hasSave(), getOptions, setOptions, onNew: newGameFlow, onContinue: continueFlow });
 }
 function startPlay(game) {
-  s = game; ui.fade(true);
+  s = game; ui.fade(true); if (SEED !== s.seed) { SEED = s.seed; dropSectors(); }
   setTimeout(() => {
     const px = s.mode === 'ship' ? s.ship.x : s.foot.x, pz = s.mode === 'ship' ? s.ship.z : s.foot.z;
     updateSectors(px, pz, true); view.yaw = s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22;
@@ -281,7 +303,7 @@ async function newGameFlow() {
     'By morning your savings are spent and you are standing in Port Haven, the last harbour on the maps, with a one-way ticket and a lot of questions.',
     'Time to find out if the Wall is real.',
   ]);
-  startPlay(newGame(SEED));
+  startPlay(newGame(BASE_SEED));
 }
 function continueFlow() { goFullscreen(); const g = loadGame(); if (!g) return newGameFlow(); startPlay(g); }
 function pause() {
@@ -289,6 +311,14 @@ function pause() {
   ui.pause({ getOptions, setOptions, onResume: () => { phase = 'play'; lock(); }, onSave: () => saveGame(s), onQuit: () => { saveGame(s); showMenu(); } });
 }
 
+// crossing to another world: a banner, a fade, the swap (old realm's caches dropped), then the new one fades in
+function startWarp(to) {
+  if (phase !== 'play') return; phase = 'warp'; ui.cine(false); ui.banner(warpText(s, to), to === 'terra' ? '' : 'Past the edge of the charts', 2600); ui.fade(true);
+  setTimeout(() => {
+    warpNow(s); SEED = s.seed; clearLife(); dropSectors(); updateSectors(s.ship.x, s.ship.z, true); cam.blend = 1; orbit.yaw = 0; orbit.pitch = -0.22; view.yaw = s.ship.yaw; keys.clear();
+    ui.fade(false); phase = 'play'; saveGame(s);
+  }, 1500);
+}
 // ---------------------------------------------------------------- main loop
 // what the ears should hear: at sea, or ashore, and how busy the town around you is (louder near the plaza, bigger in cities)
 const soundScene = () => { if (s.mode !== 'foot') return { foot: false, town: 0 }; const i = standingOn(s), pz = i?.port && islandTown(i).plaza; if (!pz) return { foot: true, town: 0 }; const w = { village: 0.5, town: 0.8, city: 1 }[i.tier] || 0.5; return { foot: true, town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) }; };
@@ -309,12 +339,12 @@ function loop(now) {
     for (const ev of s.events) {
       if (ev.type === 'cannon') audio.boom(1 / (1 + Math.hypot(ev.x - (s.ship?.x || 0), ev.z - (s.ship?.z || 0)) / 60));
       else if (ev.type === 'slash') { audio.slash(ev.hit); ui.slash(ev.w, ev.hit); } else if (ev.type === 'kill') audio.boom(0.25); else if (ev.type === 'grapple') { view.yaw = ev.yaw; view.pitch = 0; audio.boom(0.5); } else if (ev.type === 'won') { audio.quest(); phase = 'panel'; unlock(); ui.prize(s, () => { phase = 'play'; lock(); saveGame(s); }); } else if (ev.type === 'arrest') { view.yaw = s.foot.yaw = ev.yaw; view.pitch = 0; mouseDown = false; keys.clear(); }
+      else if (ev.type === 'cine') { ui.cine(true); audio.boom(0.8); audio.crack(); } else if (ev.type === 'break') { ui.flash(); rebuildWall(); audio.iceBreak(); } else if (ev.type === 'banner') { ui.cine(false); ui.banner(ev.text, ev.sub, 4200); audio.quest(); saveGame(s); } else if (ev.type === 'warp') startWarp(ev.to);
       else if (ev.type === 'hit') { audio.hit(); if (s.mode === 'foot') ui.hurt(); } else if (ev.type === 'coin' || ev.type === 'sunk') audio.coin(); else if (ev.type === 'quest') { audio.quest(); saveGame(s); }
     }
     s.events.length = 0;
     saveT += dt; if (saveT > 30) { saveT = 0; saveGame(s); }
-    if (s.ending) { phase = 'ending'; unlock(); saveGame(s); ui.ending({ onReturn: () => { const g = gatePos(SEED); s.ending = false; s.ship.x = g.x * (1 - 140 / WALL_R); s.ship.z = g.z * (1 - 140 / WALL_R); s.ship.speed = 0; s.mode = 'ship'; phase = 'play'; lock(); }, onMenu: showMenu }); }
-    else if (s.over) { phase = 'over'; unlock(); ui.gameOver({ hasSave: hasSave(), onLoad: continueFlow, onMenu: showMenu }); }
+    if (s.over) { phase = 'over'; unlock(); ui.gameOver({ hasSave: hasSave(), onLoad: continueFlow, onMenu: showMenu }); }
   }
   updateCamera(dt, T);
   const fx = s ? (s.mode === 'ship' && s.ship ? s.ship.x : s.foot.x) : cam.x, fz = s ? (s.mode === 'ship' && s.ship ? s.ship.z : s.foot.z) : cam.z;
@@ -334,7 +364,7 @@ function loop(now) {
     renderer = await createRenderer(canvas); sprites = createSprites(renderer);
   } catch (e) { ui.error(e.message); return; }
   audio.setVolume(opts.volume); resize();
-  window.__pk = { home: homeIsland, town: islandTown, get s() { return s; }, get phase() { return phase; }, cam, view, opts, sectors, newGame: () => startPlay(newGame(SEED)), updateSectors, interact: onInteract, T: () => T, step, board, handIn, fighterOf, townsfolk, sectorIslands, folkPos, islandProps };
+  window.__pk = { sheet: () => { const kinds = Object.keys(CRIT_BOX), c = document.createElement('canvas'); c.width = 900; c.height = kinds.length * 70; const g = c.getContext('2d'); g.fillStyle = '#4a86b8'; g.fillRect(0, 0, c.width, c.height); kinds.forEach((k, i) => { let x = 4; for (const fr of [0, 1, 2]) for (const d of ['R', 'L']) { const b = bake(CRIT_BOX[k], 10, (q) => paintCritter(q, k, d, fr)); quantize(b.c); g.drawImage(b.c, x, i * 70 + 4); x += b.c.width + 6; } g.fillStyle = '#fff'; g.font = '11px sans-serif'; g.fillText(k, 4, i * 70 + 66); }); return c.toDataURL(); }, lifeAt, home: homeIsland, town: islandTown, get s() { return s; }, get phase() { return phase; }, cam, view, opts, sectors, newGame: () => startPlay(newGame(BASE_SEED)), warp: () => warpNow(s), startWarp: (to) => startWarp(to), updateSectors, interact: onInteract, T: () => T, step, board, handIn, fighterOf, townsfolk, sectorIslands, folkPos, islandProps };
   updateSectors(homeIsland().x, homeIsland().z, true); // warm the sea behind the menu
   showMenu(); requestAnimationFrame(loop);
 })();

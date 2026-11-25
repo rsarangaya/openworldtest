@@ -4,7 +4,7 @@ import { GOODS } from './gen/world.js';
 import { WEAPONS, WEAPON_ORDER, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
 import { buyWeapon, equip } from './rules/weapons.js';
-import { trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract } from './rules/game.js';
+import { travelList, travelBlock, trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract } from './rules/game.js';
 import { active as contractList, describe as contractText, quote as quoteContract, MAX_ACTIVE } from './rules/contracts.js';
 import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
 import { newsFor, markRead } from './rules/news.js';
@@ -191,14 +191,15 @@ export function createUI() {
     talk(); on('panel', true);
   };
   // the world map (M): Terra's local map and the grand map of every world you have heard of
-  ui.map = (s, onClose) => {
+  ui.map = (s, onClose, onTravel) => {
     const el = $('panel'); let tab = 'terra', t0 = performance.now(), timer = 0, N = 640;
     const close = () => { clearInterval(timer); on('panel', false); onClose?.(); };
     const draw = () => { const c = $('mapc'); if (!c || !ui.panelOpen()) { clearInterval(timer); return; } const ctx = c.getContext('2d'), t = (performance.now() - t0) / 1000; if (tab === 'terra') drawTerra(ctx, s, N, t); else drawWorld(ctx, s, N, t); };
+    const travelHtml = () => { const why = travelBlock(s), list = travelList(s); return `<div style="max-height:48vh;overflow:auto"><p><small>Sail to a port you have already walked. The voyage takes time at sea and uses provisions (you have <b>${s.food}</b>).</small></p>${why ? `<p class=bad>${esc(why)}</p>` : ''}${list.length ? '<table>' + list.map((t) => `<tr><td><b>${esc(t.name)}</b><br><small>${t.dist > 1000 ? (t.dist / 1000).toFixed(1) + ' km' : Math.round(t.dist) + ' m'} · ${Math.max(1, Math.round(t.time / 60))} min · ${t.food} provisions</small></td><td class=n><button class=small data-go="${esc(t.id)}" ${why || s.food < t.food ? 'disabled' : ''}>Sail</button></td></tr>`).join('') + '</table>' : '<p class=hint>No ports visited here yet. Walk into a port to add it.</p>'}</div>`; };
     const show = () => {
       const heard = WORLDS.filter((r) => !r.home && realmState(s, r.id) >= HINTED).length;
-      el.innerHTML = `<div class=box style="max-width:min(720px,96vw)"><h2>Map</h2><div><button class=small id=mT ${tab === 'terra' ? 'disabled' : ''}>Terra</button> <button class=small id=mW ${tab === 'world' ? 'disabled' : ''}>All worlds (${heard} heard of)</button></div><canvas id=mapc width=${N} height=${N} style="width:min(640px,60vh);height:min(640px,60vh);image-rendering:pixelated;display:block;margin:.6em auto;border:2px solid #07080c"></canvas><small>${tab === 'terra' ? 'Only waters you have sailed, places you have walked and charts you were given are drawn.' : 'Other worlds appear when you hear of them, and in colour when you reach them.'}</small><p><button id=mC>Close (M)</button></p></div>`;
-      $('mC').onclick = close; $('mT').onclick = () => { tab = 'terra'; show(); }; $('mW').onclick = () => { tab = 'world'; show(); }; draw(); clearInterval(timer); timer = setInterval(draw, 500);
+      el.innerHTML = `<div class=box style="max-width:min(720px,96vw)"><h2>Map</h2><div><button class=small id=mT ${tab === 'terra' ? 'disabled' : ''}>Terra</button> <button class=small id=mW ${tab === 'world' ? 'disabled' : ''}>All worlds (${heard} heard of)</button> <button class=small id=mV ${tab === 'travel' ? 'disabled' : ''}>Fast travel</button></div>${tab === 'travel' ? travelHtml() : ''}<canvas id=mapc width=${N} height=${N} style="width:min(640px,60vh);height:min(640px,60vh);image-rendering:pixelated;display:${tab === 'travel' ? 'none' : 'block'};margin:.6em auto;border:2px solid #07080c"></canvas><small>${tab === 'terra' ? 'Only waters you have sailed, places you have walked and charts you were given are drawn.' : 'Other worlds appear when you hear of them, and in colour when you reach them.'}</small><p><button id=mC>Close (M)</button></p></div>`;
+      $('mC').onclick = close; $('mT').onclick = () => { tab = 'terra'; show(); }; $('mW').onclick = () => { tab = 'world'; show(); }; $('mV').onclick = () => { tab = 'travel'; show(); }; el.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => { const id = b.dataset.go; close(); onTravel?.(id); })); draw(); clearInterval(timer); timer = setInterval(draw, 500);
     };
     show(); on('panel', true);
   };
@@ -252,6 +253,11 @@ export function createUI() {
   };
   ui.loading = (v, text) => { if (text) $('loading').textContent = text; on('loading', v); };
   ui.fade = (v) => { $('fade').style.opacity = v ? 1 : 0; };
+  // overlays made on demand: a title banner, cinematic bars, and a white flash (no template changes)
+  const mk = (id, css) => { let e = document.getElementById(id); if (!e) { e = document.createElement('div'); e.id = id; e.style.cssText = 'position:fixed;pointer-events:none;' + css; document.body.appendChild(e); } return e; };
+  ui.banner = (text, sub = '', ms = 3200) => { const e = mk('banner', 'left:0;right:0;top:34%;text-align:center;z-index:8;opacity:0;transition:opacity .9s;color:#f3d98a;text-shadow:0 2px 0 #000,0 0 18px #000;font:700 44px Georgia,serif;letter-spacing:3px'); e.innerHTML = esc(text) + (sub ? '<div style="font:16px Georgia,serif;letter-spacing:1px;margin-top:10px;color:#e8e2d0">' + esc(sub) + '</div>' : ''); e.style.opacity = 1; clearTimeout(e._t); e._t = setTimeout(() => { e.style.opacity = 0; }, ms); };
+  ui.cine = (on) => { const c = 'left:0;right:0;height:11vh;background:#000;z-index:6;transition:transform .8s;'; const a = mk('barT', 'top:0;' + c), b = mk('barB', 'bottom:0;' + c); a.style.transform = on ? 'none' : 'translateY(-100%)'; b.style.transform = on ? 'none' : 'translateY(100%)'; };
+  ui.flash = () => { const e = mk('flash', 'inset:0;background:#fff;z-index:7;opacity:1;transition:opacity 1.6s ease-out'); e.style.transition = 'none'; e.style.opacity = 0.95; void e.offsetWidth; e.style.transition = 'opacity 1.6s ease-out'; e.style.opacity = 0; };
   ui.error = (m) => { $('err').textContent = m; on('err', true); on('loading', false); };
   return ui;
 }

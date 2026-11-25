@@ -49,5 +49,6 @@ export function createSprites(R) {
   const fallen = (kind, seed) => get(`fl${kind}${seed % 16}`, A.FALLEN_BOX, 12, (g) => { g.rotate(Math.PI / 2); A.paintPerson(g, A.personSpec(kind, seed % 16), 'down', 0); });
   const gate = () => get('gate', A.GATE_BOX, 12, (g) => A.paintGate(g));
   const hp = (n) => get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10));
-  return { prop, person, fallen, hp, fx, gate, PERSON_SCALE };
+  const critter = (kind, dir, fr) => get(`cr${kind}${dir}${fr}`, A.CRIT_BOX[kind], 10, (g) => A.paintCritter(g, kind, dir, fr));
+  return { prop, person, critter, fallen, hp, fx, gate, PERSON_SCALE };
 }

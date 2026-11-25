@@ -50,7 +50,12 @@ export function explore(s, realm, x, z, onFoot) {
   const m = mapOf(s), [gx, gz] = cellAt(x, z, (realmById(realm) || REALMS[0]).cell), k = realm + ':' + gx + ',' + gz + ':' + (onFoot ? 'f' : 's');
   if (m.last === k) return false; m.last = k; reveal(s, realm, x, z, onFoot ? FOOT_REVEAL : SEA_REVEAL, KNOWN); return true;
 }
-export function visit(s, isl) { const m = mapOf(s); if (!m.visited[isl.id]) { m.visited[isl.id] = isl.port?.name || isl.name; return true; } return false; }
+export function visit(s, isl, realm = 'terra') {
+  const m = mapOf(s), vis = realm === 'terra' ? m.visited : ((m.visitedR ||= {})[realm] ||= {}); let fresh = false; const name = isl.port?.name || isl.name;
+  if (!vis[isl.id]) { vis[isl.id] = name; fresh = true; }
+  if (isl.port?.berth) { const pl = ((m.places ||= {})[realm] ||= {}); if (!pl[isl.id]) { pl[isl.id] = { n: name, x: isl.x, z: isl.z, b: { x: isl.port.berth.x, z: isl.port.berth.z, yaw: isl.port.berth.yaw } }; fresh = true; } } // where its dock is, for fast travel
+  return fresh;
+}
 export function hint(s, id) { const m = mapOf(s); if (!realmById(id) || (m.realms[id] || 0) >= HINTED) return false; m.realms[id] = HINTED; return true; }
 export const nextUnhinted = (s) => REALMS.find((r) => r.planned && realmState(s, r.id) === UNKNOWN) || null;
 export const visitRealm = (s, id) => { mapOf(s).realms[id] = KNOWN; };
