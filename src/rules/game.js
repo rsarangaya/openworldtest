@@ -421,7 +421,7 @@ function ensureRaiders(s) {
     const a = p.yaw + (r() - 0.5) * 2.4, d = 220 + r() * 140, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d;
     if (hitIsland(s, x, z) || Math.hypot(x, z) > WALL_R - 150) continue;
     const sr = rngFor(s.seed, 5000 + s.spawnN);
-    s.enemies.set('q' + s.spawnN, { id: 'q' + s.spawnN, seed: hash(s.seed, 9000 + s.spawnN), kind: 'raider', x, z, yaw: a + Math.PI, name: shipName(sr), captain: captainName(sr), gen: false, speed: 0, hp: KINDS.raider.hp, maxHp: KINDS.raider.hp, cd: [1, 1] });
+    s.enemies.set('q' + s.spawnN, { id: 'q' + s.spawnN, seed: hash(s.seed, 9000 + s.spawnN), kind: 'raider', x, z, yaw: a + Math.PI, name: shipName(sr, realmOf(s)), captain: captainName(sr, realmOf(s)), gen: false, speed: 0, hp: KINDS.raider.hp, maxHp: KINDS.raider.hp, cd: [1, 1] });
     return;
   }
 }
@@ -451,7 +451,7 @@ function manageHunters(s) {
   if (n >= want || s.t < (s.hunterT || 0) || Math.hypot(p.x, p.z) > WALL_R - 400) return;
   s.hunterT = s.t + 25; s.hunterN = (s.hunterN || 0) + 1; const r = rngFor(s.seed, 6000 + s.hunterN);
   for (let k = 0; k < 14; k++) { const a = r() * TAU, d = 300 + r() * 120, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (hitIsland(s, x, z) || Math.hypot(x, z) > WALL_R - 150) continue; const sr = rngFor(s.seed, 6500 + s.hunterN);
-    s.enemies.set('n' + s.hunterN, { id: 'n' + s.hunterN, seed: hash(s.seed, 6600 + s.hunterN), kind: 'navy', hunter: true, x, z, yaw: a + Math.PI, name: shipName(sr), captain: captainName(sr), gen: false, speed: 0, hp: KINDS.navy.hp, maxHp: KINDS.navy.hp, cd: [1, 1] }); if (!n) say(s, 'Navy sails on the horizon: they are hunting you.'); return; }
+    s.enemies.set('n' + s.hunterN, { id: 'n' + s.hunterN, seed: hash(s.seed, 6600 + s.hunterN), kind: 'navy', hunter: true, x, z, yaw: a + Math.PI, name: shipName(sr, realmOf(s)), captain: captainName(sr, realmOf(s)), gen: false, speed: 0, hp: KINDS.navy.hp, maxHp: KINDS.navy.hp, cd: [1, 1] }); if (!n) say(s, 'Navy sails on the horizon: they are hunting you.'); return; }
 }
 function fire(s, owner, ship, side, target, dmg, kind = 'round') {
   const v = 38, aim = Math.atan2(target.z - ship.z, target.x - ship.x);

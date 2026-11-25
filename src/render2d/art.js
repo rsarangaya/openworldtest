@@ -77,12 +77,14 @@ export function paintWell(g) { // a stone well seen from the side: brick ring wi
   line(g, 0, -2.95, 0, -1.75, 0.05, '#d9c28a'); cel(g, rr(-0.28, -1.8, 0.56, 0.45, 0.06), [0.55, 0.38, 0.2], { lw: 0.07 });
 }
 export const STALL_BOX = { x0: -2.1, x1: 2.1, y0: -3.6, y1: 0.4 };
+// the realm whose look the baked sprites follow (set from sprites.js)
+export let THEME = 'terra'; export const setArtTheme = (t) => { THEME = t || 'terra'; };
 export function paintStall(g, v) {
-  const c = [[0.88, 0.32, 0.28], [0.28, 0.52, 0.85], [0.95, 0.78, 0.28], [0.3, 0.68, 0.45]][v % 4];
+  const vk = THEME === 'asgard', c = vk ? [[0.42, 0.3, 0.2], [0.5, 0.38, 0.26], [0.4, 0.38, 0.36], [0.5, 0.24, 0.2]][v % 4] : [[0.88, 0.32, 0.28], [0.28, 0.52, 0.85], [0.95, 0.78, 0.28], [0.3, 0.68, 0.45]][v % 4];
   for (const s of [-1, 1]) cel(g, rr(s * 1.7 - 0.07, -3, 0.14, 3, 0.03), [0.5, 0.34, 0.2]);
   cel(g, rr(-1.8, -1.1, 3.6, 1.1, 0.08), [0.7, 0.5, 0.3]);
-  for (let i = -3; i <= 2; i++) fillPath(g, ell(i * 0.5 + 0.25, -1.3, 0.2, 0.2), rgb([[0.9, 0.3, 0.25], [0.95, 0.8, 0.25], [0.4, 0.7, 0.3]][(i + 3) % 3]));
-  for (let i = 0; i < 8; i++) { const x = -2 + i * 0.5; g.beginPath(); g.moveTo(x, -3.1); g.lineTo(x + 0.5, -3.1); g.lineTo(x + 0.5, -2.2); g.arc(x + 0.25, -2.2, 0.25, 0, Math.PI); g.closePath(); g.fillStyle = i % 2 ? rgb(c) : '#fff'; g.fill(); g.lineWidth = 0.05; g.strokeStyle = INK; g.stroke(); }
+  for (let i = -3; i <= 2; i++) fillPath(g, vk ? ell(i * 0.5 + 0.25, -1.28, 0.26, 0.14) : ell(i * 0.5 + 0.25, -1.3, 0.2, 0.2), rgb((vk ? [[0.62, 0.66, 0.72], [0.5, 0.36, 0.24], [0.8, 0.78, 0.7]] : [[0.9, 0.3, 0.25], [0.95, 0.8, 0.25], [0.4, 0.7, 0.3]])[(i + 3) % 3])); // Asgard stalls sell fish, furs and cheese
+  for (let i = 0; i < 8; i++) { const x = -2 + i * 0.5; g.beginPath(); g.moveTo(x, -3.1); g.lineTo(x + 0.5, -3.1); g.lineTo(x + 0.5, -2.2); g.arc(x + 0.25, -2.2, 0.25, 0, Math.PI); g.closePath(); g.fillStyle = i % 2 ? rgb(c) : vk ? '#cfc4a8' : '#fff'; g.fill(); g.lineWidth = 0.05; g.strokeStyle = INK; g.stroke(); }
   cel(g, poly(-2.1, -3.1, 2.1, -3.1, 1.8, -3.55, -1.8, -3.55), c);
 }
 export const BENCH_BOX = { x0: -1, x1: 1, y0: -1.1, y1: 0.3 };
@@ -262,8 +264,12 @@ const HAIRC = [[0.12, 0.1, 0.1], [0.3, 0.2, 0.12], [0.5, 0.34, 0.18], [0.62, 0.6
 const LEATHER = [0.36, 0.24, 0.15];
 const CLOTH = { smith: [[0.34, 0.3, 0.28], [0.3, 0.27, 0.3]], guard: [[0.22, 0.32, 0.58], [0.2, 0.3, 0.52]], merchant: [[0.22, 0.38, 0.3], [0.45, 0.3, 0.2]], tavern: [[0.5, 0.22, 0.2], [0.42, 0.3, 0.2]], shipwright: [[0.3, 0.4, 0.5], [0.38, 0.38, 0.34]], sailor: [[0.2, 0.28, 0.42], [0.25, 0.32, 0.4]], warden: [[0.7, 0.74, 0.8], [0.6, 0.66, 0.74]],
   villager: [[0.45, 0.32, 0.22], [0.36, 0.42, 0.26], [0.55, 0.28, 0.2], [0.3, 0.36, 0.44], [0.6, 0.5, 0.28], [0.42, 0.3, 0.4]], player: [[0.26, 0.34, 0.5]] };
-export function personSpec(kind, seed) {
+// Asgardians: fair or red hair, thick beards, braids, fur collars, round shields, iron helmets for fighters
+const V_SKIN = [[0.95, 0.82, 0.72], [0.9, 0.74, 0.62], [0.84, 0.66, 0.52]], V_HAIR = [[0.82, 0.66, 0.34], [0.7, 0.5, 0.22], [0.62, 0.22, 0.1], [0.3, 0.2, 0.12], [0.88, 0.78, 0.5], [0.2, 0.16, 0.12]];
+const V_CLOTH = [[0.5, 0.18, 0.15], [0.2, 0.32, 0.5], [0.36, 0.3, 0.2], [0.3, 0.4, 0.28], [0.5, 0.4, 0.22], [0.28, 0.24, 0.3]], V_SHIELD = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.86, 0.84, 0.78], [0.15, 0.4, 0.25]];
+export function personSpec(kind, seed, theme = 'terra') {
   const r = rngFor(seed, kind.length * 17 + 3), P = { kind, skin: pick(r, SKIN), hair: pick(r, HAIRC), eye: [0.14, 0.12, 0.12], style: (r() * 4) | 0, cloth: pick(r, CLOTH[kind] || CLOTH.villager), pants: pick(r, [[0.26, 0.26, 0.3], [0.34, 0.28, 0.2], [0.24, 0.3, 0.32]]), extra: (r() * 4) | 0 };
+  if (theme === 'asgard' && kind !== 'player') { const q = rngFor(seed, kind.length * 29 + 11); P.vik = true; P.skin = pick(q, V_SKIN); P.hair = pick(q, V_HAIR); P.cloth = kind === 'guard' || kind === 'warden' ? P.cloth : pick(q, V_CLOTH); P.extra = q() < 0.78 ? 0 : 3; P.shield = pick(q, V_SHIELD); P.hasShield = kind === 'guard' || kind === 'warden' || q() < 0.3; P.helm = kind === 'guard' || kind === 'warden' || (kind === 'villager' && q() < 0.15); P.horns = kind === 'guard' || (P.helm && q() < 0.35); P.braids = q() < 0.6; }
   if (kind === 'player') { P.skin = SKIN[1]; P.hair = HAIRC[1]; P.style = 0; P.extra = 3; P.pants = [0.22, 0.24, 0.3]; }
   return P;
 }
@@ -316,6 +322,13 @@ export function paintPerson(g, P, dir, fr) {
   else if (K === 'warden') { cel(g, (p) => { p.moveTo(-0.5, hy + 0.35); p.bezierCurveTo(-0.62, hy - 0.7, 0.62, hy - 0.7, 0.5, hy + 0.35); p.lineTo(0.36, hy + 0.1); p.bezierCurveTo(0.34, hy - 0.3, -0.34, hy - 0.3, -0.36, hy + 0.1); p.closePath(); }, [0.9, 0.92, 0.95], { lw: 0.07 }); if (front && !atk) { line(g, 0.95, -0.3, 0.95, -2.85, 0.1, '#5a3c22'); fillPath(g, ell(0.95, -2.95, 0.16, 0.24), '#9fe6f5'); fillPath(g, ell(0.95, -2.95, 0.36, 0.4), 'rgba(160,230,245,0.22)'); } }
   else if (K === 'player') cel(g, rr(-0.38, hy - 0.46, 0.76, 0.26, 0.1), dark(cl, 0.2), { lw: 0.07 });
   else if (P.extra === 0) cel(g, (p) => { p.moveTo(-0.45, hy + 0.2); p.bezierCurveTo(-0.55, hy - 0.7, 0.55, hy - 0.7, 0.45, hy + 0.2); p.lineTo(0.3, hy + 0.05); p.bezierCurveTo(0.3, hy - 0.3, -0.3, hy - 0.3, -0.3, hy + 0.05); p.closePath(); }, dark(cl, 0.1), { lw: 0.07 }); // hood
+  if (P.vik) { // Asgardian gear over the shared body: fur collar, braids, helmet with horns, a round shield on the left arm
+    cel(g, ell(0, -1.98, 0.7, 0.26), [0.62, 0.52, 0.4], { lw: 0.07 }); for (let k = -3; k <= 3; k++) line(g, k * 0.2, -2.1, k * 0.2 + 0.03, -1.9, 0.07, rgb([0.78, 0.7, 0.58]));
+    if (P.braids && !back) for (const s of [-1, 1]) { const bx = front ? s * 0.36 : 0.14; for (let k = 0; k < 4; k++) fillPath(g, ell(bx - (front ? 0 : 0.05 * k), hy + 0.35 + k * 0.17, 0.07, 0.09), rgb(hair)); }
+    if (P.helm) { cel(g, (p) => { p.moveTo(-0.44, hy + 0.0); p.bezierCurveTo(-0.46, hy - 0.66, 0.46, hy - 0.66, 0.44, hy + 0.0); p.closePath(); }, [0.62, 0.65, 0.7], { lw: 0.08 }); line(g, -0.44, hy - 0.04, 0.44, hy - 0.04, 0.09, rgb([0.4, 0.42, 0.46])); if (front) line(g, 0, hy - 0.04, 0, hy + 0.3, 0.08, rgb([0.5, 0.52, 0.56]));
+      if (P.horns) for (const s of [-1, 1]) { g.save(); g.lineCap = 'round'; g.lineWidth = 0.14; g.strokeStyle = '#07080c'; g.beginPath(); g.moveTo(s * 0.4, hy - 0.2); g.quadraticCurveTo(s * 0.78, hy - 0.2, s * 0.7, hy - 0.8); g.stroke(); g.lineWidth = 0.08; g.strokeStyle = '#efe9d8'; g.stroke(); g.restore(); } }
+    if (P.hasShield && !back && !atk) { cel(g, ell(front ? -0.82 : 0.1, -1.3, 0.5, 0.5), P.shield, { lw: 0.09 }); fillPath(g, ell(front ? -0.82 : 0.1, -1.3, 0.14, 0.14), '#c9c2b0'); for (let a = 0; a < 6; a++) line(g, (front ? -0.82 : 0.1) + Math.cos(a) * 0.16, -1.3 + Math.sin(a) * 0.16, (front ? -0.82 : 0.1) + Math.cos(a) * 0.45, -1.3 + Math.sin(a) * 0.45, 0.03, rgb(mixc(P.shield, [0, 0, 0], 0.4))); }
+  }
   // held tools
   if (K === 'shipwright' && front) { line(g, -0.82, -1.0, -0.82, -1.7, 0.07, '#5a3c22'); cel(g, rr(-0.98, -1.82, 0.34, 0.2, 0.04), [0.45, 0.46, 0.5], { lw: 0.05 }); }
   if (atk) { // the weapon arm: raised and cocked back, then swung across the body with a white slash arc

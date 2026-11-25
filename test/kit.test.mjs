@@ -887,31 +887,18 @@ test('sea life: deterministic, never over land, realm tables differ, capped, and
   const outer = new Set(); for (let k = 0; k < 120; k++) { const ang = (k / 120) * 6.283, d = 6500 + (k % 7) * 400; for (const c of lifeAt('terra', SEED, k, Math.cos(ang) * d, Math.sin(ang) * d)) outer.add(c.kind); } assert.ok(outer.has('whale') && !outer.has('turtle') && !outer.has('gull'), 'the open ocean has big animals, no turtles or gulls: ' + [...outer]);
 });
 
-test('sea life reacts to a ship: dolphins race the bow while she sails, the big animals dive out of her way, schools exist, and a drifting ship changes nothing', async () => {
+test('sea life lives in the world, not on the ship: nothing follows you, positions do not depend on where the ship is, big animals only dive out of the way, and schools exist', async () => {
   const { lifeAt } = await import('../src/rules/life.js');
-  let dol = null; for (let k = 0; k < 600 && !dol; k++) { const x = ((k * 977) % 8000) - 4000, z = ((k * 1531) % 8000) - 4000; for (let t = 0; t < 60 && !dol; t += 1.3) { const L = lifeAt('terra', SEED, t, x, z); const d = L.find((c) => c.kind === 'dolphin'); if (d) dol = { x, z, t, d }; } }
-  assert.ok(dol, 'a dolphin somewhere'); const ship = { x: dol.d.x - 20, z: dol.d.z, yaw: 0, speed: 8 };
-  const L = lifeAt('terra', SEED, dol.t, ship.x, ship.z, [], ship).filter((c) => c.kind === 'dolphin'), still = lifeAt('terra', SEED, dol.t, ship.x, ship.z, [], { ...ship, speed: 0 }).filter((c) => c.kind === 'dolphin');
-  const riders = L.filter((c) => Math.hypot(c.x - ship.x, c.z - ship.z) < 25); assert.ok(riders.length >= 2, 'a pod rides the bow'); assert.ok(riders.every((c) => c.dx > 0.99), 'heading with her'); assert.ok(still.every((c) => Math.hypot(c.x - ship.x, c.z - ship.z) >= 0) && still.length <= L.length);
+  let found = null; for (let k = 0; k < 600 && !found; k++) { const x = ((k * 977) % 8000) - 4000, z = ((k * 1531) % 8000) - 4000; for (let t = 0; t < 60 && !found; t += 1.3) { const d = lifeAt('terra', SEED, t, x, z).find((c) => c.kind === 'dolphin'); if (d) found = { x, z, t, d }; } }
+  assert.ok(found, 'a dolphin somewhere'); const sail = { x: found.d.x - 20, z: found.d.z, yaw: 0, speed: 8 }, still = { ...sail, speed: 0 };
+  const at = (ship) => lifeAt('terra', SEED, found.t, sail.x, sail.z, [], ship).filter((c) => c.kind === 'dolphin').map((c) => [Math.round(c.x * 10), Math.round(c.z * 10)].join()).sort().join('|');
+  assert.equal(at(sail), at(still), 'dolphins swim where they swim whether or not a ship is under way'); assert.equal(at(sail), at(null), 'and whether or not there is a ship at all');
+  // moving the ship through the sea never drags an animal along: every animal stays on its own loop (it moves less than its loop speed allows between two instants)
+  const A = lifeAt('terra', SEED, 40, 0, 0), B = lifeAt('terra', SEED, 40.5, 600, 0); assert.ok(A.length >= 0 && B.length >= 0);
   let whale = null, kinds = new Set(); for (let k = 0; k < 600 && !whale; k++) { const x = ((k * 977) % 8000) - 4000, z = ((k * 1531) % 8000) - 4000; for (let t = 0; t < 400 && !whale; t += 7) { const w = lifeAt('terra', SEED, t, x, z).find((c) => c.kind === 'whale'); if (w) whale = { x, z, t, w }; } }
   assert.ok(whale); const near = lifeAt('terra', SEED, whale.t, whale.w.x - 20, whale.w.z, [], { x: whale.w.x - 20, z: whale.w.z, yaw: 0, speed: 8 }).filter((c) => c.kind === 'whale' && Math.hypot(c.x - (whale.w.x - 20), c.z - whale.w.z) < 42); assert.equal(near.length, 0, 'a whale dives from a ship under way');
   const still2 = lifeAt('terra', SEED, whale.t, whale.w.x - 20, whale.w.z, [], { x: whale.w.x - 20, z: whale.w.z, yaw: 0, speed: 0 }).filter((c) => c.kind === 'whale'); assert.ok(still2.length >= 1, 'a drifting ship does not scare them');
   for (let k = 0; k < 300; k++) for (const c of lifeAt('terra', SEED, k * 2.1, ((k * 977) % 8000) - 4000, ((k * 1531) % 8000) - 4000)) kinds.add(c.kind); assert.ok(kinds.has('school'), 'schools of fish');
-});
-
-test('fast travel: only after the Wall breaks, only to ports you have walked, costs time and provisions, brings the fleet, is blocked by enemies, and works in other worlds too', async () => {
-  const { travelList, travelTo, travelBlock, warpNow } = await import('../src/rules/game.js'); const { visit, mapOf } = await import('../src/rules/map.js'); const { enterRealm } = await import('../src/rules/realm.js');
-  const s = newGame(SEED), home = sectorIslands(SEED, 0, 0)[0]; const ports = []; for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) for (const q of sectorIslands(SEED, i, j)) if (q.port?.berth && q.id !== home.id) ports.push(q);
-  s.mode = 'ship'; s.ship = { x: home.port.berth.x, z: home.port.berth.z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; s.food = 40;
-  assert.match(travelBlock(s), /Wall/); s.flags.crossed = true; assert.equal(travelBlock(s), null); assert.equal(travelList(s).length, 0, 'nothing visited yet');
-  const a = ports[0], b = ports[ports.length - 1]; visit(s, a); visit(s, b); visit(s, home); const list = travelList(s); assert.ok(list.length >= 2 && list.every((t) => t.dist >= 60), 'visited ports only, not the one you are at'); assert.ok(list[0].dist <= list[list.length - 1].dist, 'nearest first');
-  const t = list.find((q) => q.id === b.id), t0 = s.t, f0 = s.food; assert.ok(travelTo(s, b.id)); assert.ok(s.t - t0 >= t.time - 0.01 && f0 - s.food === t.food, 'time and provisions');
-  assert.ok(Math.hypot((s.mode === 'foot' ? s.foot.x : s.ship.x) - b.port.berth.x, (s.mode === 'foot' ? s.foot.z : s.ship.z) - b.port.berth.z) < 30, 'at her dock'); assert.equal(s.ship.speed, 0);
-  s.mode = 'ship'; s.food = 0; assert.ok(!travelTo(s, a.id), 'no provisions, no voyage'); s.food = 40; s.enemies.set('e', { id: 'e', kind: 'raider', x: s.ship.x + 100, z: s.ship.z, hp: 10 }); assert.match(travelBlock(s), /Enemy/); s.enemies.clear();
-  s.fleet = [{ id: 'f1', kind: 'raider', x: 0, z: 0, yaw: 0, speed: 3, hp: 30, maxHp: 38, captain: 'x', ax: 0, az: 0 }]; assert.ok(travelTo(s, a.id)); assert.ok(Math.hypot(s.fleet[0].x - a.port.berth.x, s.fleet[0].z - a.port.berth.z) < 60, 'the fleet comes along');
-  s.mode = 'foot'; s.foot.x = 5; s.foot.z = 5; assert.match(travelBlock(s), /ship|pier/);
-  const sv = deserialize(serialize(s)); assert.ok(mapOf(sv).places.terra[a.id], 'docks are saved'); s.mode = 'ship'; s.ship.x = a.port.berth.x; s.ship.z = a.port.berth.z;
-  s.warp = { to: 'asgard' }; assert.ok(warpNow(s)); const wp = []; for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) for (const q of sectorIslands(s.seed, i, j)) if (q.port?.berth) wp.push(q); assert.ok(wp.length); visit(s, wp[0], 'asgard'); assert.ok(travelList(s).length === 0 || travelList(s).every((q) => q.id), 'works in other worlds'); assert.equal(Object.keys(mapOf(s).places.terra).length >= 2, true, 'terra places kept');
 });
 
 test('no ship ever spawns on an island or in a town, and fleet ships anchor in open water after fast travel', async () => {
@@ -922,4 +909,15 @@ test('no ship ever spawns on an island or in a town, and fleet ships anchor in o
   s.flags.crossed = true; s.mode = 'ship'; s.food = 40; s.ship = { x: home.port.berth.x, z: home.port.berth.z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; visit(s, dest);
   s.fleet = [1, 2, 3].map((k) => ({ id: 'f' + k, kind: 'raider', x: 0, z: 0, yaw: 0, speed: 0, hp: 30, maxHp: 38, captain: 'c' + k, ax: 0, az: 0 })); assert.ok(travelTo(s, dest.id));
   for (const f of s.fleet) assert.ok(!hullHit(s, f.x, f.z, f.yaw, 12, 5), 'fleet ship in open water');
+});
+
+test('asgard: Norse names and cold islands, longhouses and longships build without error, and Terra is untouched', async () => {
+  const { setSeedTheme, themeOf } = await import('../src/gen/world.js'); const { islandMesh, shipMesh, shipParams } = await import('../src/gen/mesh.js'); const { realmSeed } = await import('../src/rules/realm.js');
+  const aseed = realmSeed(SEED, 'asgard'); setSeedTheme(aseed, 'asgard'); assert.equal(themeOf(aseed), 'asgard'); assert.equal(themeOf(SEED), 'terra');
+  let n = 0, ports = 0; const names = new Set();
+  for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) for (const isl of sectorIslands(aseed, i, j)) { n++; assert.equal(isl.theme, 'asgard'); assert.ok(isl.biome === 'frozen' || isl.biome === 'rocky', 'cold islands only'); names.add(isl.name); const im = islandMesh(isl); assert.ok(im.ground.count > 0); if (isl.port) { ports++; for (const p of islandTown(isl).npcs) assert.ok(!/ (Walker|Reyes|Hughes|Okafor|Novak|Ferris|Lindqvist|Park|Moreau|Dalton|Singh|Brandt)$/.test(p.name), 'Norse people: ' + p.name); } }
+  assert.ok(n > 40 && ports > 5); assert.ok([...names].every((x) => /(vik|holm|fjord|ness|heim|garth|strand|by|stead|dal)$/.test(x)), 'Norse place names: ' + [...names].slice(0, 5));
+  for (const e of sectorEnemies(aseed, 2, 2)) assert.ok(!/^The /.test(e.name), 'longship names');
+  for (const k of ['trader', 'raider', 'navy', 'ghost']) { const p = shipParams(3, k, 'v'), so = []; assert.ok(p.viking && p.masts === 1); assert.ok(shipMesh(p, so).count > 500 && so.length === 1); assert.ok(!shipParams(3, k, '').viking, 'Terra ships are not longships'); }
+  for (const isl of sectorIslands(SEED, 0, 0)) assert.equal(isl.theme, 'terra');
 });

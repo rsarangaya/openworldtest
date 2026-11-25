@@ -3,7 +3,7 @@
 // The board always shows the first BOARD_N targets nobody has resolved yet. State per target lives in s.hunts[id] = { st, hp, x, z, ... }.
 import { rngFor, pick } from '../gen/rng.js';
 import { captainName } from '../gen/names.js';
-import { SECTOR, sectorIslands, sectorEnemies } from '../gen/world.js';
+import { SECTOR, sectorIslands, sectorEnemies, themeOf } from '../gen/world.js';
 
 export const BOARD_N = 4, HUNT_RADIUS = 3;
 export const CRIMES = ['theft', 'desertion', 'smuggling', 'arson', 'assault', 'forgery', 'mutiny'];
@@ -29,7 +29,7 @@ export function wanted(seed, i) {
   const r = rngFor(seed, 8200 + i), { out, ships } = hideouts(seed), onShip = i % 4 === 3 && ships.length > 0;
   const reward = Math.round((100 + r() * 200 + i * 6) / 10) * 10; // later names pay more
   if (onShip) { const e = pick(r, ships); w = { id: 'w' + i, i, kind: 'ship', name: e.captain, crime: 'piracy', reward, dead: reward, aliveOnly: false, enemyId: e.id, ship: e.name, where: 'at sea', x: e.x, z: e.z, hp: 0 }; }
-  else { const isl = pick(r, out), seed2 = (r() * 4294967296) >>> 0; w = { id: 'w' + i, i, kind: 'foot', name: captainName(rngFor(seed, 8300 + i)), crime: pick(r, CRIMES), reward, dead: Math.round((reward * 0.55) / 5) * 5, aliveOnly: r() < 0.3, island: isl, where: isl.port?.name || isl.name, x: isl.x, z: isl.z, seed: seed2, hp: FOOT_HP }; }
+  else { const isl = pick(r, out), seed2 = (r() * 4294967296) >>> 0; w = { id: 'w' + i, i, kind: 'foot', name: captainName(rngFor(seed, 8300 + i), themeOf(seed)), crime: pick(r, CRIMES), reward, dead: Math.round((reward * 0.55) / 5) * 5, aliveOnly: r() < 0.3, island: isl, where: isl.port?.name || isl.name, x: isl.x, z: isl.z, seed: seed2, hp: FOOT_HP }; }
   wcache.set(k, w); if (wcache.size > 400) wcache.delete(wcache.keys().next().value);
   return w;
 }

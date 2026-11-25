@@ -117,8 +117,24 @@ function shopProps(m, b, y0) {
   }
 }
 
+// Asgard's longhouses: dark timber walls with plank lines, steep turf or thatch roofs with an overhang, a carved dragon head at each end of the ridge, round shields along the walls, a smoke hole instead of a chimney
+const VK_WALL = [[0.4, 0.27, 0.17], [0.33, 0.23, 0.15], [0.45, 0.31, 0.2]], VK_ROOF = [[0.36, 0.42, 0.26], [0.52, 0.44, 0.28], [0.3, 0.36, 0.3]], VK_SHIELD = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.88, 0.86, 0.8], [0.15, 0.4, 0.25]];
+function vikingTrim(m, b, y0, y1, ry, alongX) {
+  const hw = b.w / 2, hd = b.d / 2, dk = [0.2, 0.13, 0.08], gold = [0.85, 0.7, 0.3];
+  for (const e of [-1, 1]) { // a dragon head and a curled tail at the two ends of the ridge
+    const ex = alongX ? b.x + e * (hw + 0.5) : b.x, ez = alongX ? b.z : b.z + e * (hd + 0.5), fx = alongX ? e : 0, fz = alongX ? 0 : e;
+    m.box(ex, ry - 0.2, ez, alongX ? 0.28 : 0.28, 1.5, 0.28, dk); m.box(ex + fx * 0.15, ry + 0.75, ez + fz * 0.15, alongX ? 0.4 : 0.55, 0.55, alongX ? 0.55 : 0.4, dk); // post and neck
+    m.box(ex + fx * 0.5, ry + 1.05, ez + fz * 0.5, alongX ? 0.8 : 0.4, 0.38, alongX ? 0.4 : 0.8, dk, 0.1); m.box(ex + fx * 0.55, ry + 0.82, ez + fz * 0.55, alongX ? 0.55 : 0.28, 0.16, alongX ? 0.28 : 0.55, gold); // head and jaw
+    for (const q of [-1, 1]) m.box(ex + fx * 0.2 - (alongX ? 0 : q * 0.18), ry + 1.45, ez + fz * 0.2 + (alongX ? q * 0.18 : 0), 0.1, 0.4, 0.1, [0.9, 0.88, 0.8]); // horns
+  }
+  const n = Math.max(2, Math.floor((alongX ? b.w : b.d) / 2.4));
+  for (let k = 0; k < n; k++) { const u = ((k + 0.5) / n - 0.5) * (alongX ? b.w : b.d) * 0.85, c = VK_SHIELD[(((k + Math.round(b.x + b.z)) % 5) + 5) % 5]; // round shields hung along the long walls
+    for (const s of [-1, 1]) { if (alongX) m.box(b.x + u, y0 + b.h * 0.62, b.z + s * (hd + 0.1), 0.95, 0.95, 0.12, c); else m.box(b.x + s * (hw + 0.1), y0 + b.h * 0.62, b.z + u, 0.12, 0.95, 0.95, c); m.box(alongX ? b.x + u : b.x + s * (hw + 0.17), y0 + b.h * 0.62, alongX ? b.z + s * (hd + 0.17) : b.z + u, 0.28, 0.28, 0.28, gold); } }
+  for (let k = 0; k < Math.floor((alongX ? b.w : b.d) / 0.9); k++) { const u = (k + 0.5) * 0.9 - (alongX ? hw : hd); for (const s of [-1, 1]) { if (alongX) m.box(b.x + u, y0 + b.h / 2, b.z + s * (hd + 0.03), 0.07, b.h, 0.05, dk); else m.box(b.x + s * (hw + 0.03), y0 + b.h / 2, b.z + u, 0.05, b.h, 0.07, dk); } } // plank seams
+  m.box(b.x, ry + 0.15, b.z, alongX ? 1.4 : 0.9, 0.25, alongX ? 0.9 : 1.4, [0.1, 0.08, 0.07]); // smoke hole
+}
 function building(m, isl, b) {
-  const wall = isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
+  const vik = isl.theme === 'asgard', wall = vik ? VK_WALL[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
   m.box(b.x, y0 - 1.4, b.z, b.w + 0.4, 2.8, b.d + 0.4, [0.44, 0.42, 0.4]); // foundation reaches below the terrain on any slope
   if (!b.door) m.box(b.x, y0 + 0.3, b.z, b.w + 0.25, 0.6, b.d + 0.25, STONE, 0.15); // stone plinth (houses only: shops are hollow)
   if (b.door) {
@@ -144,7 +160,7 @@ function building(m, isl, b) {
     m.box(b.x + dx * (hw + 0.5), y0 + 0.15, b.z + dz * (hd + 0.5), dx ? 1 : 1.6, 0.3, dz ? 1 : 1.6, STONE); // step
     m.box(b.x + dx * (hw + 0.17), y0 + 1.0, b.z + dz * (hd + 0.17) - dz * 0 + 0, 0.06, 0.06, 0.06, [0.9, 0.75, 0.3]); // door knob
     const rr = rngFor(Math.round(b.x * 3 + b.z * 5), 2), shut = pick(rr, [[0.2, 0.4, 0.5], [0.45, 0.2, 0.18], [0.25, 0.4, 0.28]]);
-    for (const k of Object.keys(DIRV)) {
+    for (const k of vik ? [] : Object.keys(DIRV)) {
       const [wx, wz] = DIRV[k]; if (k === b.face) continue;
       for (const s of [-1, 1]) {
         const cx = b.x + wx * (hw + 0.05) + (wz ? s * b.w * 0.25 : 0), cz = b.z + wz * (hd + 0.05) + (wx ? s * b.d * 0.25 : 0), cy = y0 + b.h * 0.6;
@@ -156,7 +172,7 @@ function building(m, isl, b) {
       }
     }
   }
-  const alongX = b.w >= b.d, ex = hw + 0.7, ez = hd + 0.7, rh = 1.3 + Math.min(hw, hd) * 0.55, ry = y1 + rh, rd = dim(roof, 0.82);
+  const alongX = b.w >= b.d, ex = hw + 0.7, ez = hd + 0.7, rh = vik ? 1.9 + Math.min(hw, hd) * 0.9 : 1.3 + Math.min(hw, hd) * 0.55, ry = y1 + rh, rd = dim(roof, 0.82);
   if (alongX) {
     m.quadV([b.x - ex, y1 - 0.1, b.z - ez], [b.x + ex, y1 - 0.1, b.z - ez], [b.x + ex, ry, b.z], [b.x - ex, ry, b.z], roof, roof, rd, rd);
     m.quadV([b.x + ex, y1 - 0.1, b.z + ez], [b.x - ex, y1 - 0.1, b.z + ez], [b.x - ex, ry, b.z], [b.x + ex, ry, b.z], roof, roof, rd, rd);
@@ -168,7 +184,8 @@ function building(m, isl, b) {
     m.tri([b.x + hw, y1, b.z - hd], [b.x, ry - 0.1, b.z - hd], [b.x - hw, y1, b.z - hd], wall); m.tri([b.x - hw, y1, b.z + hd], [b.x, ry - 0.1, b.z + hd], [b.x + hw, y1, b.z + hd], wall);
     m.box(b.x, ry + 0.05, b.z, 0.28, 0.18, ez * 2 + 0.2, dim(roof, 0.7));
   }
-  if (!b.door && b.w > 5) { m.box(b.x + hw * 0.5, ry + 0.1, b.z + hd * 0.3, 0.9, 1.9, 0.9, [0.45, 0.4, 0.38], 0.1); m.box(b.x + hw * 0.5, ry + 1.1, b.z + hd * 0.3, 1.1, 0.2, 1.1, [0.3, 0.28, 0.27]); } // chimney with cap
+  if (vik) vikingTrim(m, b, y0, y1, ry, alongX);
+  else if (!b.door && b.w > 5) { m.box(b.x + hw * 0.5, ry + 0.1, b.z + hd * 0.3, 0.9, 1.9, 0.9, [0.45, 0.4, 0.38], 0.1); m.box(b.x + hw * 0.5, ry + 1.1, b.z + hd * 0.3, 1.1, 0.2, 1.1, [0.3, 0.28, 0.27]); } // chimney with cap
 }
 
 // the plaza: a well, market stalls, lamp posts, benches. Rings are kept clear so townsfolk can walk around them.
@@ -319,14 +336,46 @@ const LOOKS = {
 };
 // each enemy kind has its own silhouette: merchantmen are fat and round, navy cutters long and lean with a red belt, raiders low and black with triangular sails and a skull flag, ghost ships tall and tattered
 const SHAPES = { trader: { L: [7, 9], B: [3.7, 4.4], masts: [1, 2], guns: 2 }, navy: { L: [11, 13], B: [2.3, 2.7], masts: [2, 3], guns: 7 }, raider: { L: [9, 11], B: [2, 2.4], masts: [1, 2], guns: 3 }, ghost: { L: [11, 14], B: [2.6, 3.2], masts: [2, 3], guns: 5 } };
+const VK_LOOK = { trader: { hull: [0.46, 0.33, 0.2], sail: [0.86, 0.83, 0.72], accent: [0.6, 0.2, 0.16] }, raider: { hull: [0.13, 0.11, 0.11], sail: [0.6, 0.14, 0.12], accent: [0.1, 0.1, 0.1] }, navy: { hull: [0.32, 0.21, 0.14], sail: [0.88, 0.86, 0.8], accent: [0.7, 0.16, 0.14] }, ghost: { hull: [0.62, 0.68, 0.74], sail: [0.72, 0.78, 0.84], accent: [0.5, 0.6, 0.7] } };
+// cls 'v' = the ship of Asgard (any non-player kind): a longship
 export function shipParams(seed, kind = 'trader', cls = '') {
+  if (cls === 'v' && kind !== 'player') { const p = shipParams0(seed, kind, ''), v = VK_LOOK[kind] || VK_LOOK.trader; return { ...p, ...v, viking: true, masts: 1, lateen: false, tri: false, jib: false, crates: false, tatter: kind === 'ghost', B: p.B * 0.85 }; }
+  return shipParams0(seed, kind, cls === 'v' ? '' : cls);
+}
+function shipParams0(seed, kind = 'trader', cls = '') {
   const r = rngFor(seed, 9), look = LOOKS[kind] || LOOKS.trader;
   if (kind === 'player') { const c = SHIPS[cls] || SHIPS.sailboat; return { L: c.L, B: c.B, masts: c.masts, guns: c.ports, high: cls === 'galleon', tri: cls === 'sailboat' || cls === 'cutter', jib: cls !== 'sailboat', stripe: look.accent, kind, seed, ...look }; }
   const sh = SHAPES[kind] || SHAPES.trader;
   return { L: range(r, sh.L[0], sh.L[1]), B: range(r, sh.B[0], sh.B[1]), masts: sh.masts[0] + ((r() * (sh.masts[1] - sh.masts[0] + 1)) | 0), guns: sh.guns, lateen: kind === 'raider', tatter: kind === 'ghost', crates: kind === 'trader', stripe: kind === 'navy' ? look.accent : kind === 'raider' ? [0.45, 0.07, 0.07] : null, kind, seed, ...look };
 }
 // sailOut: when given, each mast's sails go into their own mesh (pivoting at the mast) so the renderer can swing them with the trim
+// the longship of Asgard: a low clinker hull with a high dragon prow and a curled stern, shields along the rail, oars, one big striped square sail
+function longshipMesh(p, sailOut) {
+  const m = new Mesh(), { L, B, hull } = p, XS = 14, up = (c, k) => c.map((v) => Math.min(1, v * k)), dark = dim(hull, 0.62), plank = up(hull, 1.2), deck = up(hull, 1.6), SH = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.88, 0.86, 0.8], [0.15, 0.4, 0.25]];
+  const sec = (u) => ({ x: u * L, w: B * 0.95 * Math.pow(Math.max(1 - Math.pow(Math.abs(u), 2.2), 0), 0.6), sheer: 0.9 + 3.4 * Math.abs(u) ** 3.4, keel: -0.9 + 0.7 * Math.abs(u) ** 2.2 });
+  const ring = (s, side) => [[s.x, s.keel, 0], [s.x, s.keel * 0.4, side * s.w * 0.7], [s.x, 0.1, side * s.w], [s.x, s.sheer, side * s.w * 0.94]];
+  for (const side of [-1, 1]) for (let i = 0; i < XS; i++) {
+    const A = ring(sec(-1 + (2 * i) / XS), side), Bn = ring(sec(-1 + (2 * (i + 1)) / XS), side);
+    for (let k = 0; k < 3; k++) { const col = k === 2 ? (i % 2 ? plank : dark) : k === 0 ? dark : dim(hull, 0.85); if (side > 0) m.quad(A[k], Bn[k], Bn[k + 1], A[k + 1], col); else m.quad(A[k], A[k + 1], Bn[k + 1], Bn[k], col); } // clinker strakes alternate dark and light
+    const a = sec(-1 + (2 * i) / XS), b = sec(-1 + (2 * (i + 1)) / XS);
+    m.box((a.x + b.x) / 2, (a.sheer + b.sheer) / 2 + 0.08, side * ((a.w + b.w) / 2) * 0.96, Math.abs(b.x - a.x) + 0.05, 0.14, 0.14, deck);
+    if (i > 1 && i < XS - 2) m.box(a.x, a.sheer - 0.35, side * (a.w * 0.96 + 0.1), 0.85, 0.85, 0.1, SH[i % 5]); // round shields along the rail
+  }
+  for (let i = 0; i < XS; i++) { const a = sec(-1 + (2 * i) / XS), b = sec(-1 + (2 * (i + 1)) / XS); m.quad([a.x, a.sheer - 0.1, -a.w * 0.9], [b.x, b.sheer - 0.1, -b.w * 0.9], [b.x, b.sheer - 0.1, b.w * 0.9], [a.x, a.sheer - 0.1, a.w * 0.9], deck); }
+  for (const e of [1, -1]) { const base = sec(e).sheer, hd = e > 0 ? 1 : 0.55; // dragon prow (bow) and a curled tail (stern)
+    for (let k = 0; k < 6; k++) m.box(e * L * (1 + 0.03 * k * (e > 0 ? 1 : -0.5)), base + 0.3 + k * 0.45 * hd, 0, 0.32, 0.55, 0.34, hull);
+    const hx = e * L * (1.02 + 0.02 * 6 * (e > 0 ? 1 : -0.5)), hy = base + 0.3 + 6 * 0.45 * hd;
+    m.box(hx + e * 0.45, hy, 0, 1.0, 0.5, 0.42, hull); m.box(hx + e * 0.75, hy - 0.28, 0, 0.7, 0.18, 0.34, dim(hull, 0.7)); m.box(hx + e * 0.2, hy + 0.35, 0.16, 0.12, 0.45, 0.1, [0.9, 0.88, 0.8]); m.box(hx + e * 0.2, hy + 0.35, -0.16, 0.12, 0.45, 0.1, [0.9, 0.88, 0.8]); m.box(hx + e * 0.4, hy + 0.1, 0.22, 0.1, 0.1, 0.06, [0.95, 0.8, 0.3]); m.box(hx + e * 0.4, hy + 0.1, -0.22, 0.1, 0.1, 0.06, [0.95, 0.8, 0.3]); }
+  for (let i = 1; i < 7; i++) { const u = -0.65 + i * 0.2, s = sec(u); for (const side of [-1, 1]) m.line([s.x, s.sheer - 0.3, side * s.w * 0.9], [s.x - 0.9, -0.3, side * (s.w + 3.6)], 0.12, [0.6, 0.45, 0.3]); } // oars
+  const x = 0.05 * L, mh = L * 0.95, y0 = 2.4, y1 = mh * 0.92, w = B * 2.6, sm = sailOut ? new Mesh() : m; if (sailOut) sailOut.push({ mesh: sm, x });
+  m.box(x, mh / 2 + 0.9, 0, 0.34, mh, 0.34, hull); sm.box(x, y1, 0, 0.22, 0.22, w * 1.1, hull);
+  const N = 8, f = (i, j) => { const u = i / N, v = j / 3; return [x + 0.5 + 1.4 * Math.sin(u * Math.PI) * Math.sin(v * Math.PI), mix(y1 - 0.2, y0 + 0.5, v), (u - 0.5) * w]; };
+  for (let a = 0; a < N; a++) for (let b = 0; b < 3; b++) { if (p.tatter && (a + b) % 4 === 1) continue; const c = a % 2 ? p.accent : p.sail; sm.quad(f(a, b), f(a + 1, b), f(a + 1, b + 1), f(a, b + 1), dim(c, 0.82 + 0.18 * Math.sin(((b + 0.5) / 3) * Math.PI))); } // vertical stripes
+  m.line([x, y1 + 0.2, 0], [L * 1.1, sec(1).sheer + 1.2, 0], 0.1, [0.62, 0.55, 0.4]); m.line([x, y1 + 0.2, 0], [-L * 1.0, sec(-1).sheer + 1.0, 0], 0.1, [0.62, 0.55, 0.4]); // stays
+  return m;
+}
 export function shipMesh(p, sailOut) {
+  if (p.viking) return longshipMesh(p, sailOut);
   const m = new Mesh(), { L, B, hull } = p, XS = 10, dark = dim(hull, 0.62), plank = dim(hull, 1.18).map((v) => Math.min(1, v)), deck = dim(hull, 1.55).map((v) => Math.min(1, v)), rope = [0.62, 0.55, 0.4];
   const sec = (u) => { const w = B * Math.pow(Math.max(1 - Math.pow(Math.abs(u), u > 0 ? 2.4 : 3.2), 0), 0.55), sheer = 1.1 + 0.9 * u * u + (u > 0 ? 0.5 * u : 0); return { x: u * L, w, sheer, keel: -1.1 + 0.8 * Math.abs(u) ** 2.5 }; };
   const ring = (s, side) => [[s.x, s.keel, 0], [s.x, s.keel * 0.45, side * s.w * 0.7], [s.x, 0, side * s.w], [s.x, s.sheer, side * s.w * 0.92]];

@@ -4,7 +4,7 @@
 import { sectorIslands, SECTOR, WALL_R } from '../gen/world.js';
 import { hash } from '../gen/rng.js';
 
-export const CELL = 170, RANGE = 2, MAX_SHOWN = 70, SHOW_R = 320;
+export const CELL = 210, RANGE = 2, MAX_SHOWN = 70, SHOW_R = 320;
 // [kind, weight]; `outer` is used past the Wall in Terra (open ocean: bigger animals, no turtles or gulls)
 export const TABLES = {
   terra: { sea: [['dolphin', 4], ['flyfish', 3], ['whale', 2], ['turtle', 2], ['fin', 1], ['school', 3]], outer: [['whale', 4], ['dolphin', 3], ['flyfish', 3], ['fin', 1], ['school', 2]], coast: 'gull', open: 'albatross', openP: 0.1 },
@@ -23,7 +23,7 @@ function group(realm, seed, ix, iz) {
   const key = seed + ':' + ix + ',' + iz; if (groups.has(key)) return groups.get(key);
   let g = null; const tb = tableOf(realm), cx0 = (ix + 0.25 + 0.5 * u01(seed, ix, iz, 1)) * CELL, cz0 = (iz + 0.25 + 0.5 * u01(seed, ix, iz, 2)) * CELL, d = Math.hypot(cx0, cz0), outer = realm === 'terra' && d > WALL_R + 60;
   const ok = outer ? d < WALL_R + 3700 : d < WALL_R - 120 && !(realm === 'terra' && d > WALL_R - 90);
-  if (ok && u01(seed, ix, iz, 3) < (outer ? 0.7 : 0.6)) {
+  if (ok && u01(seed, ix, iz, 3) < (outer ? 0.6 : 0.5)) {
     const kind = pickW(outer ? tb.outer : tb.sea, u01(seed, ix, iz, 4)), R = 40 + 55 * u01(seed, ix, iz, 5), solo = kind === 'whale' || kind === 'icewhale' || kind === 'fin' || kind === 'orca' || kind === 'school';
     g = { kind, n: solo ? 1 + (u01(seed, ix, iz, 6) < 0.25 ? 1 : 0) : 2 + Math.floor(u01(seed, ix, iz, 6) * 3), cx: cx0, cz: cz0, R, w: (0.05 + 0.04 * u01(seed, ix, iz, 7)) * (u01(seed, ix, iz, 8) < 0.5 ? -1 : 1), ph: u01(seed, ix, iz, 9) * 6.283, P: 4 + 5 * u01(seed, ix, iz, 10), seed: hash(seed >>> 0, ix | 0, iz | 0) };
     for (let k = 0; k < 10 && g; k++) { const a = (k / 10) * 6.283; if (nearLand(seed, g.cx + Math.cos(a) * (R + 14), g.cz + Math.sin(a) * (R + 14), 20)) g = null; } // the whole loop must be open water
@@ -54,9 +54,7 @@ export function lifeAt(realm, seed, t, cx, cz, out = [], ship = null) {
       let ox = x, oz = z, odx = dx, odz = dz;
       if (ship) {
         const dd = Math.hypot(x - ship.x, z - ship.z);
-        if (k === 'dolphin' && sail && Math.hypot(g.cx - ship.x, g.cz - ship.z) < 300) { // dolphins race your bow, leaping beside her
-          const cy = Math.cos(ship.yaw), sy = Math.sin(ship.yaw), side = m % 2 ? 1 : -1, f = 6 + 3.5 * m, u = (t * 0.85 + m * 0.37) % 1; ox = ship.x + cy * f - sy * side * (4.5 + 1.4 * m); oz = ship.z + sy * f + cy * side * (4.5 + 1.4 * m); odx = cy; odz = sy; show = true; y = 2.3 * Math.sin(Math.PI * u) - 0.3; fr = u < 0.4 ? 0 : u < 0.62 ? 1 : 2;
-        } else if (k !== 'flyfish' && k !== 'school' && dd < 42 && sail) show = false; // the big ones dive out of the way of a ship under way
+        if (k !== 'flyfish' && k !== 'school' && k !== 'dolphin' && dd < 42 && sail) show = false; // the big ones dive out of the way of a ship under way
       }
       if (show) out.push({ kind: k, x: ox, y, z: oz, dx: odx, dz: odz, fr, air: false });
     }

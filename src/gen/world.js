@@ -14,8 +14,12 @@ export const gatePos = (seed) => { const a = gateAngle(seed); return { x: Math.c
 const frostSpot = (seed) => { const g = gatePos(seed); return { x: Math.cos(g.angle) * (WALL_R - 300), z: Math.sin(g.angle) * (WALL_R - 300) }; };
 
 // ---------------------------------------------------------------- islands
-const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'] };
+const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'], north: ['frozen', 'frozen', 'frozen', 'frozen', 'rocky'] };
 const cache = new Map(), tags = new Map();
+// which look a seed has: the seed of a realm is registered when you enter it (see rules/realm.js), Terra is the default
+const THEMES = new Map();
+export const setSeedTheme = (seed, th) => THEMES.set(seed, th);
+export const themeOf = (seed) => THEMES.get(seed) || 'terra';
 export const clearWorldCaches = () => { folkCache.clear(); townCache.clear(); }; // town layouts and folk are rebuilt lazily; island lists stay (cheap, keyed by seed)
 
 function gen(seed, sx, sz) {
@@ -33,12 +37,12 @@ function gen(seed, sx, sz) {
     if (out.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + rad + 40)) continue;
     if (!frost && Math.hypot(x - fw.x, z - fw.z) < rad + 120) continue;
     const d = Math.hypot(x, z) / WALL_R;
-    const biome = home ? 'tropical' : frost ? 'frozen' : pick(r, d < 0.35 ? BIOMES.warm : d < 0.72 ? BIOMES.mild : BIOMES.cold);
+    const th = themeOf(seed), biome = th === 'asgard' ? pick(r, BIOMES.north) : home ? 'tropical' : frost ? 'frozen' : pick(r, d < 0.35 ? BIOMES.warm : d < 0.72 ? BIOMES.mild : BIOMES.cold);
     const base = biome === 'sandbar' ? 3 : biome === 'volcanic' ? range(r, 22, 34) : biome === 'rocky' ? range(r, 14, 24) : range(r, 9, 16);
     const hgt = biome === 'sandbar' ? 3 : base * clamp(0.7 + rad / 100, 0.7, 1.5);
     const id = `${sx},${sz},${out.length}`, seedI = hash(seed, sx, sz, out.length + 11), nr = rngFor(seedI, 5);
     const isl = { id, seed: seedI, sx, sz, x, z, r: rad, h: hgt, biome, flat: home || (rad >= 30 && biome !== 'volcanic' && hash(seed, sx, sz, 700 + out.length) % 100 < 40), size: rad < 26 ? 'islet' : rad < 52 ? 'island' : 'large', tier: null, port: null, treasure: null, special: frost ? 'frost' : null, quest: null };
-    isl.name = frost ? 'Frostwatch Rock' : islandName(nr);
+    isl.theme = themeOf(seed); isl.name = frost ? 'Frostwatch Rock' : islandName(nr, isl.theme);
     if (home || frost || (rad >= 26 && biome !== 'volcanic' && biome !== 'sandbar' && r() < 0.65)) {
       isl.tier = rad < 36 ? 'village' : rad < 56 ? 'town' : 'city';
       if (home) isl.tier = 'city';
@@ -49,7 +53,7 @@ function gen(seed, sx, sz) {
       const mx = x + ca * (shore + 13), mz = z + sa * (shore + 13), wet = (px, pz) => baseHeight(isl, px, pz);
       const side = wet(mx - sa * 6.5, mz + ca * 6.5) < wet(mx + sa * 6.5, mz - ca * 6.5) ? 1 : -1;
       let off = 6.5; for (let k = 0; k < 10 && wet(mx - sa * off * side, mz + ca * off * side) > 0.2; k++) off += 1;
-      isl.port = { iid: id, name: home ? 'Port Haven' : frost ? 'Frostwatch' : portName(nr), x: x + ca * (shore + 22), z: z + sa * (shore + 22), angle: ang, shore, home,
+      isl.port = { iid: id, name: home && isl.theme === 'terra' ? 'Port Haven' : frost ? 'Frostwatch' : portName(nr, isl.theme), x: x + ca * (shore + 22), z: z + sa * (shore + 22), angle: ang, shore, home,
         dock: { x0: x + ca * (shore + 22), z0: z + sa * (shore + 22), x1: x + ca * (shore - 1), z1: z + sa * (shore - 1) },
         berth: { x: mx - sa * off * side, z: mz + ca * off * side, yaw: ang } };
       isl.port.cheap = pick(nr, GOODS); isl.port.dear = pick(nr, GOODS.filter((g) => g !== isl.port.cheap));
@@ -224,11 +228,11 @@ export function islandTown(isl) {
         bar(cx, x + 1.4, bz - 0.1, bz + 0.1); bar(x + 3.9, x + w / 2, bz - 0.1, bz + 0.1); bar(cx, cx + 0.2, z - d / 2, bz + 0.1);
         b.jail = { spawn: { x: x + 2.6, z: z - 2.2 }, gate: [x + 1.9, x + 3.9, bz - 0.15, bz + 0.15], cell: [cx, x + w / 2, z - d / 2, bz] };
       }
-      npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r), x: k === 'guard' ? x - 2.4 : x, z: k === 'guard' ? z + 1.4 : z - 1.4, y: sp.pad + 0.1, island: isl.id, shop: buildings.length - 1, seed: (isl.seed + i * 7919) >>> 0 });
+      npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r, isl.theme), x: k === 'guard' ? x - 2.4 : x, z: k === 'guard' ? z + 1.4 : z - 1.4, y: sp.pad + 0.1, island: isl.id, shop: buildings.length - 1, seed: (isl.seed + i * 7919) >>> 0 });
       return;
     }
     const an = (i / kinds.length) * TAU, x = plaza.x + Math.cos(an) * 4, z = plaza.z + Math.sin(an) * 4; // no room: stand in the plaza
-    npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r), x, z, y: plaza.y, island: isl.id, shop: -1, seed: (isl.seed + i * 7919) >>> 0 });
+    npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r, isl.theme), x, z, y: plaza.y, island: isl.id, shop: -1, seed: (isl.seed + i * 7919) >>> 0 });
   });
   const want = { village: 4, town: 9, city: 22 }[isl.tier] + kinds.length, span = isl.tier === 'city' ? 50 : isl.tier === 'town' ? 32 : 20;
   for (let tries = 0; buildings.length < want && tries < 300; tries++) {
@@ -263,7 +267,7 @@ export function sectorEnemies(seed, sx, sz) {
     let ex = (sx + range(r, 0.1, 0.9)) * SECTOR, ez = (sz + range(r, 0.1, 0.9)) * SECTOR;
     for (let k = 0; k < 12 && onLand(seed, ex, ez); k++) { ex = (sx + range(r, 0.05, 0.95)) * SECTOR; ez = (sz + range(r, 0.05, 0.95)) * SECTOR; } // never spawn a ship on an island, its docks or its town
     if (onLand(seed, ex, ez)) continue;
-    out.push({ id: `e${sx},${sz},${i}`, seed: s, kind, x: ex, z: ez, yaw: r() * TAU, name: shipName(sr), captain: captainName(sr) });
+    out.push({ id: `e${sx},${sz},${i}`, seed: s, kind, x: ex, z: ez, yaw: r() * TAU, name: shipName(sr, themeOf(seed)), captain: captainName(sr, themeOf(seed)) });
   }
   return out;
 }

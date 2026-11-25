@@ -6,7 +6,7 @@ import { quantize, SOFT } from './palette.js';
 
 const PERSON_SCALE = 0.6; // the painted person is ~3.4 units tall; scale to a ~2 unit human
 export function createSprites(R) {
-  const cache = new Map(); let epoch = R.atlasEpoch;
+  const cache = new Map(); let epoch = R.atlasEpoch, theme = 'terra'; // the look of the realm in play (people and, later, more)
   function get(key, box, S, paint) {
     if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
     let s = cache.get(key); if (s) return s;
@@ -25,7 +25,7 @@ export function createSprites(R) {
       case 'barrel': return get('a', A.CRATE_BOX, 12, (g) => A.paintBarrel(g));
       case 'lamp': return get('l', A.LAMP_BOX, 12, (g) => A.paintLamp(g));
       case 'well': return get('w', A.WELL_BOX, 11, (g) => A.paintWell(g));
-      case 'stall': return get(`s${p.v % 4}`, A.STALL_BOX, 11, (g) => A.paintStall(g, p.v));
+      case 'stall': return get(`s${theme}${p.v % 4}`, A.STALL_BOX, 11, (g) => A.paintStall(g, p.v));
       case 'bench': return get('n', A.BENCH_BOX, 12, (g) => A.paintBench(g));
       case 'counter': return get(`co${p.kind}`, A.shopMidBox, 12, (g) => A.paintShopCounter(g, { kind: p.kind }));
       case 'board': return get('bd', A.BOARD_BOX, 12, (g) => A.paintBoard(g));
@@ -44,11 +44,12 @@ export function createSprites(R) {
     }
     return null;
   };
-  const person = (kind, seed, dir, fr) => get(`p${kind}${seed % 16}${dir}${fr}`, A.PERSON_BOX, 12, (g) => A.paintPerson(g, A.personSpec(kind, seed % 16), dir, fr));
+  const person = (kind, seed, dir, fr) => get(`p${theme}${kind}${seed % 16}${dir}${fr}`, A.PERSON_BOX, 12, (g) => A.paintPerson(g, A.personSpec(kind, seed % 16, theme), dir, fr));
+  const setTheme = (t) => { theme = t || 'terra'; A.setArtTheme(theme); };
   const fx = (k) => get('fx' + k, A.FX_BOX, 12, (g) => (k === 'hurt' ? A.paintHurt(g) : k === 'flash' ? A.paintFlash(g) : k === 'smoke' ? A.paintSmoke(g) : A.paintSplash(g)));
-  const fallen = (kind, seed) => get(`fl${kind}${seed % 16}`, A.FALLEN_BOX, 12, (g) => { g.rotate(Math.PI / 2); A.paintPerson(g, A.personSpec(kind, seed % 16), 'down', 0); });
+  const fallen = (kind, seed) => get(`fl${theme}${kind}${seed % 16}`, A.FALLEN_BOX, 12, (g) => { g.rotate(Math.PI / 2); A.paintPerson(g, A.personSpec(kind, seed % 16, theme), 'down', 0); });
   const gate = () => get('gate', A.GATE_BOX, 12, (g) => A.paintGate(g));
   const hp = (n) => get('hp' + n, A.HP_BOX, 12, (g) => A.paintHp(g, n / 10));
   const critter = (kind, dir, fr) => get(`cr${kind}${dir}${fr}`, A.CRIT_BOX[kind], 10, (g) => A.paintCritter(g, kind, dir, fr));
-  return { prop, person, critter, fallen, hp, fx, gate, PERSON_SCALE };
+  return { prop, person, setTheme, critter, fallen, hp, fx, gate, PERSON_SCALE };
 }
