@@ -380,7 +380,7 @@ export function shipMesh(p, sailOut) {
 }
 export function wakeMesh(ph) {
   const m = new Mesh(), W = [1, 1, 1];
-  const dash = (f, s, u0, u1, w) => { const a = f(u0), b = f(u1); m.quad([a[0], 0, a[1] - w * s], [b[0], 0, b[1] - w * s], [b[0], 0, b[1] + w * s], [a[0], 0, a[1] + w * s], W); };
+  const dash = (f, s, u0, u1, w) => { const a = f(u0), b = f(u1); m.quad([a[0], 0, a[1] - w * s * 1.7], [b[0], 0, b[1] - w * s * 1.7], [b[0], 0, b[1] + w * s * 1.7], [a[0], 0, a[1] + w * s * 1.7], W); };
   for (const s of [-1, 1]) { // the bow wave: two arms sweeping back and out, dashes marching along them
     const arm = (u) => [1.0 - u * 1.25, s * (0.1 + u * 0.55)];
     for (let k = 0; k < 5; k++) { const u0 = ((k + ph) / 5) * 0.92; dash(arm, 1, u0, u0 + 0.09, 0.075 * (1 - u0 * 0.35)); }

@@ -180,5 +180,5 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
     p2.setPipeline(pPost); p2.setBindGroup(0, postBG); p2.draw(3); p2.end();
     Q.submit([enc.finish()]);
   }
-  return { addSprite, get atlasEpoch() { return atlasEpoch; }, resize, upload, free: (m) => m.buf.destroy(), draw, get lost() { return lost; }, device };
+  return { addSprite, get atlasEpoch() { return atlasEpoch; }, resize, upload, update: (m, data) => Q.writeBuffer(m.buf, 0, data), free: (m) => m.buf.destroy(), draw, get lost() { return lost; }, device };
 }

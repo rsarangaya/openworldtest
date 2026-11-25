@@ -76,12 +76,22 @@ const enemyL = new Map(), enemyLen = (e) => { let l = enemyL.get(e.kind + e.seed
 // the sail pivots about its mast; the boom swings out to the side the wind blows toward
 const tr = (x) => { const o = model(0, 0, 0); o[12] = x; return o; };
 const sailMat = (hm, x, trim) => mul(hm, mul(tr(x), mul(model(0, 0, 0, -trim * 1.48), tr(-x))));
-// a V of foam splitting from the bow and a churned trail astern; three frames cycled so it streams outward
-function wake(objects, hm, L, speed, t) {
-  if (speed < 1.2) return; wakeGpu ||= [0, 1 / 3, 2 / 3].map((ph) => renderer.upload(wakeMesh(ph)));
-  const sc = L * Math.max(0.55, Math.min(1.15, speed / 9)), o = mul(hm, Float32Array.from([sc, 0, 0, 0, 0, 1, 0, 0, 0, 0, sc, 0, 0, 0.6, 0, 1]));
-  objects.push({ m: wakeGpu[((t * 4) | 0) % 3], mat: o, tint: [1, 1, 1] });
+// a V of foam splitting from the bow and a churned trail astern; three frames cycled so it streams outward.
+// Every vertex is laid on the real water surface each frame (the same swell the sea shader uses), so the foam never floats above the sea or sinks into a wave.
+// One small dynamic buffer per ship (about 8 kB), rewritten while she moves and freed shortly after she stops or leaves.
+const wakeBase = [0, 1 / 3, 2 / 3].map((ph) => wakeMesh(ph).data()), wakeBuf = new Map();
+let wakeFrame = 0;
+function wake(objects, id, x, z, yaw, L, speed, t) {
+  if (speed < 1.2) return; let w = wakeBuf.get(id); const base = wakeBase[((t * 4) | 0) % 3];
+  if (!w) { w = { h: renderer.upload({ data: () => new Float32Array(base.length), count: base.length / 9 }), arr: new Float32Array(base.length) }; wakeBuf.set(id, w); }
+  w.used = wakeFrame; const sc = L * Math.max(0.55, Math.min(1.15, speed / 9)), c = Math.cos(yaw), sn = Math.sin(yaw), a = w.arr;
+  for (let i = 0; i < base.length; i += 9) {
+    const lx = base[i] * sc, lz = base[i + 2] * sc, wx = x + c * lx - sn * lz, wz = z + sn * lx + c * lz; // local -> world (the ship faces (cos yaw, sin yaw))
+    a[i] = wx; a[i + 1] = wave(wx, wz, t) + 0.1 + base[i + 1]; a[i + 2] = wz; a[i + 3] = c * base[i + 3] - sn * base[i + 5]; a[i + 4] = base[i + 4]; a[i + 5] = sn * base[i + 3] + c * base[i + 5]; a[i + 6] = base[i + 6]; a[i + 7] = base[i + 7]; a[i + 8] = base[i + 8];
+  }
+  renderer.update(w.h, a); objects.push({ m: w.h, mat: IDENT, tint: [1, 1, 1] });
 }
+const sweepWakes = () => { wakeFrame++; if (wakeFrame % 120) return; for (const [id, w] of wakeBuf) if (wakeFrame - w.used > 120) { renderer.free(w.h); wakeBuf.delete(id); } };
 const shipGpu = (seed, kind, cls = '') => { const k = kind + seed + cls; let g = shipMeshes.get(k); if (!g) { g = renderer.upload(shipMesh(shipParams(seed, kind, cls))); shipMeshes.set(k, g); } return g; };
 
 // ---------------------------------------------------------------- cameras
@@ -129,7 +139,7 @@ function updateCalm(t) {
   z.sort((p, q) => p[3] - q[3]); calmZ = z.slice(0, 8); setCalm(calmZ);
 }
 function render(t) {
-  updateCalm(t);
+  updateCalm(t); sweepWakes();
   const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = Math.max(0, Math.min(1, (zone - 0.5) / 0.4)) * (1 - Math.max(0, Math.min(1, (zone - 1) * WALL_R / 700))), R = opts.distance; // past the Wall the sky turns warm
   const objects = []; BB.n = 0;
   for (const sec of sectors.values()) if (Math.max(Math.abs(sec.sx - sectorOf(cam.x)), Math.abs(sec.sz - sectorOf(cam.z))) <= R) objects.push(...sec.objs);
@@ -139,7 +149,7 @@ function render(t) {
       const ph = sk ? [1 - sk * 0.5, 1 - sk * 0.5, 1 - sk * 0.4] : s.t - s.hitT < 0.22 ? [1.6, 0.6, 0.55] : [1, 1, 1]; // the hull flashes red when hit
       objects.push({ m: P.hull, mat: hm, tint: ph });
       for (const q of P.sails) objects.push({ m: q.g, mat: sailMat(hm, q.x, s.ship.trim || 0), tint: ph });
-      if (!sk) wake(objects, hm, (SHIPS[s.shipClass] || SHIPS.sailboat).L, Math.abs(s.ship.speed), t);
+      if (!sk) wake(objects, 'P', s.ship.x, s.ship.z, s.ship.yaw, (SHIPS[s.shipClass] || SHIPS.sailboat).L, Math.abs(s.ship.speed), t);
     }
     if (sprites && s.mode !== 'foot' || (sprites && !s.deck)) { // sea life and birds: flat sprites, mirrored to face the way they swim relative to the camera
       const L = lifeAt(s.realm || 'terra', s.seed, t, cam.x, cam.z, LIFE, s.mode === 'ship' && s.ship ? s.ship : null), rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
@@ -147,7 +157,7 @@ function render(t) {
       for (const c of L) bb(sprites.critter(c.kind, c.dx * rx + c.dz * rz >= 0 ? 'R' : 'L', c.fr), c.x, c.y + (c.air ? 0 : wave(c.x, c.z, t)), c.z, c.air ? 2.4 : 2);
     }
     for (const e of s.enemies.values()) {
-      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, em, enemyLen(e), e.speed, t);
+      const em = shipMat(e.x, e.z, e.yaw, t), flash = s.t - (e.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(e.seed, e.kind), mat: em, tint: flash ? [1.6, 0.6, 0.55] : [1, 1, 1] }); if (Math.hypot(e.x - cam.x, e.z - cam.z) < 400) wake(objects, e.id, e.x, e.z, e.yaw, enemyLen(e), e.speed, t);
       const dd = Math.hypot(e.x - cam.x, e.z - cam.z); // a health bar above every enemy ship you can see: bigger with distance so it stays readable
       if (dd < 260 && sprites && e.maxHp) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((e.hp / e.maxHp) * 10)))), e.x, 15 + wave(e.x, e.z, t) * 0.9, e.z, Math.max(1, Math.min(3.2, dd / 40)));
     }
@@ -155,7 +165,7 @@ function render(t) {
       const a = (s.t - q.t) / CORPSE_S, fade = a > 0.8 ? 1 - (a - 0.8) / 0.2 : 1, pop = Math.min(1, (s.t - q.t) / 0.25); // it topples over in a quarter second
       bb(sprites?.fallen(q.kind, q.seed), q.x - 0.9 * (1 - pop), q.y + 0.05 + 0.5 * Math.sin(pop * Math.PI), q.z, sprites.PERSON_SCALE * Math.max(0.05, fade));
     }
-    for (const f of s.fleet || []) { const fm = shipMat(f.x, f.z, f.yaw, t), flash = s.t - (f.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(f.seed, f.kind), mat: fm, tint: flash ? [1.6, 0.6, 0.55] : [0.8, 0.95, 1.35] }); if (Math.hypot(f.x - cam.x, f.z - cam.z) < 400) wake(objects, fm, enemyLen(f), f.speed, t); const fd = Math.hypot(f.x - cam.x, f.z - cam.z); if (fd < 300 && sprites) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((f.hp / f.maxHp) * 10)))), f.x, 15 + wave(f.x, f.z, t) * 0.9, f.z, Math.max(1, Math.min(3.2, fd / 40))); } // your fleet: tinted blue so you can tell them from the enemy
+    for (const f of s.fleet || []) { const fm = shipMat(f.x, f.z, f.yaw, t), flash = s.t - (f.hitT ?? -99) < 0.22; objects.push({ m: shipGpu(f.seed, f.kind), mat: fm, tint: flash ? [1.6, 0.6, 0.55] : [0.8, 0.95, 1.35] }); if (Math.hypot(f.x - cam.x, f.z - cam.z) < 400) wake(objects, f.id, f.x, f.z, f.yaw, enemyLen(f), f.speed, t); const fd = Math.hypot(f.x - cam.x, f.z - cam.z); if (fd < 300 && sprites) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((f.hp / f.maxHp) * 10)))), f.x, 15 + wave(f.x, f.z, t) * 0.9, f.z, Math.max(1, Math.min(3.2, fd / 40))); } // your fleet: tinted blue so you can tell them from the enemy
     for (const k of s.sinking) { const a = Math.min(1, (s.t - k.t0) / SINK_S); objects.push({ m: shipGpu(k.seed, k.kind), mat: shipMat(k.x, k.z, k.yaw, t, 0, a), tint: [1 - a * 0.5, 1 - a * 0.5, 1 - a * 0.4] }); } // a sunk ship rolls over and slips under, then is gone
     for (const f of s.fx) { const p = (s.t - f.t0) / f.life, sc = f.sc * (f.k === 'flash' ? 1 - p * 0.6 : f.k === 'smoke' ? 0.5 + p * 0.9 : f.k === 'hurt' ? 0.18 : 0.6 + p * 0.6) * (1 - p ** 3 * 0.7); bb(sprites?.fx(f.k), f.x, f.y, f.z, sc); }
     if (s.shots.length) { ballGpu ||= renderer.upload(ballMesh()); for (const b of s.shots) objects.push({ m: ballGpu, mat: model(b.x, 2.5 + Math.sin(b.life * 3) * 0.3, b.z), tint: [1, 1, 1] }); }
