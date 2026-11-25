@@ -1,5 +1,7 @@
 // All DOM: menus, intro, HUD, shop dialogs, quest log, pause, ending. The game rules never touch the DOM.
 import { QUESTS, currentQuest, questText } from './rules/quests.js';
+import { asgardLine } from './rules/lore.js';
+import { STYLES } from './gen/style.js';
 import { GOODS } from './gen/world.js';
 import { WEAPONS, WEAPON_ORDER, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
@@ -99,16 +101,29 @@ export function createUI() {
     const sp = sil([[Rc(161, -40, 12, 360, 3), '#7d5532'], [Pg(167, -135, 186, -38, 167, -48, 148, -38), '#cdd4e2'], [Rc(156, -46, 22, 10, 2), '#c2402f']], 6) + Pg(167, -135, 186, -38, 167, -48) + " fill='#9ba6bc'/>";
     const ax = sil([[Rc(160, -30, 14, 300, 3), '#7d5532'], [Pg(160, -28, 104, -56, 92, 36, 160, 26), '#b6bed0'], [Rc(154, -34, 26, 14, 3), '#4a4f5e']], 6) + Pg(104, -56, 92, 36, 114, 30) + " fill='#eef2fa'/>";
     const pi = sil([[Pg(142, 40, 192, 40, 192, 120, 142, 120), '#3a3f4c'], [Rc(152, 14, 30, 32, 3), '#555c6e'], [Rc(159, 2, 17, 14, 2), '#2a2e38'], [Pg(142, 120, 192, 120, 188, 200, 154, 200), '#6b4326']], 6);
-    return { sword: W(sw, two), dagger: W(dg, one), spear: W(sp, [[1, 150], [-1, 216]]), axe: `<g transform='rotate(-6 167 150)'><g transform='rotate(-45 167 230)'>${ax}</g>${arm(-1, 177, -28)}${arm(1, 134, -71)}</g>`, pistol: W(pi, one), fists: W('', one) };
+    // the bare RIGHT fist (hand parts mirrored below): low on the right and angled up toward the middle, the way a weapon is held. Drawn upright (wrist at 0,0), then tipped over.
+    const Path = (d) => `<path d='${d}'`, line = (d, w = 3, c = SKIN_D) => `<path d='${d}' stroke='${c}' stroke-width='${w}' stroke-linecap='round' fill='none'/>`;
+    const hand = `<g transform='rotate(-36)'>`
+      + sil([[Path('M-30 22 L30 22 L54 270 L-54 270 Z'), SLV]], 9) + Path('M6 22 L30 22 L54 270 L14 270 Z') + ` fill='${SLV_D}' stroke='none'/>` + line('M-30 74 Q-4 86 20 76', 5, SLV_D) + line('M-36 128 Q-8 142 30 130', 5, SLV_D)
+      + sil([[Path('M-32 10 L32 10 L34 36 L-34 36 Z'), CUFF]], 8)
+      + `<g transform='scale(-1 1)'>`
+      + sil([[Path('M-25 14 L-34 -20 Q-44 -50 -38 -72 L40 -66 Q46 -40 36 -12 L24 14 Z'), SKIN]], 9)                                             // wrist and back of the hand
+      + Path('M14 12 L24 14 L36 -12 Q46 -40 40 -66 L22 -66 Q30 -34 14 12 Z') + ` fill='${SKIN_D}' stroke='none'/>`                             // shade down the outer side
+      + [[-27, -80, 23, 34, SKIN_L], [-5, -84, 23, 37, SKIN_L], [17, -80, 22, 34, SKIN], [37, -71, 18, 27, SKIN]].map(([x, y, w, h, c]) => sil([[Rc(x - w / 2, y - h / 2, w, h, 10), c]], 7) + line(`M${x - w / 2 + 5} ${y + 5} Q${x} ${y + 10} ${x + w / 2 - 5} ${y + 5}`, 3)).join('') // four curled fingers, knuckles up
+      + line('M-22 -44 Q-18 -30 -20 -20', 3) + line('M2 -46 Q4 -34 2 -24', 3) + line('M22 -44 Q22 -34 18 -26', 3)                                   // tendons
+      + sil([[Path('M-26 8 Q-50 -8 -50 -34 Q-52 -62 -38 -68 Q-24 -70 -24 -52 Q-26 -30 -14 -14 Q-10 0 -26 8 Z'), SKIN_L]], 7) + line('M-44 -50 Q-36 -56 -29 -50', 3) // the thumb: on the right, which makes this a right hand
+      + '</g></g>';
+    return { hand, sword: W(sw, two), dagger: W(dg, one), spear: W(sp, [[1, 150], [-1, 216]]), axe: `<g transform='rotate(-6 167 150)'><g transform='rotate(-45 167 230)'>${ax}</g>${arm(-1, 177, -28)}${arm(1, 134, -71)}</g>`, pistol: W(pi, one), fists: W('', one) };
   })();
   let wShown = null; // the weapon held in front of you: a flat sprite that swings, thrusts or recoils when you attack
   const wURL = new Map(); // each weapon is drawn once at the game's own pixel size (coarser than the world on purpose: 112x110), snapped to the game palette with hard alpha, then shown with hard edges
   const weaponImage = (id, done) => {
     if (wURL.has(id)) return done(wURL.get(id));
-    const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = 112; c.height = 110; c.getContext('2d').drawImage(img, 0, 0, 112, 110); if (!SOFT) quantize(c); wURL.set(id, c.toDataURL()); done(wURL.get(id)); };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='480' height='470' viewBox='-70 -160 480 470' stroke='${'#07080c'}' stroke-width='3' stroke-linejoin='round'>${WSVG[id] || WSVG.sword}</svg>`);
+    const bare = id === 'fists', cw = bare ? 128 : 112, ch = bare ? 128 : 110;
+    const img = new Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = cw; c.height = ch; c.getContext('2d').drawImage(img, 0, 0, cw, ch); if (!SOFT) quantize(c); wURL.set(id, c.toDataURL()); done(wURL.get(id)); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' ${bare ? "width='320' height='320' viewBox='-110 -118 320 320'" : "width='480' height='470' viewBox='-70 -160 480 470'"} stroke='#07080c' stroke-width='3' stroke-linejoin='round'>${bare ? WSVG.hand : WSVG[id] || WSVG.sword}</svg>`);
   };
-  const showWeapon = (id) => { const e = $('weapon'); if (!e) return; if (!id) { e.style.display = 'none'; wShown = null; return; } e.style.display = 'block'; if (wShown !== id) { wShown = id; e.className = ''; weaponImage(id, (url) => { if (wShown === id) e.innerHTML = `<img src="${url}">` + (id === 'pistol' ? '<i class=mf></i>' : ''); }); } };
+  const showWeapon = (id) => { const e = $('weapon'); if (!e) return; if (!id) { e.style.display = 'none'; wShown = null; return; } e.style.display = 'block'; if (wShown !== id) { wShown = id; e.className = ''; e.toggleAttribute('data-bare', id === 'fists'); weaponImage(id, (url) => { if (wShown === id) e.innerHTML = id === 'fists' ? `<img src="${url}">` : `<img src="${url}">` + (id === 'pistol' ? '<i class=mf></i>' : ''); }); } };
   ui.slash = (w, hit) => { const e = $('slash'), we = $('weapon'); const id = w || 'fists'; if (we && wShown) { we.className = ''; void we.offsetWidth; we.className = 'a-' + id; } if (!e) return; if (id === 'pistol' || id === 'spear' || id === 'dagger' || id === 'fists') return; e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); };
   ui.hurt = () => { const e = $('hurt'); if (!e) return; e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); };
 
@@ -143,6 +158,31 @@ export function createUI() {
       $('pN').onclick = () => { if (++i < res.lines.length) talk(); else if (res.panel) shop(); else close(); };
     };
     const port = ctx.island?.port;
+    // the tavern keeper: a menu of everything a tavern offers, each choice with a way back
+    let tavPage = null, rumours = 0;
+    const page = (title, body, extra = '') => {
+      el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto">${head}<h2>${title}</h2>${body}<p>${extra}<button id=pB>Back</button></p></div>`;
+      $('pB').onclick = tavern;
+    };
+    const tavern = () => {
+      tavPage = null;
+      const tip = res.lines.slice(3).map((l) => `<p><small>${esc(l)}</small></p>`).join(''); // e.g. a chart the keeper scrawls you the first time
+      const opts = [['rumour', 'Ask for a rumour'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town']];
+      el.innerHTML = `<div class=box style="text-align:center">${head}<p>Pull up a stool. What will it be?</p>${tip}${opts.map(([k, n]) => `<button data-t=${k}>${n}</button><br>`).join('')}<button id=pC>Leave</button></div>`;
+      $('pC').onclick = close;
+      el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => choose(b.dataset.t)));
+    };
+    const choose = (k) => {
+      if (k === 'jobs' || k === 'crew') { tavPage = k; shop(); return; }
+      if (k === 'rumour') {
+        const issue = Math.floor(s.t / 300), n = rumours++, items = newsFor(s, ctx.island).items.filter((q) => q.tag !== 'Overheard' && q.tag !== 'Prices'), item = items[n % Math.max(1, items.length)];
+        page('Rumours', `<p>${esc(asgardLine(s, res.npc.seed + n * 977, issue + n))}</p>${item ? `<p><small class=gold>${esc(item.head)}</small><br>${esc(item.body)}</p>` : ''}`, '<button id=pM>Another</button> ');
+        $('pM').onclick = () => choose('rumour');
+      } else if (k === 'next') { const q = currentQuest(s); page('What next', `<p><b class=gold>${esc(q.title)}</b></p><p>${esc(q.hint)}</p>`); }
+      else if (k === 'wanted') page('Wanted', '<table>' + board(s).map((w) => `<tr><td><b>${esc(w.name)}</b><br><small>${esc(w.crime)} · ${w.kind === 'ship' ? 'sails ' + esc(w.ship) : 'hiding near ' + esc(w.where)}</small></td><td class=n>${w.reward}g${w.aliveOnly ? '<br><small>alive only</small>' : ''}</td></tr>`).join('') + '</table><p class=hint>Bring them to any guard station to be paid.</p>');
+      else if (k === 'town') { const st = STYLES[ctx.island?.style]; page(esc(port?.name || 'This town'), `<p>${st?.label ? 'A ' + st.label + '. ' + st.perk : 'A harbour like many others.'}</p><p>${port ? `${esc(port.cheap)} is cheap here; ${esc(port.dear)} sells dear.` : ''}</p><p>Your standing here: <b>${port ? tier(localRep(s, port.iid)) : 'Unknown'}</b></p>`); }
+    };
+    let tavernOffers = [], settled = false;
     const shop = () => {
       let h = `<div class=box>${head}<h2>${res.panel === 'market' ? 'Market' : res.panel === 'shipyard' ? 'Shipyard' : res.panel === 'arms' ? 'Armoury' : res.panel === 'guard' ? 'Guard Station' : res.panel === 'tavern' ? 'Tavern' : 'The Warden'}</h2><div>Gold: <b class=gold>${Math.round(s.gold)}</b>${port ? ` · Standing here: <b>${tier(localRep(s, port.iid))}</b> · Realm: <b>${tier(worldRep(s))}</b>` : ''}</div>`;
       if (res.panel === 'market') {
@@ -156,10 +196,16 @@ export function createUI() {
         h += `<p>You carry: <b>${WEAPONS[s.weapon || 'fists'].name}</b>. Keys 1-5 swap weapons you own.</p>`;
         h += '<table>' + WEAPON_ORDER.map((id) => { const w = WEAPONS[id], have = owns(s, id), pr = Math.round(w.price * buyMult(s, port.iid) * weaponMul(port)); return `<tr><td>${w.n}. ${w.name}</td><td><small>${w.blurb} Dmg ${w.dmg}${w.ranged ? ', ranged' : ', reach ' + w.reach}</small></td><td class=n>${have ? (s.weapon === id ? 'equipped' : `<button class=small data-a=eq-${id}>Equip</button>`) : `<button class=small data-a=w-${id} ${s.gold < pr ? 'disabled' : ''}>${pr}g</button>`}</td></tr>`; }).join('') + '</table>';
       } else if (res.panel === 'tavern') {
+        if (tavPage !== 'jobs') {
         const crew = crewOf(s), cap = capacity(s), nab = aboard(s).length;
         h += s.ship ? `<p>Your crew: <b>${nab}/${cap}</b> · wages <b>${wages(s)}g</b> every ${PAY_EVERY} s</p>` : '<p>You need a ship before you can take on hands.</p>';
         if (crew.length) h += '<table>' + crew.map((c) => `<tr><td>${esc(c.name)} · ${ROLES[c.role].name}<br><small>${ROLES[c.role].blurb} · morale ${Math.round(c.morale)}</small></td><td class=n>${c.wage}g/pay</td><td class=n>${c.captain ? '<small>captain of a prize</small>' : `<button class=small data-a=dis-${c.id}>Dismiss</button>`}</td></tr>`).join('') + '</table>';
         if (s.ship) { h += '<p><b class=gold>Looking for a berth</b></p><table>' + candidates(s, ctx.island).map((c) => `<tr><td>${esc(c.name)} · ${ROLES[c.role].name}<br><small>${ROLES[c.role].blurb}</small></td><td class=n>${c.wage}g/pay</td><td class=n><button class=small data-a=hire-${c.id} ${nab >= cap || s.gold < c.fee ? 'disabled' : ''}>Hire ${c.fee}g</button></td></tr>`).join('') + '</table>'; }
+        }
+        if (tavPage !== 'crew') {
+          if (!settled) { settled = true; settleBoard(s, ctx.island); } // finished jobs are paid here too
+          const j = jobsFor(s, ctx.island); tavernOffers = j.offs; h += j.html;
+        }
       } else if (res.panel === 'guard') {
         h += s.bountyGold > 0 ? `<p>You owe <b class=bad>${Math.round(s.bountyGold)}g</b> for your crimes.</p><button class=small data-a=bounty>Pay your bounty (${Math.round(s.bountyGold)}g)</button>` : '<p>Your record is clean.</p>';
         const pw = s.prisoner && byId(s, s.prisoner);
@@ -176,10 +222,12 @@ export function createUI() {
       } else {
         h += s.upgrades.ram ? '<p>Your ship carries an icebreaker ram.</p>' : `<p>An iron-shod icebreaker ram, bolted to your bow.</p><button data-a=ram ${s.gold < RAM_PRICE || !s.ship ? 'disabled' : ''}>Fit the ram (${RAM_PRICE} gold)</button>${s.ship ? '' : '<p class=hint>You need a ship first.</p>'}`;
       }
-      el.innerHTML = h + '<p><button id=pC>Close</button></p></div>';
-      $('pC').onclick = close;
+      el.innerHTML = h + `<p><button id=pC>${tavPage ? 'Back' : 'Close'}</button></p></div>`;
+      $('pC').onclick = tavPage ? tavern : close;
+      el.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { jobClick(s, tavernOffers, b.dataset.k); ctx.audio?.coin(); ctx.onChange?.(); shop(); }));
       el.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => {
         const a = b.dataset.a;
+        if (a === undefined) return;
         if (a === 'f1') buyFood(s, 1, port); else if (a === 'f5') buyFood(s, 5, port); else if (a === 'fm') buyFood(s, MAX_FOOD, port);
         else if (a === 'rep') repair(s); else if (a === 'bounty') payBounty(s); else if (a === 'hand') handIn(s, ctx.island); else if (a.startsWith('w-')) buyWeapon(s, a.slice(2), buyMult(s, port.iid) * weaponMul(port)); else if (a.startsWith('eq-')) equip(s, a.slice(3));
         else if (a.startsWith('fsell-')) { const g = sellShip(s, a.slice(6)); if (g) ctx.say('You sell the ship for ' + g + ' gold.'); } else if (a.startsWith('hire-')) { const c = candidates(s, ctx.island).find((q) => q.id === a.slice(5)); if (c && hire(s, ctx.island, c)) ctx.say(c.name + ' signs on as your ' + c.role + '.'); } else if (a.startsWith('dis-')) dismiss(s, a.slice(4));
@@ -190,7 +238,7 @@ export function createUI() {
         ctx.audio?.coin(); ctx.onChange?.(); shop();
       }));
     };
-    talk(); on('panel', true);
+    if (res.panel === 'tavern') tavern(); else talk(); on('panel', true);
   };
   // the world map (M): Terra's local map and the grand map of every world you have heard of
   ui.map = (s, onClose, onTravel) => {
@@ -212,15 +260,21 @@ export function createUI() {
     el.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => { finishBoarding(s, b.dataset.a); on('panel', false); onClose?.(true); }));
     $('zC').onclick = () => { on('panel', false); onClose?.(false); }; on('panel', true);
   };
+  // carried jobs (Drop) and this town's open offers (Sign): shown on the notice board and in the tavern
+  const jobsFor = (s, isl) => {
+    const offs = contractsFor(s, isl), mine = contractList(s);
+    const jobs = `<p><b class=gold>Contracts</b> <small>(${mine.length}/${MAX_ACTIVE} carried)</small></p>` + (mine.length ? '<table>' + mine.map((c) => `<tr><td>${esc(contractText(s, c))}</td><td class=n><button class=small data-k="x:${c.id}">Drop</button></td></tr>`).join('') + '</table>' : '') + (offs.length ? '<table>' + offs.map((o) => `<tr><td>${esc(o.text)}<br><small>${Math.round(o.window / 60)} min</small></td><td class=n><button class=small data-k="a:${o.id}">${quoteContract(s, o)}g · Sign</button></td></tr>`).join('') + '</table>' : '<p class=hint>No more work posted this issue.</p>');
+    return { offs, html: jobs };
+  };
+  const jobClick = (s, offs, key) => { const kind = key.slice(0, 1), id = key.slice(2); if (kind === 'a') { const o = offs.find((q) => q.id === id); if (o) signContract(s, o); } else dropContract(s, id); };
   // the town notice board
   ui.news = (s, isl, onClose) => {
     const el = $('panel'), n = newsFor(s, isl); markRead(s, isl); settleBoard(s, isl);
     const draw = () => {
-      const offs = contractsFor(s, isl), mine = contractList(s);
-      const jobs = `<p><b class=gold>Contracts</b> <small>(${mine.length}/${MAX_ACTIVE} carried)</small></p>` + (mine.length ? '<table>' + mine.map((c) => `<tr><td>${esc(contractText(s, c))}</td><td class=n><button class=small data-k="x:${c.id}">Drop</button></td></tr>`).join('') + '</table>' : '') + (offs.length ? '<table>' + offs.map((o) => `<tr><td>${esc(o.text)}<br><small>${Math.round(o.window / 60)} min</small></td><td class=n><button class=small data-k="a:${o.id}">${quoteContract(s, o)}g · Sign</button></td></tr>`).join('') + '</table>' : '<p class=hint>No more work posted this issue.</p>');
+      const { offs, html: jobs } = jobsFor(s, isl);
       el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto"><h2>${esc(n.title)}</h2><div class=npc>Issue ${n.issue}${n.fresh ? ' · <span class=gold>new notices pinned</span>' : ' · nothing new since you last looked'}</div>${jobs}${n.items.map((i) => `<p><small class=gold>${esc(i.tag)}</small><br><b>${esc(i.head)}</b><br>${esc(i.body)}</p>`).join('')}<button id=nC>Step away</button></div>`;
       $('nC').onclick = () => { on('panel', false); onClose?.(); };
-      el.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { const [a, id] = b.dataset.k.split(':'), k = b.dataset.k.slice(2); if (a === 'a') { const o = offs.find((q) => q.id === k); if (o) signContract(s, o); } else dropContract(s, k); draw(); }));
+      el.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { jobClick(s, offs, b.dataset.k); draw(); }));
     };
     draw(); on('panel', true);
   };

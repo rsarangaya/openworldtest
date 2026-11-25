@@ -468,3 +468,22 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 
 ## Round 62 (2026-11-24): no foam ring round ships
 - User did not like the foam circling the ships: removed the resting collar and the foam along the hull sides. Kept: the wake astern, the little bow foam when moving, spray in weather, and the dark shadow under each hull. 87 tests pass, build 251.9 kB. Seen in Chrome, still and moving. Not pushed.
+
+## Round 63 (2026-11-25): bare hands redrawn
+- User: the single upright fist in the middle looked inappropriate. Bare hands are now two separate fists low in the left and right corners, knuckles up and tipped inward, thumbs tucked, forearms running out of the corners (a guard). The right hand jabs on attack. Held weapons are unchanged.
+- 87 tests pass. Checked the drawing on its own in the built-in browser; NOT yet seen inside the game (the Chrome extension was not connected) and the jab not seen. Not pushed.
+
+## Round 64 (2026-11-25): contracts in the tavern too
+- The tavern panel now lists carried contracts (Drop) and that town's offers (Sign), below the crew section, and pays any job that can be settled there. Same list and same offers as the notice board, which keeps them (villages have no tavern).
+- 87 tests pass, build 253.4 kB. Checked with a stand-in page in Node (tavern opens, 3 offers, signing moves one to carried); NOT seen in the browser (Chrome extension not connected). Not pushed.
+
+## Round 65 (2026-11-25): the tavern keeper has a menu
+- Talking to a tavern keeper now opens choices: Ask for a rumour (Asgard lore plus a bit of local news, "Another" for more), What should I do next? (current quest hint, while there is one), Take a job (contracts), Hire hands (crew), Who is wanted? (bounty names and rewards), About this town (type, perk, cheap and dear goods, your standing), Leave. Every page has Back. A chart the keeper gives you the first time shows on the menu.
+- 87 tests pass, build 255.3 kB. Every option exercised with a stand-in page in Node; not seen in the browser (Chrome extension not connected). Not pushed.
+
+## Round 66 (2026-11-25): one bare fist, low on the right
+- Replaces the two corner fists of Round 63 (the user disliked them). View taken from HoneyHan's held weapon (upgrades branch, run in the built-in browser): low on the right, angled up toward the middle. One right fist with curled fingers, thumb along the inner side, wrist, cuff and sleeve; it jabs toward the crosshair on attack. Held weapons unchanged.
+- 87 tests pass, build 255.5 kB. The drawing was checked on its own with the game's pixel size; not yet seen over the 3D view (Chrome extension not connected). Not pushed.
+
+## Round 67 (2026-11-25): the fist read as a left hand
+- User: the single fist looked like the left arm. The hand is now mirrored (thumb on the right, little finger on the left); the forearm still comes from the lower right. 87 tests pass. Checked only as a drawing preview. Not pushed.
