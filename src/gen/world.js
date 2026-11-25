@@ -3,6 +3,7 @@
 // Sectors are SECTOR units square; islands stay in the middle of their sector so neighbours never overlap.
 import { rngFor, hash, fbm, clamp, mix, sstep, pick, range } from './rng.js';
 import { islandName, portName, shipName, captainName } from './names.js';
+import { styleOf, LANDMARKS, markSolids } from './style.js';
 
 export const SECTOR = 600, WALL_R = 6000, GATE_HALF = 70, TAU = Math.PI * 2;
 export const GOODS = ['rum', 'sugar', 'timber', 'cannon', 'spice', 'silk'];
@@ -57,6 +58,7 @@ function gen(seed, sx, sz) {
         dock: { x0: x + ca * (shore + 22), z0: z + sa * (shore + 22), x1: x + ca * (shore - 1), z1: z + sa * (shore - 1) },
         berth: { x: mx - sa * off * side, z: mz + ca * off * side, yaw: ang } };
       isl.port.cheap = pick(nr, GOODS); isl.port.dear = pick(nr, GOODS.filter((g) => g !== isl.port.cheap));
+      isl.style = isl.port.style = home ? 'plain' : frost ? 'fortress' : styleOf(isl.tier, (hash(seed, sx, sz, 900 + out.length) >>> 0) % 1000 / 1000);
     } else if (rad >= 14 && r() < 0.6) {
       const ang = r() * TAU;
       isl.treasure = { x: x + Math.cos(ang) * rad * 0.62, z: z + Math.sin(ang) * rad * 0.62, gold: 150 + ((r() * 350) | 0) };
@@ -148,6 +150,7 @@ export function townsfolk(isl) {
   const clear = (cx, cz, w, y0) => { for (let k = 0; k < 13; k++) { const a = (k / 12) * TAU, x = k < 12 ? cx + Math.cos(a) * w : cx, z = k < 12 ? cz + Math.sin(a) * w : cz;
     if (Math.abs(islandHeight(isl, x, z) - y0) > 0.4 || islandHeight(isl, x, z) < 0.8 || dockDist(isl, x, z) < 3
       || t.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)
+      || t.marks.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)
       || solids.some((p) => (p.x - x) ** 2 + (p.z - z) ** 2 < (KEEP[p.k] + 0.9) ** 2)) return false; } return true; };
   out = [];
   for (let i = 0; i < n; i++) {
@@ -168,7 +171,7 @@ export const walkHeight = (isl, x, z) => { const h = islandHeight(isl, x, z); re
 // ---------------------------------------------------------------- towns (size of the landmass decides the size of the town)
 // Every NPC works inside their own shop: a hollow building with a doorway facing the plaza, a floor and a counter.
 const DIRS = { '+x': [1, 0], '-x': [-1, 0], '+z': [0, 1], '-z': [0, -1] };
-const EMPTY = { buildings: [], npcs: [], plaza: null };
+const EMPTY = { buildings: [], npcs: [], plaza: null, marks: [] };
 const townCache = new Map();
 function solidsOf(b) { // wall rectangles [x0,x1,z0,z1] used for walking collision
   const { x, z } = b, hw = b.w / 2, hd = b.d / 2, t = 0.5, g = 1.3;
@@ -242,7 +245,14 @@ export function islandTown(isl) {
     const b = { x, z, w, d, h: range(r, 3, 4.2) * (big ? 2.2 : isl.tier === 'city' ? 1.35 : 1), pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: null, face: toward(x, z), kind: null };
     b.solids = solidsOf(b); buildings.push(b);
   }
-  t = { buildings, npcs, plaza };
+  // the landmarks of this kind of town, on level open ground clear of every building and of each other
+  const marks = [];
+  for (const [k, w, d] of LANDMARKS[isl.style] || []) for (let tries = 0; tries < 240; tries++) {
+    const an = r() * TAU, ring = 13 + r() * 8 + tries * 0.14, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false);
+    if (!sp || marks.some((q) => Math.hypot(q.x - x, q.z - z) < (Math.max(q.w, q.d) + Math.max(w, d)) / 2 + 2.5) || buildings.some((b) => b.door && Math.abs(b.x - x) < (b.w + w) / 2 + 1 && z > b.z && z - b.z < (b.d + d) / 2 + 6)) continue;
+    const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); break;
+  }
+  t = { buildings, npcs, plaza, marks };
   townCache.set(isl.seed, t); return t;
 }
 

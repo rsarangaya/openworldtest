@@ -1,10 +1,10 @@
 // Ship wakes. Each ship remembers where its stern has been for a few seconds; from that trail we build, every frame and flat on the real water surface,
-// soft round patches of foam (never pointed wedges): churn astern that spreads and thins out, two dotted arms of the V, foam hugging the hull and a little at the bow.
+// soft round patches of foam (never pointed wedges): churn astern that spreads and thins out, two dotted arms of the V and a little at the bow, plus the hull's shadow. Nothing rings the ship.
 // One small dynamic GPU buffer per ship, nothing is allocated per frame.
 import { wave } from './rules/sea.js';
 
 export const TTL = 6.5, STEP = 2, MAX_QUADS = 340, JUMP = 40;
-const WHITE = [0.97, 0.99, 1], FOAM = [0.8, 0.91, 0.98], PALE = [0.62, 0.8, 0.9];
+const WHITE = [0.97, 0.99, 1], FOAM = [0.8, 0.91, 0.98], PALE = [0.62, 0.8, 0.9], SHADE = [0.05, 0.14, 0.22];
 const noise = (n) => { const s = Math.sin(n * 91.7) * 43758.5; return s - Math.floor(s); };
 // an eight-sided patch (reads as round at the game's pixel size)
 const RING = Array.from({ length: 8 }, (_, i) => [Math.cos((i / 8) * Math.PI * 2), Math.sin((i / 8) * Math.PI * 2)]);
@@ -29,7 +29,8 @@ export function buildWake(w, x, z, yaw, L, B, speed, t) {
   const patch = (cx, cz, r, c, lift = 0.16, fx = 1, fz = 0, stretch = 1) => {
     if (r < 0.07 || k + PATCH_VERTS * 9 > a.length) return;
     const y = wave(cx, cz, t) + lift, at = (i) => { const [u, v] = RING[i]; return [cx + (fx * u * stretch - fz * v) * r, cz + (fz * u * stretch + fx * v) * r]; }, p0 = at(0);
-    for (let i = 1; i < 7; i++) { const p = at(i), q = at(i + 1); vert(p0[0], p0[1], y, c); vert(p[0], p[1], y, c); vert(q[0], q[1], y, c); }
+    const lay = (p) => (r > 1.2 ? wave(p[0], p[1], t) + lift : y); // a big patch (the shadow) bends with the swell corner by corner
+    for (let i = 1; i < 7; i++) { const p = at(i), q = at(i + 1); vert(p0[0], p0[1], lay(p0), c); vert(p[0], p[1], lay(p), c); vert(q[0], q[1], lay(q), c); }
   };
   const strength = Math.max(0.35, Math.min(1.2, speed / 18)), pts = w.pts;
   for (let i = pts.length - 1; i >= 0; i--) {
@@ -44,12 +45,10 @@ export function buildWake(w, x, z, yaw, L, B, speed, t) {
     // the V: a dotted line each side, drifting outward and shrinking
     if (age < 0.75 && q.id % 2 === 0) for (const side of [-1, 1]) { const o = side * (B * 0.85 + age * TTL * q.v * 0.12); patch(q.x + nx * o, q.z + nz * o, 0.3 * s * (1 - age), age < 0.25 ? FOAM : PALE, 0.16, fx, fz, 1.6); }
   }
+  const c = Math.cos(yaw), sn = Math.sin(yaw), at = (f, o) => [x + c * f * L - sn * o * B, z + sn * f * L + c * o * B];
+  // her shadow on the sea: a dark patch a little wider than the hull, lying on the swell, so she reads as sitting in the water
+  for (let i = 0; i < 7; i++) { const u = -0.9 + i * 0.3, [px, pz] = at(u, 0); patch(px, pz, B * (0.55 + 0.9 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u), 2.4)), 0.55)), SHADE, 0.07 + i * 0.002, c, sn, 1.15); }
   if (speed > 1.2) {
-    const c = Math.cos(yaw), sn = Math.sin(yaw), at = (f, o) => [x + c * f * L - sn * o * B, z + sn * f * L + c * o * B];
-    for (const side of [-1, 1]) for (let i = 0; i < 6; i++) { // foam hugging the hull, thickest at the bow
-      const u = 0.95 - i * 0.34, [px, pz] = at(u, side * (0.2 + 0.95 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(u), 2.4)), 0.55)));
-      patch(px, pz, (0.42 - i * 0.045) * strength * (1 + 0.15 * Math.sin(t * 9 + i * 2 + side)), i < 2 ? WHITE : FOAM, 0.2, c, sn, 1.7);
-    }
     for (let i = 0; i < 8; i++) { // bow foam bubbling out either side of the stem
       const side = i % 2 ? 1 : -1, ph = (t * 3 + i * 0.37) % 1, [px, pz] = at(1.02 - ph * 0.3, side * (0.1 + ph * (0.6 + noise(i) * 0.5)));
       patch(px, pz, (0.1 + 0.28 * (1 - ph)) * strength, WHITE, 0.2 + Math.sin(ph * Math.PI) * 0.6 * strength);

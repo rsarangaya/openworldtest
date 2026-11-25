@@ -161,7 +161,8 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
     G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, 0.45, 0.8, 0.3, (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, 0], 16);
     for (let i = 0; i < 8; i++) { const z = f.calm?.[i]; G.set(z ? [z[0], z[1], z[2], 0] : [0, 0, 0, 0], 48 + i * 4); }
     Q.writeBuffer(gBuf, 0, G, 0, 80);
-    const ext = f.extent, cell = (2 * ext) / 140, wm = model(Math.round(c.x / cell) * cell, 0, Math.round(c.z / cell) * cell, 0, 0, 0, ext);
+    const ext = f.extent, cell = 1.5, // the water grid follows the camera in small steps (its cells under the ship are a couple of units)
+      wm = model(Math.round(c.x / cell) * cell, 0, Math.round(c.z / cell) * cell, 0, 0, 0, ext);
     const list = f.objects, n = Math.min(list.length, MAXOBJ - 1);
     for (let i = 0; i < n; i++) { objs.set(list[i].mat, i * 64); objs.set([...list[i].tint, list[i].detail || 0], i * 64 + 16); }
     objs.set(wm, n * 64); objs.set([1, 1, 1, 1], n * 64 + 16);

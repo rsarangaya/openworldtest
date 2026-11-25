@@ -5,7 +5,7 @@ import { islandHeight, islandTown, dockDist, pathDist, bindProps, TAU } from './
 
 export function islandProps(isl) {
   const out = [], town = islandTown(isl), pl = town.plaza, r = rngFor(isl.seed, 3), placed = [];
-  const free = (x, z, pad) => !town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad + 1.5)
+  const free = (x, z, pad) => !(town.marks || []).some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad) && !town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad + 1.5)
     && !(pl && Math.hypot(pl.x - x, pl.z - z) < 9 + pad) && dockDist(isl, x, z) > 4 && pathDist(isl, x, z) > 2.2;
   const scatter = (n, lo, hi, k, pad, ymax = 0.75) => {
     for (let i = 0; i < n; i++) {

@@ -12,6 +12,7 @@ import { stepContracts, offers as contractOffers, accept as acceptContract, sett
 import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S } from './realm.js';
 import { REALMS } from './map.js';
 import { clearWorldCaches } from '../gen/world.js';
+import { extraGuards, STYLES } from '../gen/style.js';
 import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
@@ -83,7 +84,8 @@ const blockedByThings = (s, x, z) => {
   return false;
 };
 const blocked = (s, x, z) => {
-  if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + PAD + 0.5 && Math.abs(b.z - z) < b.d / 2 + PAD + 0.5) { for (const w of b.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; if (b.bars) for (const w of b.bars) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; const gt = b.jail && s.jailUntil > s.t ? b.jail.gate : null; if (gt && x > gt[0] - PAD && x < gt[1] + PAD && z > gt[2] - PAD && z < gt[3] + PAD) return true; } return false; };
+  if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const m of islandTown(i).marks || []) for (const w of m.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true;
+  for (const i of islandsAt(s, x, z)) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + PAD + 0.5 && Math.abs(b.z - z) < b.d / 2 + PAD + 0.5) { for (const w of b.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; if (b.bars) for (const w of b.bars) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; const gt = b.jail && s.jailUntil > s.t ? b.jail.gate : null; if (gt && x > gt[0] - PAD && x < gt[1] + PAD && z > gt[2] - PAD && z < gt[3] + PAD) return true; } return false; };
 // ships are long: test the bow, the stern and the beam against the land, not just the centre point (that let hulls and masts sit inside islands)
 const HULL = { trader: [8, 3.5], navy: [12, 2.5], raider: [10, 2.2], ghost: [12, 3] };
 export const hullHit = (s, x, z, yaw, L, B) => {
@@ -116,7 +118,7 @@ function hurtNpc(s, id, kind, name, seed, dmg, isl, px = 0, pz = 0) {
 
 // ---------------------------------------------------------------- the law: a crime on a port island raises the alarm; guards (the island's wardens) hunt you on foot, a lost fight is an arrest.
 export const GUARD_HP = 60, GUARD_HIT = 6, GUARD_SPEED = 3.5, ALERT_S = 120, WANTED_AT = -25;
-const guardCount = (isl) => (isl.tier === 'city' ? 4 : isl.tier === 'town' ? 3 : 2);
+const guardCount = (isl) => Math.max(1, (isl.tier === 'city' ? 4 : isl.tier === 'town' ? 3 : 2) + extraGuards(isl.style));
 export function crime(s, isl, gold, serious) {
   if (!isl || !isl.port) return; s.bountyGold = (s.bountyGold || 0) + gold; if (serious) s.bounty = Math.max(s.bounty, 1);
   s.alert[isl.id] = s.t + ALERT_S; if (!s.alerted) { s.alerted = true; say(s, 'Guards! Guards!'); }
@@ -337,6 +339,17 @@ function stepDeck(s, dt) {
 }
 
 // ---------------------------------------------------------------- fleet ships: your captured prizes sail with you under one fleet-wide order (T cycles it)
+// another captain's ship against land or the Wall: stop short (or ease out if already overlapping), turn away at a sailor's pace and hold that course for a moment.
+// (The old code flicked the bow round at several radians a second, so a ship that could not get free spun for ever.)
+const AVOID_S = 2.5;
+function keepOffLand(s, e, ox, oz, hh, dt) {
+  const wall = Math.hypot(e.x, e.z) > WALL_R - 60 && realmOf(s) === 'terra' && Math.hypot(ox, oz) <= WALL_R + 20, hit = wall ? { x: e.x * 2, z: e.z * 2 } : hullHit(s, e.x, e.z, e.yaw, hh[0], hh[1]);
+  if (!hit) return;
+  const away = Math.atan2(oz - hit.z, ox - hit.x);
+  if (!wall && hullHit(s, ox, oz, e.yaw, hh[0], hh[1])) { e.x = ox + Math.cos(away) * 6 * dt; e.z = oz + Math.sin(away) * 6 * dt; } else { e.x = ox; e.z = oz; }
+  e.avoid = s.t + AVOID_S; e.away = away; e.speed *= 1 - Math.min(0.5, dt * 2);
+}
+const turnTo = (e, want, rate, dt) => { e.yaw = wrapPi(e.yaw + Math.max(-rate * dt, Math.min(rate * dt, wrapPi(want - e.yaw)))); };
 export function stepFleet(s, dt) {
   const fl = s.fleet; if (!fl || !fl.length) return; const p = s.mode === 'ship' && s.ship ? s.ship : null, order = s.fleetOrder || 'follow';
   for (let i = fl.length - 1; i >= 0; i--) {
@@ -351,11 +364,11 @@ export function stepFleet(s, dt) {
     let want, spd;
     if (tg) { const a = Math.atan2(tg.z - f.z, tg.x - f.x); want = td < 70 ? a + (Math.sin(a - f.yaw) >= 0 ? -Math.PI / 2 : Math.PI / 2) : a; spd = Math.min(k.speed * 2.4, 22); }
     else if (order === 'guard') { const d = Math.hypot(f.ax - f.x, f.az - f.z); want = Math.atan2(f.az - f.z, f.ax - f.x); spd = d > 50 ? k.speed * 1.5 : 0; }
-    else { const d = Math.hypot(sx - f.x, sz - f.z); want = Math.atan2(sz - f.z, sx - f.x); spd = d > 12 ? Math.min(k.speed * 4, 6 + d * 0.5, 36) : Math.max(0, p.speed * 0.9); }
-    f.yaw = wrapPi(f.yaw + Math.max(-1 * dt, Math.min(1 * dt, wrapPi(want - f.yaw))));
+    else { const d = Math.hypot(sx - f.x, sz - f.z); want = Math.atan2(sz - f.z, sx - f.x); spd = d > 14 ? Math.min(k.speed * 4, p.speed + d * 0.55, 36) : p.speed * 0.9; if (d <= 14 || (d < 30 && p.speed < 1)) want = p.yaw; }
+    const dodging = f.avoid > s.t; turnTo(f, dodging ? f.away : want, dodging ? 1.4 : 1, dt);
     f.speed += (spd - f.speed) * Math.min(1, dt * 1.2);
     const ox = f.x, oz = f.z; f.x += Math.cos(f.yaw) * f.speed * dt; f.z += Math.sin(f.yaw) * f.speed * dt; const hh = HULL[f.kind] || HULL.trader;
-    if (hullHit(s, f.x, f.z, f.yaw, hh[0], hh[1]) || Math.hypot(f.x, f.z) > WALL_R - 60) { f.x = ox; f.z = oz; f.yaw += 1.2 * dt * 6; f.speed *= 0.5; }
+    keepOffLand(s, f, ox, oz, hh, dt);
     if (tg && f.cd <= 0 && td < CANNON_RANGE) { const a = Math.atan2(tg.z - f.z, tg.x - f.x), dA = wrapPi(a - f.yaw); if (Math.abs(Math.abs(dA) - Math.PI / 2) < 0.5) { fire(s, 'player', f, dA > 0 ? 1 : -1, tg, k.dmg * 1.2); f.cd = CANNON_CD * 1.5; } }
   }
 }
@@ -566,12 +579,12 @@ function stepShip(s, inp, dt) {
   for (const e of s.enemies.values()) {
     const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < (e.hunter ? HUNT_RANGE : 240);
     const want = chase ? Math.atan2(dz, dx) + (dist < 60 ? Math.PI / 2 : 0) : e.yaw + Math.sin(s.t * 0.1 + e.seed) * 0.05;
-    e.yaw += Math.max(-0.4 * dt, Math.min(0.4 * dt, wrapPi(want - e.yaw)));
+    const dodging = e.avoid > s.t; turnTo(e, dodging ? e.away : want, dodging ? 1.2 : 0.6, dt);
     const tgt = (chase ? kind.speed : kind.speed * 0.55) * Math.max(0.35, sailEfficiency(e.yaw, s.wind)) * (e.slow > s.t ? 0.4 : 1);
     if (e.burn > s.t) { e.hp -= 3 * dt; if (Math.floor(s.t * 4) !== Math.floor((s.t - dt) * 4)) { puff(s, 'flash', e.x + (hash(e.seed, Math.floor(s.t * 4)) % 5) - 2, 4, e.z, 0.3, { sc: 1.4 }); puff(s, 'smoke', e.x, 4.5, e.z, 1.2, { vy: 2, sc: 1.6 }); } }
     e.speed += (tgt - e.speed) * Math.min(1, dt * 0.5);
     const ex = e.x, ez = e.z; e.x += Math.cos(e.yaw) * e.speed * dt; e.z += Math.sin(e.yaw) * e.speed * dt;
-    const hh = HULL[e.kind] || HULL.trader; if (hullHit(s, e.x, e.z, e.yaw, hh[0], hh[1]) || Math.hypot(e.x, e.z) > WALL_R - 60) { e.x = ex; e.z = ez; e.yaw += 1.4 * dt * 10; }
+    keepOffLand(s, e, ex, ez, HULL[e.kind] || HULL.trader, dt);
     e.cd[0] = Math.max(0, e.cd[0] - dt);
     const rel = Math.abs(wrapPi(Math.atan2(dz, dx) - e.yaw));
     if (hostile && dist < CANNON_RANGE && Math.abs(rel - Math.PI / 2) < 0.5 && e.cd[0] <= 0) { fire(s, 'enemy', e, 1, p, kind.dmg); e.cd[0] = CANNON_CD * 1.6; }
@@ -600,7 +613,7 @@ function stepShip(s, inp, dt) {
 }
 
 // input: { rudder, sail, fireL, fireR } at sea; { mx, mz, run, yaw } on foot
-function stepMap(s) { if (realmOf(s) !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, realmOf(s)); } return; } const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing)) visit(s, isl); } }
+function stepMap(s) { if (realmOf(s) !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, realmOf(s)); } return; } const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing) && visit(s, isl) && STYLES[isl.style]?.label && s.mode === 'foot') say(s, `${isl.port.name}, a ${STYLES[isl.style].label}. ${STYLES[isl.style].perk}`); } }
 export function step(s, input, dt = DT) {
   if (s.over || s.ending) return;
   s.t += dt; stepWeather(s);

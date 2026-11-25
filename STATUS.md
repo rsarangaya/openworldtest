@@ -451,3 +451,20 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - **Hitch:** sprite canvases are now kept in main memory (`willReadFrequently`) since the palette snap reads them straight back, and at most about 4 ms of new sprites are painted a frame (the rest appear on the next frames). Same fast-sail test in Chrome: worst frame 45 ms (was 143), none over 50 ms; 38 of 1066 frames over 26 ms (was 25 of 1190), average 19.4 ms (was 17.3). One run each, in an automation tab, so the averages are noisy.
 - **Speed doubled:** top sail speed 15 -> 30, oars 4.5 -> 9, every enemy kind's speed x2, fleet ships follow, turn and speed up to match, fast travel time halved; grounding damage is unchanged for the same impact.
 - 85 tests pass (three adjusted for the new speeds). Build 246.8 kB. Not heard: splash sound.
+
+## Round 60 (2026-11-24): town characters (fishing village, trade port, fortress town)
+- **`gen/style.js`:** every port gets a fixed character from the seed. Villages mostly fishing; towns fishing/trade/fortress/plain; cities trade/fortress/plain. Port Haven stays plain, Frostwatch is a fortress.
+- **Looks:** own wall and roof colours; landmarks built once on clear ground: fishing = drying racks with fish and hauled-up boats; trade = open market hall and loading crane; fortress = watchtower with banner and two lengths of curtain wall. Landmarks block walking (the hall only at its pillars and counter), villagers and props keep clear.
+- **Perks:** fishing: provisions 3g (not 5), one guard fewer; trade: buy 5% cheaper, sell 5% better (selling never pays more than buying costs); fortress: weapons 15% cheaper, two more guards. The type shows on the notice board title and in a message when you first walk in.
+- Also fixes an existing possible money loop: at a very high local standing, selling could pay more than buying.
+- 86 tests pass (1 new). Seen in Chrome: the watchtower, the market hall, drying racks and a boat. Not seen: the crane, curtain walls; Asgard keeps its longhouse look but gets the same landmarks. Build 251.5 kB. Not pushed.
+- Not done: the three other types (mining, smugglers, temple), different street layouts, villager clothing per type, Asgard-specific landmarks.
+
+## Round 61 (2026-11-24): no more spinning ships, debug world buttons, ships sit in the water
+- **Spinning forever (user):** an enemy or fleet ship touching land flicked its bow round at 7-14 rad/s and, if it could not get free, spun for ever. Now it stops short (or eases out if overlapping), turns away at 1.2-1.4 rad/s and holds that course for 2.5 s. A second cause: a fleet ship near its station was faster than its turning circle and orbited it; it now slows as it nears and rests there. Test added (pinned raiders on 8 islands, resting escort).
+- **Debug "World:" buttons:** they did nothing when a menu had paused the game, and silently nothing when already there. Now they work from the pause menu and say when you are already in that world. Seen working in Chrome by real button clicks.
+- **Ships look in the water:** the sea grid had one cell every ~17 units, so the drawn swell differed from the true one by up to a unit; the same vertex count is now packed round the camera (a couple of units under the ship). Ships sit 0.3 deeper, each has a dark shadow on the sea and a lapping foam collar even at rest (ships within 260).
+- 87 tests pass. Seen in Chrome: your ship and a merchantman, still and moving. Build 252.3 kB. Not pushed.
+
+## Round 62 (2026-11-24): no foam ring round ships
+- User did not like the foam circling the ships: removed the resting collar and the foam along the hull sides. Kept: the wake astern, the little bow foam when moving, spray in weather, and the dark shadow under each hull. 87 tests pass, build 251.9 kB. Seen in Chrome, still and moving. Not pushed.

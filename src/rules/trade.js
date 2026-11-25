@@ -1,13 +1,15 @@
 // Shops and trading: pure functions on the game state (no drawing, no DOM).
 import { GOODS, portPrice } from '../gen/world.js';
+import { foodCost } from '../gen/style.js';
 
 import { buyMult, sellMult, deed } from './rep.js';
 import { SHIPS, SHIP_ORDER, TRADE_IN } from './ships.js';
 import { hullBonus, holdBonus } from './parts.js';
 export const SHIP_PRICE = 300, RAM_PRICE = 500, FOOD_PRICE = 5, MAX_FOOD = 40;
 export const cargoCount = (s) => GOODS.reduce((n, g) => n + (s.cargo[g] || 0), 0);
-export const buyPrice = (s, port, g) => Math.round(portPrice(port, g, s.seed) * buyMult(s, port.iid));
-export const sellPrice = (s, port, g) => Math.floor(portPrice(port, g, s.seed) * 0.88 * sellMult(s, port.iid));
+// trade ports deal a little better both ways; selling back can never pay more than buying costs
+export const buyPrice = (s, port, g) => Math.round(portPrice(port, g, s.seed) * buyMult(s, port.iid) * (port.style === 'trade' ? 0.95 : 1));
+export const sellPrice = (s, port, g) => Math.min(buyPrice(s, port, g) - 1, Math.floor(portPrice(port, g, s.seed) * 0.88 * sellMult(s, port.iid) * (port.style === 'trade' ? 1.05 : 1)));
 
 export function buy(s, port, g, n = 1) {
   n = Math.min(n, s.hold - cargoCount(s), Math.floor(s.gold / buyPrice(s, port, g)));
@@ -19,10 +21,10 @@ export function sell(s, port, g, n = 1) {
   if (n <= 0) return 0;
   s.gold += n * sellPrice(s, port, g); s.cargo[g] -= n; deed(s, 'trade', port.iid, n); return n;
 }
-export function buyFood(s, n = 1) {
-  n = Math.min(n, MAX_FOOD - s.food, Math.floor(s.gold / FOOD_PRICE));
+export function buyFood(s, n = 1, port = null) {
+  const each = foodCost(port); n = Math.min(n, MAX_FOOD - s.food, Math.floor(s.gold / each));
   if (n <= 0) return 0;
-  s.gold -= n * FOOD_PRICE; s.food += n; return n;
+  s.gold -= n * each; s.food += n; return n;
 }
 export function repair(s) {
   if (!s.ship) return 0;

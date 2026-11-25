@@ -2,6 +2,7 @@
 // A new issue comes out every ISSUE_LEN seconds of play. An issue is a pure function of (world seed, town, issue number, what the player has done), so a
 // town always posts the same notices for the same issue, rival crews grow from issue to issue (follow them as you sail), and towns hear about the player.
 import { rngFor, pick } from '../gen/rng.js';
+import { STYLES } from '../gen/style.js';
 import { asgardLine } from './lore.js';
 import { captainName, shipName, islandName } from '../gen/names.js';
 import { GOODS, islandTown } from '../gen/world.js';
@@ -80,6 +81,6 @@ export function newsFor(s, isl) {
   for (let i = 0; i < Math.min(2, own.length); i++) { const [h, body] = own[(n + i + (own.length > 2 ? n : 0)) % own.length](s, town); if (!items.some((q) => q.head === h)) items.push({ tag: 'About the captain', head: h, body }); }
   if (r() < 0.6) items.push({ tag: 'Odds and ends', head: 'Notice', body: pick(r, EGGS) });
   s.newsSeen ||= {}; const fresh = (s.newsSeen[isl.id] || 0) < n;
-  return { title: `${isl.port?.name || isl.name}: notice board`, issue: n, fresh, items };
+  return { title: `${isl.port?.name || isl.name}${STYLES[isl.style]?.label ? ' (' + STYLES[isl.style].label + ')' : ''}: notice board`, issue: n, fresh, items };
 }
 export const markRead = (s, isl) => { s.newsSeen ||= {}; s.newsSeen[isl.id] = issueOf(s); };

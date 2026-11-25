@@ -90,8 +90,8 @@ const sailMat = (hm, x, trim) => mul(hm, mul(tr(x), mul(model(0, 0, 0, -trim * 1
 // ship wakes: foam on the water built from where each stern has been (see wake.js); one small dynamic buffer per ship, freed soon after it is gone
 const wakes = new Map(); let wakeFrame = 0;
 function wake(objects, id, x, z, yaw, L, B, speed, t) {
-  let w = wakes.get(id); if (!w) { if (speed < 1.2) return; w = newTrail(); w.h = renderer.upload({ data: () => w.arr, count: 0 }); wakes.set(id, w); }
-  w.used = wakeFrame; feed(w, x, z, yaw, L, speed, t); if (!w.pts.length && speed < 1.2) return;
+  let w = wakes.get(id); if (!w) { if (Math.hypot(x - cam.x, z - cam.z) > 260) return; w = newTrail(); w.h = renderer.upload({ data: () => w.arr, count: 0 }); wakes.set(id, w); }
+  w.used = wakeFrame; feed(w, x, z, yaw, L, speed, t);
   const n = buildWake(w, x, z, yaw, L, B, speed, t); if (!n) return; w.h.count = n; renderer.update(w.h, w.arr.subarray(0, n * 9)); objects.push({ m: w.h, mat: IDENT, tint: [1, 1, 1] });
 }
 const sweepWakes = () => { wakeFrame++; if (wakeFrame % 120) return; for (const [id, w] of wakes) if (wakeFrame - w.used > 120) { renderer.free(w.h); wakes.delete(id); } };
@@ -104,7 +104,7 @@ const homeIsland = () => sectorIslands(SEED, 0, 0)[0];
 const shipMat = (x, z, yaw, t, heel = 0, sink = 0) => {
   const c = Math.cos(yaw), sn = Math.sin(yaw), h0 = wave(x, z, t), hf = wave(x + c * 4, z + sn * 4, t), hb = wave(x - c * 4, z - sn * 4, t), hs = wave(x - sn * 2.5, z + c * 2.5, t), hp = wave(x + sn * 2.5, z - c * 2.5, t);
   const stp = (v, q) => Math.round(v / q) * q;
-  return model(x, stp(h0 * 1.0 - 0.15 - 9 * sink ** 1.4, 0.05), z, yaw, stp(Math.atan2(hf - hb, 8) * 1.15 + sink * 0.5, 0.015), stp(Math.atan2(hs - hp, 5) * 1.1 + heel + sink * 0.9 + Math.sin(t * 1.3 + x * 0.05) * 0.03, 0.015));
+  return model(x, stp(h0 * 1.0 - 0.45 - 9 * sink ** 1.4, 0.05), z, yaw, stp(Math.atan2(hf - hb, 8) * 1.15 + sink * 0.5, 0.015), stp(Math.atan2(hs - hp, 5) * 1.1 + heel + sink * 0.9 + Math.sin(t * 1.3 + x * 0.05) * 0.03, 0.015));
 };
 const poseFoot = () => ({ x: s.foot.x, y: s.foot.y + 1.7 + (s.deck ? wave(s.foot.x, s.foot.z, T) - 0.15 : 0), z: s.foot.z, yaw: view.yaw, pitch: view.pitch });
 function poseShip() {
@@ -374,7 +374,7 @@ const weatherFx = createWeatherFx((delay, gain) => audio.thunder(delay, gain));
 const dbg = debugEnabled() ? createDebug({
   get: () => s, say,
   teleport: () => { clearLife(); updateSectors(s.ship.x, s.ship.z, true); cam.blend = 1; view.yaw = s.ship.yaw; orbit.yaw = 0; },
-  warp: (to) => { if ((s.realm || 'terra') === to) return; s.warp = { to, t0: s.t, ang: -1.5 }; startWarp(to); },
+  warp: (to) => { if ((s.realm || 'terra') === to) { say(s, 'You are already in ' + to + '.'); return; } if (phase === 'warp') return; if (phase === 'paused' || phase === 'panel') { document.getElementById('pause')?.classList.remove('on'); document.getElementById('panel')?.classList.remove('on'); } phase = 'play'; s.cine = null; s.warp = { to, t0: s.t, ang: -1.5 }; startWarp(to); },
   info: () => 'fps ' + (window.__fps || 0).toFixed(0) + '  cpu ' + (window.__ms?.step || 0).toFixed(2) + '+' + (window.__ms?.draw || 0).toFixed(2) + ' ms  sectors ' + sectors.size + (performance.memory ? '  heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : ''),
 }) : null;
 // ---------------------------------------------------------------- main loop

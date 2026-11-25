@@ -133,8 +133,44 @@ function vikingTrim(m, b, y0, y1, ry, alongX) {
   for (let k = 0; k < Math.floor((alongX ? b.w : b.d) / 0.9); k++) { const u = (k + 0.5) * 0.9 - (alongX ? hw : hd); for (const s of [-1, 1]) { if (alongX) m.box(b.x + u, y0 + b.h / 2, b.z + s * (hd + 0.03), 0.07, b.h, 0.05, dk); else m.box(b.x + s * (hw + 0.03), y0 + b.h / 2, b.z + u, 0.05, b.h, 0.07, dk); } } // plank seams
   m.box(b.x, ry + 0.15, b.z, alongX ? 1.4 : 0.9, 0.25, alongX ? 0.9 : 1.4, [0.1, 0.08, 0.07]); // smoke hole
 }
+// each kind of town has its own colours: weathered boards and thatch, bright plaster and red tile, or grey stone and slate
+const STYLE_LOOK = {
+  fishing: { wall: [[0.52, 0.39, 0.27], [0.4, 0.5, 0.52], [0.62, 0.52, 0.4]], roof: [[0.72, 0.6, 0.32], [0.62, 0.5, 0.26], [0.5, 0.44, 0.3]] },
+  trade: { wall: [[0.96, 0.86, 0.6], [0.9, 0.6, 0.45], [0.72, 0.84, 0.94]], roof: [[0.76, 0.24, 0.16], [0.18, 0.4, 0.6], [0.7, 0.32, 0.14]] },
+  fortress: { wall: [[0.56, 0.57, 0.62], [0.46, 0.46, 0.5], [0.64, 0.62, 0.6]], roof: [[0.22, 0.27, 0.36], [0.3, 0.3, 0.34], [0.2, 0.24, 0.3]] },
+};
+function landmark(m, k, x, y, z, w, d, seed) {
+  const wood = [0.42, 0.29, 0.18], dark = [0.24, 0.17, 0.11], stone = [0.55, 0.55, 0.6], cloth = [0.75, 0.18, 0.14];
+  if (k === 'rack') { // drying racks hung with fish
+    for (const s of [-1, 0, 1]) m.box(x + s * (w / 2 - 0.15), y + 1.3, z, 0.18, 2.6, 0.18, wood);
+    for (const h of [2.45, 1.55]) m.box(x, y + h, z, w, 0.12, 0.12, wood);
+    for (let i = 0; i < 9; i++) { const fx = x - w / 2 + 0.45 + i * ((w - 0.9) / 8), h = i % 2 ? 2.05 : 1.15; m.box(fx, y + h, z, 0.34, 0.68, 0.16, [0.92, 0.58, 0.34]); m.box(fx, y + h - 0.42, z, 0.5, 0.18, 0.12, [0.74, 0.36, 0.2]); }
+  } else if (k === 'boat') { // a boat hauled up on blocks, a net heaped beside it
+    for (const [dx, len, wid] of [[0, 3, 1.9], [1.9, 1.1, 1.3], [-1.9, 1.1, 1.5], [2.65, 0.5, 0.6]]) m.box(x + dx, y + 0.7, z, len, 0.8, wid, wood, 0.25);
+    m.box(x, y + 1.14, z, 3.2, 0.08, 1.35, dark); for (const s of [-1, 1]) { m.box(x, y + 1.2, z + s * 0.95, 4.4, 0.16, 0.14, [0.62, 0.46, 0.28]); m.box(x + s * 1.3, y + 0.2, z, 0.5, 0.4, 1.4, dark); }
+    m.blob(x - 1.2, y + 0.15, z + 1.7, 0.7, [0.55, 0.5, 0.36], 0.4);
+  } else if (k === 'hall') { // an open market hall: four pillars, a tiled roof, counters of goods
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(x + sx * (w / 2 - 0.3), y + 1.9, z + sz * (d / 2 - 0.3), 0.55, 3.8, 0.55, [0.92, 0.88, 0.78]);
+    const ex = w / 2 + 0.6, ez = d / 2 + 0.6, e = y + 3.7, ry = y + 5.6, red = [0.76, 0.24, 0.16], rd = [0.6, 0.18, 0.12];
+    m.quad([x - ex, e, z - ez], [x + ex, e, z - ez], [x + ex, ry, z], [x - ex, ry, z], red); m.quad([x + ex, e, z + ez], [x - ex, e, z + ez], [x - ex, ry, z], [x + ex, ry, z], red);
+    m.tri([x - w / 2, e, z - d / 2], [x - w / 2, ry - 0.2, z], [x - w / 2, e, z + d / 2], rd); m.tri([x + w / 2, e, z + d / 2], [x + w / 2, ry - 0.2, z], [x + w / 2, e, z - d / 2], rd);
+    m.box(x, y + 0.55, z - d * 0.22, w * 0.55, 1.1, 0.9, wood); for (let i = 0; i < 7; i++) m.box(x - w * 0.24 + i * w * 0.08, y + 1.28, z - d * 0.22, 0.32, 0.34, 0.5, [[0.85, 0.3, 0.2], [0.95, 0.75, 0.2], [0.3, 0.65, 0.3], [0.4, 0.3, 0.7]][i % 4]);
+    for (let i = -4; i <= 4; i++) m.box(x + i * (w / 9), e - 0.25, z + ez - 0.05, w / 10, 0.5, 0.1, i % 2 ? [0.95, 0.95, 0.9] : red);
+  } else if (k === 'crane') { // a loading crane
+    m.box(x, y + 0.4, z, 2.4, 0.8, 2.4, stone, 0.15); m.box(x, y + 3.6, z, 0.4, 6, 0.4, wood); m.box(x + 1.4, y + 6.5, z, 3.6, 0.3, 0.3, wood); m.box(x - 0.7, y + 5.7, z, 1.4, 0.2, 0.2, dark);
+    m.line([x + 3, y + 6.4, z], [x + 3, y + 3, z], 0.08, [0.7, 0.62, 0.44]); m.box(x + 3, y + 2.5, z, 1, 1, 1, [0.66, 0.46, 0.26], 0.2);
+  } else if (k === 'tower') { // a watchtower with battlements and the town banner
+    m.box(x, y + 5, z, w - 0.8, 10, d - 0.8, stone, 0.2); m.box(x, y + 10.4, z, w, 0.8, d, [0.48, 0.48, 0.53]);
+    for (let i = 0; i < 3; i++) for (const s of [-1, 1]) { m.box(x - w / 2 + 0.5 + i * (w / 2 - 0.5), y + 11.4, z + s * (d / 2 - 0.3), 0.9, 1.2, 0.6, stone); m.box(x + s * (w / 2 - 0.3), y + 11.4, z - d / 2 + 0.5 + i * (d / 2 - 0.5), 0.6, 1.2, 0.9, stone); }
+    m.box(x, y + 1.2, z + (d - 0.8) / 2 + 0.03, 1.2, 2.4, 0.08, dark); for (const h of [4.5, 7.5]) m.box(x, y + h, z + (d - 0.8) / 2 + 0.03, 0.3, 1, 0.08, [0.1, 0.1, 0.12]);
+    m.box(x, y + 13.2, z, 0.16, 4.4, 0.16, wood); m.box(x + 0.85, y + 14.7, z, 1.6, 1.1, 0.08, cloth);
+  } else if (k === 'wall') { // a length of curtain wall
+    m.box(x, y + 1.7, z, w, 3.4, d - 0.3, stone, 0.2); for (let i = 0; i < Math.floor(w / 1.4); i++) m.box(x - w / 2 + 0.55 + i * 1.4, y + 3.8, z, 0.8, 0.8, d, [0.5, 0.5, 0.55]);
+    m.box(x, y + 2, z + (d - 0.3) / 2 + 0.03, 0.9, 1.4, 0.06, cloth);
+  }
+}
 function building(m, isl, b) {
-  const vik = isl.theme === 'asgard', wall = vik ? VK_WALL[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
+  const vik = isl.theme === 'asgard', sl = STYLE_LOOK[isl.style], wall = vik ? VK_WALL[b.roof % 3] : sl ? sl.wall[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : sl ? sl.roof[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
   m.box(b.x, y0 - 1.4, b.z, b.w + 0.4, 2.8, b.d + 0.4, [0.44, 0.42, 0.4]); // foundation reaches below the terrain on any slope
   if (!b.door) m.box(b.x, y0 + 0.3, b.z, b.w + 0.25, 0.6, b.d + 0.25, STONE, 0.15); // stone plinth (houses only: shops are hollow)
   if (b.door) {
@@ -259,6 +295,7 @@ export function* islandGroundSteps(isl) {
 export function islandStructs(isl) {
   const m = new Mesh(), town = islandTown(isl);
   for (const b of town.buildings) building(m, isl, b);
+  for (const q of town.marks || []) { m.box(q.x, q.pad - 1.2, q.z, q.w, 2.4, q.d, [0.46, 0.43, 0.38]); landmark(m, q.k, q.x, q.pad, q.z, q.w, q.d, isl.seed); } // each stands on its own footing
   if (isl.port) { // dock: planks, pilings, lanterns, crates, barrels, rope
     const d = isl.port.dock, len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), n = Math.ceil(len / 2) + 1, ux = (d.x1 - d.x0) / len, uz = (d.z1 - d.z0) / len, rr = rngFor(isl.seed, 12);
     for (let k = 0; k < n; k++) {
@@ -456,7 +493,8 @@ export function ballMesh() { const m = new Mesh(); m.blob(0, 0, 0, 0.45, [0.1, 0
 // flat grid of (x,0,z) in [-1,1]; the shader scales/moves it and adds waves
 export function waterMesh(N = 140) {
   const m = new Mesh();
-  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const f = (a, b) => [(a / N) * 2 - 1, 0, (b / N) * 2 - 1]; m.quad(f(i, j), f(i, j + 1), f(i + 1, j + 1), f(i + 1, j), [1, 1, 1]); }
+  const warp = (u) => Math.sign(u) * (0.12 * Math.abs(u) + 0.88 * Math.abs(u) ** 2.4); // fine cells near the middle (under the ship), coarse far out where haze hides them
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const f = (a, b) => [warp((a / N) * 2 - 1), 0, warp((b / N) * 2 - 1)]; m.quad(f(i, j), f(i, j + 1), f(i + 1, j + 1), f(i + 1, j), [1, 1, 1]); }
   return m;
 }
 const WOODC = WOOD; void WOODC; void townsfolk;

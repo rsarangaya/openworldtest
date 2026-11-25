@@ -926,10 +926,10 @@ test('wake: foam lies on the water behind the ship, follows turns, stays inside 
   const { newTrail, feed, buildWake, TTL, MAX_QUADS } = await import('../src/wake.js'); const { wave } = await import('../src/rules/sea.js');
   const w = newTrail(); let x = 0, z = 0, yaw = 0, t = 0, n = 0;
   for (let i = 0; i < 600; i++) { t += 1 / 30; yaw += i > 300 ? 0.008 : 0; x += Math.cos(yaw) * 15 / 30; z += Math.sin(yaw) * 15 / 30; feed(w, x, z, yaw, 6, 15, t); n = buildWake(w, x, z, yaw, 6, 2.2, 15, t); assert.ok(n <= MAX_QUADS * 6); }
-  assert.ok(n > 600, 'a full wake: ' + n);
-  let behind = 0; for (let i = 0; i < n * 9; i += 9) { const vx = w.arr[i], vy = w.arr[i + 1], vz = w.arr[i + 2]; assert.ok(Number.isFinite(vx + vy + vz)); const lift = vy - wave(vx, vz, t); assert.ok(lift > 0 && lift < 1.2, 'on the surface: ' + lift); if (Math.hypot(vx - x, vz - z) > 30) behind++; }
+  assert.ok(n > 500, 'a full wake: ' + n);
+  let behind = 0; for (let i = 0; i < n * 9; i += 9) { const vx = w.arr[i], vy = w.arr[i + 1], vz = w.arr[i + 2]; assert.ok(Number.isFinite(vx + vy + vz)); const lift = vy - wave(vx, vz, t); assert.ok(lift > -0.4 && lift < 1.2, 'on the surface: ' + lift); if (Math.hypot(vx - x, vz - z) > 30) behind++; }
   assert.ok(behind > 100, 'it trails far astern');
-  for (let i = 0; i < Math.ceil((TTL + 1) * 30); i++) { t += 1 / 30; feed(w, x, z, yaw, 6, 0, t); } assert.equal(buildWake(w, x, z, yaw, 6, 2.2, 0, t), 0, 'gone after stopping');
+  for (let i = 0; i < Math.ceil((TTL + 1) * 30); i++) { t += 1 / 30; feed(w, x, z, yaw, 6, 0, t); } { const rest = buildWake(w, x, z, yaw, 6, 2.2, 0, t); assert.ok(rest > 0 && rest <= 7 * 18, 'only the shadow under the hull is left, no foam round her: ' + rest); for (let i = 0; i < rest * 9; i += 9) assert.ok(Math.hypot(w.arr[i] - x, w.arr[i + 2] - z) < 6 * 1.6, 'nothing astern'); }
   for (let i = 0; i < 30; i++) { t += 1 / 30; x += 0.5; feed(w, x, z, 0, 6, 15, t); } feed(w, x + 900, z, 0, 6, 15, t + 0.1); assert.ok(w.pts.length <= 1, 'a teleport clears the trail');
 });
 
@@ -962,4 +962,42 @@ test('weather: stable spells, clear at the start, cold places snow instead of ra
   g.ship.sail = 0.3; const h1 = g.hull; for (let i = 0; i < 60 * 30; i++) { g.enemies.clear(); g.shots.length = 0; g.ship.x = 1500; g.ship.z = 1500; step(g, {}, 1 / 60); } assert.equal(g.hull, h1, 'reefed sails are safe');
   assert.equal(weatherNow(g).kind, 'storm'); setRough(1); const calmSea = Math.abs(wave(1500, 1500, 3)); setRough(roughOf(storm)); assert.ok(Math.abs(wave(1500, 1500, 3)) > calmSea * 1.4); setRough(1); weatherForce.kind = null;
   for (const k of KINDS_W) { weatherForce.kind = k; assert.equal(weatherAt(SEED, 9).kind, k); } weatherForce.kind = null;
+});
+
+test('town characters: fixed per port, three kinds with their own landmarks that never overlap or block shops, villagers keep clear, and their perks work', async () => {
+  const { STYLES, foodCost, weaponMul, extraGuards } = await import('../src/gen/style.js'); const { buyPrice, sellPrice, buyFood } = await import('../src/rules/trade.js'); const { islandMesh } = await import('../src/gen/mesh.js'); const { canStand: stand } = await import('../src/rules/game.js');
+  const seen = {}; const g = newGame(SEED); g.gold = 1000; let marked = 0, missing = 0;
+  for (const isl of allIslands(6)) {
+    if (!isl.port) continue; assert.ok(STYLES[isl.style], 'has a character'); assert.equal(isl.port.style, isl.style); seen[isl.style] = (seen[isl.style] || 0) + 1;
+    const t = islandTown(isl); if (isl.style === 'plain') { assert.equal(t.marks.length, 0); continue; }
+    marked++; if (!t.marks.length) missing++;
+    for (const m of t.marks) { for (const b of t.buildings) assert.ok(Math.abs(b.x - m.x) >= (b.w + m.w) / 2 - 0.01 || Math.abs(b.z - m.z) >= (b.d + m.d) / 2 - 0.01, 'landmark inside a building'); for (const n of t.npcs) assert.ok(Math.abs(n.x - m.x) > m.w / 2 || Math.abs(n.z - m.z) > m.d / 2, 'landmark on a person'); }
+    for (const f of townsfolk(isl)) for (let k = 0; k < 20; k++) { const p = folkPos(f, k * 3.1); for (const m of t.marks) assert.ok(Math.abs(p.x - m.x) > m.w / 2 || Math.abs(p.z - m.z) > m.d / 2, 'villager walks through a ' + m.k); }
+    islandMesh(isl);
+    if (isl.style === 'trade') for (const good of ['rum', 'silk']) for (const rep of [-80, 0, 100]) { g.rep.local[isl.id] = rep; assert.ok(sellPrice(g, isl.port, good) < buyPrice(g, isl.port, good), 'no money loop'); }
+  }
+  assert.ok(seen.fishing > 2 && seen.trade > 1 && seen.fortress > 1, JSON.stringify(seen)); assert.ok(missing <= marked * 0.1, 'landmarks found room: ' + missing + '/' + marked);
+  assert.equal(sectorIslands(SEED, 0, 0)[0].style, 'plain');
+  assert.equal(foodCost({ style: 'fishing' }), 3); assert.equal(foodCost({}), 5); assert.ok(weaponMul({ style: 'fortress' }) < 1); assert.equal(extraGuards('fortress'), 2);
+  g.food = 0; const g0 = g.gold; buyFood(g, 5, { style: 'fishing' }); assert.equal(g0 - g.gold, 15);
+});
+
+test('other ships never spin on the spot: pinned against land they back out and turn at a sailing pace, and a resting fleet ship stays put', async () => {
+  const { hullHit } = await import('../src/rules/game.js');
+  const turnRate = (g, e, secs) => { let max = 0, total = 0, prev = e.yaw; for (let i = 0; i < secs * 60; i++) { g.hull = 100; step(g, {}, 1 / 60); const d = Math.abs(Math.atan2(Math.sin(e.yaw - prev), Math.cos(e.yaw - prev))); prev = e.yaw; max = Math.max(max, d * 60); total += d; } return { max, total }; };
+  let tried = 0;
+  for (const isl of allIslands(3).filter((q) => q.r > 40).slice(0, 8)) {
+    const g = newGame(SEED); g.mode = 'ship'; g.food = 99; g.ship = { x: isl.x + isl.r * 4, z: isl.z, yaw: 0, speed: 0, sail: 0, cd: [0, 0] };
+    // a raider placed half on the beach, pointing inland
+    let d = isl.r * 1.6; while (d > 0 && !hullHit(g, isl.x + d, isl.z, Math.PI, 10, 2.2)) d -= 1;
+    const e = { id: 'x', seed: 3, kind: 'raider', x: isl.x + d, z: isl.z, yaw: Math.PI, name: 'x', captain: 'x', gen: false, speed: 5, hp: 38, maxHp: 38, cd: [99, 99] }; g.enemies.set('x', e);
+    const r = turnRate(g, e, 20); tried++;
+    assert.ok(r.max <= 1.25, 'turn rate ' + r.max.toFixed(2) + ' rad/s'); assert.ok(r.total < 14, 'not going round and round: ' + r.total.toFixed(1)); assert.ok(!hullHit(g, e.x, e.z, e.yaw, 10, 2.2), 'she got clear of the shore');
+  }
+  assert.ok(tried >= 4);
+  const g = newGame(SEED); g.mode = 'ship'; g.food = 99; g.ship = { x: 1500, z: 1500, yaw: 0, speed: 0, sail: 0, cd: [0, 0] };
+  const f = { id: 'f1', kind: 'raider', seed: 1, name: 'F', x: 1500 - 60, z: 1520, yaw: 2, speed: 8, hp: 38, maxHp: 38, captain: 'c', cd: 9, ax: 0, az: 0 }; g.fleet = [f]; g.crew = [{ id: 'c', role: 'sailor', name: 'c', wage: 0, morale: 90, captain: 'f1' }];
+  const quiet = () => { g.enemies.clear(); g.hull = 100; step(g, {}, 1 / 60); }; for (let i = 0; i < 60 * 40; i++) quiet();
+  const a = { x: f.x, z: f.z, yaw: f.yaw }; let turned = 0, prev = f.yaw; for (let i = 0; i < 60 * 20; i++) { quiet(); turned += Math.abs(Math.atan2(Math.sin(f.yaw - prev), Math.cos(f.yaw - prev))); prev = f.yaw; }
+  assert.ok(turned < 1 && Math.hypot(f.x - a.x, f.z - a.z) < 8, 'the escort lies quiet: turned ' + turned.toFixed(2) + ', moved ' + Math.hypot(f.x - a.x, f.z - a.z).toFixed(1));
 });
