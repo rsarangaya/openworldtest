@@ -8,7 +8,7 @@ Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third 
 cd open-world-test
 npm install        # once
 npm test           # 99 tests, all passing
-npm run build      # writes index.html (288.6 kB, 114.1 kB gzipped)
+npm run build      # writes index.html (289.4 kB, 114.4 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -564,3 +564,10 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - Speed (Node, port islands): the extra buildings first cost ground building 4.8 -> 6.7 ms per island (worst step 6.7 -> 8.9). Points away from the town now skip the building checks and shared ground points are computed once: about 5.4 ms (worst step 5.5-6.5). Height lookups stay about 20% dearer (0.48 -> 0.58 ms per 2000), from the levelling and the extra buildings.
 - Build 287.7 -> 288.6 kB.
 - 99 tests pass. Seen in Chrome (before the speed changes, which leave heights identical and the ground the same to rounding): Town Golden (a village that had no station) with its station, and two other towns from the dock; no console errors. Not seen: Asgard, and a walk through the new jails by hand.
+
+## Round 75 (2026-11-26): graphics speed
+- **Measured first** (instrumented copy, one machine, GPU pass timestamps): CPU about 0.8 ms a frame, fast sailing had no frame over 26 ms, so the GPU was the thing to cut.
+- Palette snap is one lookup in a 64x64x64 table (built once, about 55 ms at start) instead of 43 comparisons per pixel. Palette colours map as before; a colour almost exactly between two palette colours may now pick the other one (about 4% of random colours).
+- Sea shader works out the island calm once per pixel instead of five times; the sky is drawn last, only where nothing covers it; water no longer blends.
+- GPU ms per frame, before -> after: 270p town 3.5 -> 2.4, sea 3.4 -> 2.7-3.5; 720p town 10.0 -> 3.6, sea 16.1 -> 5.0.
+- 99 tests pass; build 289.4 kB. Seen in Chrome: sea and town look the same by eye, no console errors. Not seen: soft and mid looks, storms, Asgard, a weak GPU.
