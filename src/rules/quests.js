@@ -58,7 +58,7 @@ export function advanceQuests(s, say) {
     s.gold += q.reward; s.score += q.reward; s.quest++;
     say(s, `Quest complete: ${q.title}${q.reward ? ` (+${q.reward} gold)` : ''}`);
     const n = QUESTS[s.quest]; if (n) say(s, `New quest: ${n.title}`);
-    deed(s, 'quest'); s.events.push({ type: 'quest' }); const lq = learnQuest(s, q.id); if (lq) say(s, lq);
+    deed(s, 'quest'); s.events.push({ type: 'quest' }); if (q.id === 'map') s.events.push({ type: 'choice' }); const lq = learnQuest(s, q.id); if (lq) say(s, lq);
   }
 }
 

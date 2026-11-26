@@ -406,7 +406,7 @@ function advance(dt, maxSteps) {
       if (ev.type === 'cannon') audio.boom(1 / (1 + Math.hypot(ev.x - (s.ship?.x || 0), ev.z - (s.ship?.z || 0)) / 60));
       else if (ev.type === 'slash') { audio.slash(ev.hit); ui.slash(ev.w, ev.hit); } else if (ev.type === 'kill') audio.boom(0.25); else if (ev.type === 'grapple') { view.yaw = ev.yaw; view.pitch = 0; audio.boom(0.5); } else if (ev.type === 'won') { audio.quest(); phase = 'panel'; unlock(); ui.prize(s, () => { phase = 'play'; lock(); saveGame(s); }); } else if (ev.type === 'arrest') { view.yaw = s.foot.yaw = ev.yaw; view.pitch = 0; mouseDown = false; keys.clear(); }
       else if (ev.type === 'cine') { ui.cine(true); audio.boom(0.8); audio.crack(); } else if (ev.type === 'break') { ui.flash(); rebuildWall(); audio.iceBreak(); } else if (ev.type === 'banner') { ui.cine(false); ui.banner(ev.text, ev.sub, 4200); audio.quest(); saveGame(s); } else if (ev.type === 'warp') startWarp(ev.to);
-      else if (ev.type === 'hit') { audio.hit(); if (s.mode === 'foot') ui.hurt(); } else if (ev.type === 'coin' || ev.type === 'sunk') audio.coin(); else if (ev.type === 'quest') { audio.quest(); saveGame(s); }
+      else if (ev.type === 'hit') { audio.hit(); if (s.mode === 'foot') ui.hurt(); } else if (ev.type === 'coin' || ev.type === 'sunk') audio.coin(); else if (ev.type === 'quest') { audio.quest(); saveGame(s); } else if (ev.type === 'choice') { phase = 'panel'; unlock(); ui.choice(() => { phase = 'play'; lock(); }); }
     }
     s.events.length = 0;
     saveT += dt; if (saveT > 30) { saveT = 0; saveGame(s); }

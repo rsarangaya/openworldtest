@@ -84,6 +84,12 @@ export function createUI() {
       page('Quick tutorial', '<p><b class=gold>On foot</b><br><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> walk · <kbd>Shift</kbd> run · <kbd>F</kbd> talk, use, board · <kbd>Q</kbd> or click to attack · <kbd>1</kbd>-<kbd>5</kbd> weapon</p><p><b class=gold>At sea</b><br><kbd>A</kbd> <kbd>D</kbd> steer · <kbd>W</kbd> <kbd>S</kbd> sails · <kbd>Z</kbd> <kbd>C</kbd> boom · <kbd>Q</kbd> <kbd>E</kbd> fire cannons · <kbd>F</kbd> dock</p><p><b class=gold>Quests</b><br><kbd>Tab</kbd> opens the quest log, where you pick which quest to follow. The arrow under the quest shows the way. <kbd>Esc</kbd> pauses.</p><p>Start by walking to the shipwright and buying a boat.</p>', 'Start playing', () => { on('panel', false); onClose?.(); }));
   };
 
+  // after the buried cache: the story can wait
+  ui.choice = (onClose) => {
+    $('panel').innerHTML = '<div class=box><h2>Your call</h2><p>From this point you can go straight to the rim, or explore this world and its towns and cities first.</p><button id=wN>Continue</button></div>';
+    $('wN').onclick = () => { on('panel', false); onClose?.(); }; on('panel', true);
+  };
+
   // ------------------------------------------------------------ ship tips: shown for a while each time you board
   let tipT = 0;
   ui.tips = (show) => {

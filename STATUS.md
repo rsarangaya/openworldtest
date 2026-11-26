@@ -8,7 +8,7 @@ Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third 
 cd open-world-test
 npm install        # once
 npm test           # 99 tests, all passing
-npm run build      # writes index.html (289.4 kB, 114.4 kB gzipped)
+npm run build      # writes index.html (289.8 kB, 114.5 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -570,4 +570,8 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - Palette snap is one lookup in a 64x64x64 table (built once, about 55 ms at start) instead of 43 comparisons per pixel. Palette colours map as before; a colour almost exactly between two palette colours may now pick the other one (about 4% of random colours).
 - Sea shader works out the island calm once per pixel instead of five times; the sky is drawn last, only where nothing covers it; water no longer blends.
 - GPU ms per frame, before -> after: 270p town 3.5 -> 2.4, sea 3.4 -> 2.7-3.5; 720p town 10.0 -> 3.6, sea 16.1 -> 5.0.
-- 99 tests pass; build 289.4 kB. Seen in Chrome: sea and town look the same by eye, no console errors. Not seen: soft and mid looks, storms, Asgard, a weak GPU.
+- 99 tests pass; build 289.8 kB. Seen in Chrome: sea and town look the same by eye, no console errors. Not seen: soft and mid looks, storms, Asgard, a weak GPU.
+
+## Round 76 (2026-11-26): your call after the cache
+
+Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explore this world and its towns and cities first. 99 tests pass; seen in Chrome. 289.8 kB.
