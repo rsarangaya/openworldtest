@@ -1,5 +1,11 @@
 # Plan
 
+## Requirement: think lean, always moving forward
+Applies to every item in this plan, before it counts as done.
+- **Lean:** the smallest change that does the job. Reuse what exists (data, sprites, systems) before adding code, files or assets. No dead code.
+- **Optimize first:** measure CPU time and build size against the last pushed version, and fix what got worse before pushing. Cache, and build in small per-frame budgets.
+- **Always moving forward:** ship each step playable and take the next item. Do not stall on polish or rework; note what is left in STATUS.md and carry on.
+
 ## The two concepts
 
 **A. Free-roam sea world.** Endless procedural seas of islands and landmasses. Sail between them, then dock and walk on foot. Ports, trade, ship fights, buried treasure. (Chosen. The player is an ordinary person, not a pirate.)
@@ -204,7 +210,7 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 
 **Open, in a suggested order**
 1. Gather player feedback, and check by eye and ear what has only been tested (story fights, event crowds, jail, map, sounds).
-2. Every town gets real buildings, including a guard station with a jail (today many ports have none).
+2. (Done, round 74) Every town gets real buildings, including a guard station with a jail.
 3. Rest of the town stories (see "Living towns" below).
 4. First monster (see below; waiting for the user's choice).
 5. Asgard second pass: rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.

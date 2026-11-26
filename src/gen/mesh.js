@@ -276,12 +276,14 @@ export function* islandGroundSteps(isl) {
   // finer cells wherever a building stands, so the ground meets the walls and floors exactly (no terrain poking through a shop floor)
   const vtx = (x, z, yy) => { const y = yy ?? Math.max(-2, islandHeight(isl, x, z)), e = 0.7, nx = islandHeight(isl, x - e, z) - islandHeight(isl, x + e, z), nz = islandHeight(isl, x, z - e) - islandHeight(isl, x, z + e), l = Math.hypot(nx, 2 * e, nz), nrm = [nx / l, (2 * e) / l, nz / l]; return [[x, y, z], colorAt(x, y, z, nrm), nrm]; };
   const nearBuilding = (x0, z0, x1, z1) => town.buildings.some((b) => x1 > b.x - b.w / 2 - 2.2 && x0 < b.x + b.w / 2 + 2.2 && z1 > b.z - b.d / 2 - 2.2 && z0 < b.z + b.d / 2 + 2.2);
+  const fine = new Map(); // fine-grid points on an edge shared by two cells are worked out once
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     if (i === 0 && j % 12 === 11) yield;
     if (Math.max(h(i, j), h(i + 1, j), h(i + 1, j + 1), h(i, j + 1)) < -1.5) continue;
     const x0 = isl.x - ext + i * st, z0 = isl.z - ext + j * st;
     if (isl.port && nearBuilding(x0, z0, x0 + st, z0 + st)) {
-      const S = 3, q = (a, b) => vtx(x0 + (a * st) / S, z0 + (b * st) / S, a === 0 || b === 0 || a === S || b === S ? (h(i, j) * (S - a) + h(i + 1, j) * a) / S * (S - b) / S + (h(i, j + 1) * (S - a) + h(i + 1, j + 1) * a) / S * b / S : undefined), G = [];
+      const S = 3, make = (a, b) => vtx(x0 + (a * st) / S, z0 + (b * st) / S, a === 0 || b === 0 || a === S || b === S ? (h(i, j) * (S - a) + h(i + 1, j) * a) / S * (S - b) / S + (h(i, j + 1) * (S - a) + h(i + 1, j + 1) * a) / S * b / S : undefined), G = [];
+      const q = (a, b) => { const key = (j * S + b) * (N * S + 1) + i * S + a; let v = fine.get(key); if (!v) fine.set(key, (v = make(a, b))); return v; };
       for (let b2 = 0; b2 <= S; b2++) for (let a2 = 0; a2 <= S; a2++) G.push(q(a2, b2));
       const g = (a2, b2) => G[b2 * (S + 1) + a2];
       for (let b2 = 0; b2 < S; b2++) for (let a2 = 0; a2 < S; a2++) {

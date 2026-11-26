@@ -7,8 +7,8 @@ Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 97 tests, all passing
-npm run build      # writes index.html (287.7 kB, 113.6 kB gzipped)
+npm test           # 99 tests, all passing
+npm run build      # writes index.html (288.6 kB, 114.1 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -41,7 +41,6 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Many ports have no guard station building (64 of 138 sampled), so no jail; many of those have no shop buildings at all and their people stand in the square.
 - Asgard still uses Terra's island generator and layout; no rune stones, aurora, fjord coasts, mead hall, Norse music or its own weak spot.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters, mercenary companies or fleet trade routes.
@@ -554,3 +553,14 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - Quest log: Track the story, a side story or a contract; the box at the top, its arrow and the kind wind follow that one (src/rules/track.js).
 - 97 tests pass. Seen in Chrome: welcome, tutorial, tracking a contract, the station and flag. Fortress towns not seen.
 - Found, not fixed: 64 of 138 sampled ports have no guard station building; many have no shop buildings at all (their people stand in the square).
+
+## Round 74 (2026-11-26): every town gets its buildings
+- **Cause:** every port without a guard station sat on a hilly island, where almost no spot was level enough to build on (112 of 249 sampled ports had no station).
+- **Fix:** the ground where a town stands is now levelled the same way flat islands are. Small islands end up flat almost all over; large ones keep hills beyond the town. On the smallest islands the station may also stand closer to its neighbours.
+- The notice board gets a closer-packed second pass when four market stalls leave it no room.
+- A save that would load you inside a wall now puts you on free ground nearby.
+- 1361 ports over 9 seeds (Terra and Asgard): none missing a building for any of its people, none missing a notice board.
+- Town layouts on hilly islands have changed, including in existing saves.
+- Speed (Node, port islands): the extra buildings first cost ground building 4.8 -> 6.7 ms per island (worst step 6.7 -> 8.9). Points away from the town now skip the building checks and shared ground points are computed once: about 5.4 ms (worst step 5.5-6.5). Height lookups stay about 20% dearer (0.48 -> 0.58 ms per 2000), from the levelling and the extra buildings.
+- Build 287.7 -> 288.6 kB.
+- 99 tests pass. Seen in Chrome (before the speed changes, which leave heights identical and the ground the same to rounding): Town Golden (a village that had no station) with its station, and two other towns from the dock; no console errors. Not seen: Asgard, and a walk through the new jails by hand.

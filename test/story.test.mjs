@@ -1,3 +1,4 @@
+import { islandProps } from '../src/gen/props.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract } from '../src/rules/game.js';
@@ -100,7 +101,7 @@ test('a knockout by a story gang does not repeat, and the event crowd stands on 
   assert.ok(crowds > 20, 'crowds checked: ' + crowds);
 });
 
-test('guards come in through the door, and a house-fire town with no buildings does not crash', () => {
+test('guards come in through the door, and a house fire does not crash', () => {
   const base = newGame(); let tried = 0, caught = 0;
   for (const town of ports(base).slice(0, 8)) for (const b of islandTown(town).buildings) {
     if (!['merchant', 'tavern', 'shipwright', 'smith'].includes(b.kind)) continue;
@@ -111,7 +112,7 @@ test('guards come in through the door, and a house-fire town with no buildings d
   }
   assert.ok(tried > 8 && caught >= tried * 0.9, caught + ' of ' + tried);
   let fires = 0;
-  for (const town of nearbyIslands(base, 0, 0, 9).filter((i) => i.port && !islandTown(i).buildings.length)) for (let n = 0; n < 40; n++) {
+  for (const town of nearbyIslands(base, 0, 0, 9).filter((i) => i.port).slice(0, 12)) for (let n = 0; n < 40; n++) {
     const s = newGame(); s.t = n * ISSUE_LEN + 1; if (eventFor(s, town)?.key !== 'fire') continue;
     stand(s, town.x, town.z); run(s, 2.1); fires++; break;
   }
@@ -164,4 +165,22 @@ test('the player picks the quest to follow: story, side story or contract', () =
 });
 test('no town is given a loose curtain wall', () => {
   const s = newGame(); for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (const i of sectorIslands(s.seed, x, z)) assert.ok(!islandTown(i).marks.some((m) => m.k === 'wall'));
+});
+
+test('every port has a real building for each of its people, a guard station with a cell, and a notice board', () => {
+  let n = 0;
+  for (const town of nearbyIslands(newGame(), 0, 0, 7).filter((i) => i.port)) {
+    const t = islandTown(town); n++;
+    for (const p of t.npcs) assert.ok(p.shop >= 0, town.port.name + ': no building for the ' + p.kind);
+    assert.ok(stationOf(town)?.jail, town.port.name + ': no cell');
+    assert.ok(islandProps(town).some((p) => p.k === 'board'), town.port.name + ': no notice board');
+  }
+  assert.ok(n > 40, 'ports checked: ' + n);
+});
+
+test('a save that leaves you inside a building loads you onto free ground nearby', () => {
+  const s = newGame(), town = ports(s)[0], b = islandTown(town).buildings.find((q) => !q.door);
+  stand(s, b.x, b.z); const back = deserialize(serialize(s)), f = back.foot;
+  assert.ok(canStand(back, f.x, f.z, groundAt(back, f.x, f.z)), 'still inside something');
+  assert.ok(Math.hypot(f.x - b.x, f.z - b.z) < 31);
 });

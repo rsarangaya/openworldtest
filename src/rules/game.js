@@ -131,6 +131,12 @@ export const wantedHere = (s, isl) => !!isl?.port && ((s.alert[isl.id] || 0) > s
 const stationCache = new Map();
 export const JAIL_S = 8; // how long the cell gate stays shut after an arrest
 export const stationOf = (isl) => { let v = stationCache.get(isl.seed); if (v === undefined) { const b = islandTown(isl).buildings.find((q) => q.kind === 'guard'); v = b ? { x: b.x, z: b.z + b.d / 2 + 2.4, b, jail: b.jail } : null; stationCache.set(isl.seed, v); if (stationCache.size > 200) stationCache.delete(stationCache.keys().next().value); } return v; };
+// a save made before a town was laid out differently can leave you inside a wall: step out to the nearest free ground
+export function freeFoot(s) {
+  const f = s.foot; if (s.mode !== 'foot' || !f) return;
+  if (canStand(s, f.x, f.z, groundAt(s, f.x, f.z))) { f.y = groundAt(s, f.x, f.z); return; }
+  const p = freeSpotNear(s, f.x, f.z, f.x, f.z + 1, 1, 30); if (p) Object.assign(f, { x: p.x, z: p.z, y: groundAt(s, p.x, p.z), vy: 0 });
+}
 function freeSpotNear(s, cx, cz, tx, tz, r0 = 3.2, r1 = 12) {
   const a0 = Math.atan2(tz - cz, tx - cx);
   for (let r = r0; r < r1; r += 0.6) for (let k = 0; k < 24; k++) { const a = a0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.26, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (roomy(s, x, z)) return { x, z }; }

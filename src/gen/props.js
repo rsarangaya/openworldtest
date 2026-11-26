@@ -55,9 +55,10 @@ export function islandProps(isl) {
     for (const s of [-1, 1]) out.push({ k: 'bench', x: pl.x + s * 2.6, z: pl.z + 3.8, v: 0 });
     { // the notice board: the nearest free spot round the well, clear of lamps, stalls and benches, on level ground
       const others = out.filter((p) => p.k === 'lamp' || p.k === 'stall' || p.k === 'bench'); let best = null;
-      for (const rad of [4.4, 5, 3.8, 5.6, 6.2, 7, 7.8]) for (let k = 0; k < 36; k++) {
+      for (const tight of [1, 0.7]) for (const rad of [4.4, 5, 3.8, 5.6, 6.2, 7, 7.8]) for (let k = 0; k < 36; k++) { // a second, closer-packed pass when four stalls leave no room
+        if (tight < 1 && best && best.rg < 1.0) break;
         const a = (k / 36) * TAU + 0.9, x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad;
-        if (others.some((q) => Math.hypot(q.x - x, q.z - z) < (q.k === 'stall' ? 4.3 : q.k === 'bench' ? 3.6 : 3)) || Math.hypot(x - pl.x, z - pl.z) < 3.4) continue;
+        if (others.some((q) => Math.hypot(q.x - x, q.z - z) < (q.k === 'stall' ? 4.3 : q.k === 'bench' ? 3.6 : 3) * tight) || Math.hypot(x - pl.x, z - pl.z) < 3.4) continue;
         let lo = 1e9, hi = -1e9; for (const dx of [-1.8, 0, 1.8]) for (const dz of [-0.6, 0.6]) { const y = islandHeight(isl, x + dx, z + dz); lo = Math.min(lo, y); hi = Math.max(hi, y); }
         const rg = hi - lo + rad * 0.02; if (!best || rg < best.rg) best = { x, z, rg };
       }

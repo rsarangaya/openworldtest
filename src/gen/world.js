@@ -50,6 +50,8 @@ function gen(seed, sx, sz) {
       const ang = home ? 1.2 : frost ? gatePos(seed).angle + Math.PI : r() * TAU, ca = Math.cos(ang), sa = Math.sin(ang);
       let shore = 0.5 * rad; // distance from the centre to the beach along the port direction
       for (let dd = rad * 1.5; dd > 0; dd -= 0.5) if (baseHeight(isl, x + ca * dd, z + sa * dd) > 0.6) { shore = dd; break; }
+      // hilly islands get level ground where the town stands (small ones almost all over, big ones keep hills beyond it), so every building finds room
+      if (!isl.flat) { const back = shore - Math.max(10, rad * 0.3); isl.shelf = { x: x + ca * back, z: z + sa * back, r: { village: 30, town: 40, city: 56 }[isl.tier] }; }
       // a 22-unit dock runs out from the beach; the boat is moored ALONGSIDE it (berth), never on top of it
       const mx = x + ca * (shore + 13), mz = z + sa * (shore + 13), wet = (px, pz) => baseHeight(isl, px, pz);
       const side = wet(mx - sa * 6.5, mz + ca * 6.5) < wet(mx + sa * 6.5, mz - ca * 6.5) ? 1 : -1;
@@ -113,13 +115,19 @@ function baseHeight(isl, x, z) {
   let y = -4 + (isl.h + 4) * s * (0.65 + 0.7 * n);
   if (isl.biome === 'volcanic') y -= isl.h * 0.7 * Math.exp(-((d / 0.22) ** 2));
   if (isl.biome === 'rocky') y += 3 * Math.abs(fbm(isl.seed + 9, x * 0.09, z * 0.09, 2) - 0.5) * s * 4;
-  if (isl.flat && y > 0) y = 3.4 * (1 - Math.exp(-y / 3)); // flat-topped plateau islands (big cities, tablelands) instead of hills
+  const sh = isl.shelf;
+  if (y > 0 && (isl.flat || sh)) {
+    let k = 1;
+    if (!isl.flat) { const q = (x - sh.x) ** 2 + (z - sh.z) ** 2; k = q <= sh.r * sh.r ? 1 : q >= (sh.r + 14) ** 2 ? 0 : 1 - sstep(sh.r, sh.r + 14, Math.sqrt(q)); }
+    if (k > 0) y = mix(y, 3.4 * (1 - Math.exp(-y / 3)), k); // flat-topped plateau islands (and the ground under a town) instead of hills
+  }
   return y;
 }
 export function islandHeight(isl, x, z) {
   let y = rawHeight(isl, x, z);
   if (!isl.port || y < 0.2 || Math.hypot(x - isl.x, z - isl.z) > isl.r * 1.2) return y;
-  const t = islandTown(isl);
+  const t = islandTown(isl), box = t.box;
+  if (!box || x < box[0] || x > box[1] || z < box[2] || z > box[3]) return y; // open ground away from the town
   // a building's own footprint always wins (so a neighbour's terrace can never lift or sink it); then terraces blend out into the natural ground
   for (const b of t.buildings) if (Math.abs(x - b.x) <= b.w / 2 + 1.2 && Math.abs(z - b.z) <= b.d / 2 + 1.2) return b.pad;
   if (t.plaza) { const d = Math.hypot(x - t.plaza.x, z - t.plaza.z) - 9.5; if (d < 5) y = mix(y, t.plaza.y, 1 - sstep(0, 5, Math.max(d, 0))); }
@@ -206,13 +214,13 @@ export function islandTown(isl) {
   // a spot is good when the ground is land, gently sloped, clear of the dock, the plaza and other buildings
   const R = (cx, cz, w, d) => [cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2], hit = (a, b) => a[0] < b[1] && a[1] > b[0] && a[2] < b[3] && a[3] > b[2];
   const strip = (cx, cz, d) => [cx - 3.2, cx + 3.2, cz + d / 2, cz + d / 2 + 6]; // the approach in front of a (south-facing) door must stay clear
-  const spot = (x, z, w, d, shop) => {
+  const spot = (x, z, w, d, shop, gap = 3.8) => {
     const y = baseHeight(isl, x, z); if (y < 1.4 || y > isl.h * 0.75) return null;
     let lo = 1e9, hi = -1e9;
     for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const h = baseHeight(isl, x + (ox * w) / 2, z + (oz * d) / 2); lo = Math.min(lo, h); hi = Math.max(hi, h); }
     if (lo < 0.8 || hi - lo > 2.6 || dockDist(isl, x, z) < 8 || Math.hypot(Math.max(Math.abs(x - plaza.x) - w / 2, 0), Math.max(Math.abs(z - plaza.z) - d / 2, 0)) < 8.6) return null; // the whole building, not just its centre, stays out of the plaza
     if (shop) for (const f of [1.5, 3, 4.5, 6]) for (const dx of [-1.5, 0, 1.5]) if (baseHeight(isl, x + dx, z + d / 2 + f) < 1.2) return null; // a shop's door must open onto dry land, never the sea
-    const rad = Math.max(w, d) / 2 + 3.8, mine = R(x, z, w, d);
+    const rad = Math.max(w, d) / 2 + gap, mine = R(x, z, w, d);
     if (buildings.some((b) => b.door && hit(mine, strip(b.x, b.z, b.d)))) return null;
     if (shop && buildings.some((b) => hit(strip(x, z, d), R(b.x, b.z, b.w + 1, b.d + 1)))) return null;
     if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < b.rad + rad)) return null;
@@ -220,9 +228,9 @@ export function islandTown(isl) {
   };
   const toward = () => '+z'; // in the 2D view every door faces the viewer (south)
   kinds.forEach((k, i) => {
-    for (let tries = 0; tries < 260; tries++) {
-      const w = k === 'guard' ? (tries < 130 ? 10 : 9) : 8, d = k === 'guard' ? (tries < 130 ? 8 : 7) : 7; // the guard station is big; on a cramped island a smaller one is tried after 130 failures
-      const an = (i / kinds.length) * TAU + (r() - 0.5) * 0.6 + tries * 0.21, ring = 13 + r() * 6 + tries * 0.12, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, true);
+    for (let tries = 0; tries < (k === 'guard' ? 420 : 260); tries++) {
+      const w = k === 'guard' ? (tries < 130 ? 10 : 9) : 8, d = k === 'guard' && tries < 130 ? 8 : 7; // the guard station is big; on a cramped island smaller ones are tried
+      const last = tries >= 260, an = (i / kinds.length) * TAU + (r() - 0.5) * 0.6 + tries * 0.21, ring = last ? 11 + (tries - 260) * 0.15 : 13 + r() * 6 + tries * 0.12, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, true, last ? 1.2 : 3.8); // last resort on a tiny island (guard only): search inward again, closer to its neighbours
       if (!sp) continue;
       const b = { x, z, w, d, h: 4, pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: toward(x, z), kind: k };
       b.solids = solidsOf(b); buildings.push(b);
@@ -252,7 +260,9 @@ export function islandTown(isl) {
     if (!sp || marks.some((q) => Math.hypot(q.x - x, q.z - z) < (Math.max(q.w, q.d) + Math.max(w, d)) / 2 + 2.5) || buildings.some((b) => b.door && Math.abs(b.x - x) < (b.w + w) / 2 + 1 && z > b.z && z - b.z < (b.d + d) / 2 + 6)) continue;
     const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); break;
   }
-  t = { buildings, npcs, plaza, marks };
+  const box = [plaza.x - 14.5, plaza.x + 14.5, plaza.z - 14.5, plaza.z + 14.5]; // the plaza and its blend, then every building's terrace
+  for (const b of buildings) { const ex = b.w / 2 + 5.2, ez = b.d / 2 + 5.2; box[0] = Math.min(box[0], b.x - ex); box[1] = Math.max(box[1], b.x + ex); box[2] = Math.min(box[2], b.z - ez); box[3] = Math.max(box[3], b.z + ez); }
+  t = { buildings, npcs, plaza, marks, box };
   townCache.set(isl.seed, t); return t;
 }
 
