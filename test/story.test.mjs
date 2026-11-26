@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf } from '../src/rules/game.js';
+import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract } from '../src/rules/game.js';
+import { trackable, trackedQuest } from '../src/rules/track.js';
 import { stepOf, placeOf, sideTarget, COMPANIONS } from '../src/rules/sidequests.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
@@ -149,4 +150,18 @@ test('the map is the cartographer\'s reward, always offered in Port Haven, or el
   assert.equal(deserialize(serialize(s)).flags.chart, true);
   assert.ok(!sideOffersFor(s, home).some((v) => v.q.tpl === 'cartographer' && v.q.id === o.q.id));
   const w = newGame(); w.flags.crossed = true; assert.equal(mapAvailable(w), true);
+});
+
+test('the player picks the quest to follow: story, side story or contract', () => {
+  const s = newGame(); assert.equal(trackedQuest(s).id, 'main');
+  const home = sectorIslands(s.seed, 0, 0)[0], o = sideOffersFor(s, home)[0]; takeSide(s, o);
+  const c = contractsFor(s, home)[0]; takeContract(s, c);
+  assert.deepEqual(trackable(s).map((v) => v.id), ['main', o.q.id, c.id]);
+  assert.equal(trackedQuest(s).id, o.q.id, 'a story you just took is followed');
+  for (const v of trackable(s)) { s.tracked = v.id; assert.equal(trackedQuest(s).id, v.id); assert.ok(v.title && v.goal()); v.target(); }
+  s.tracked = c.id; assert.equal(deserialize(serialize(s)).tracked, c.id);
+  s.tracked = 'gone'; assert.equal(trackedQuest(s).id, 'main');
+});
+test('no town is given a loose curtain wall', () => {
+  const s = newGame(); for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (const i of sectorIslands(s.seed, x, z)) assert.ok(!islandTown(i).marks.some((m) => m.k === 'wall'));
 });

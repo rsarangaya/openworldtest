@@ -9,7 +9,7 @@ import { sectorOf, sectorIslands } from '../gen/world.js';
 // where the player is, on foot or afloat
 const here = (s) => (s.mode === 'foot' || !s.ship ? s.foot : s.ship);
 // the nearest live raider: the target for "Clear the Lanes"
-const nearestRaider = (s) => { const p = here(s); let best = null, bd = 1e12; for (const e of s.enemies.values()) if (e.kind === 'raider') { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } } return best && { x: best.x, z: best.z, label: 'Raider ship' }; };
+export const nearestRaider = (s) => { const p = here(s); let best = null, bd = 1e12; for (const e of s.enemies.values()) if (e.kind === 'raider') { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } } return best && { x: best.x, z: best.z, label: 'Raider ship' }; };
 // the nearest buried cache you have not dug up (searched a few sectors out, re-checked twice a second)
 const tcache = new WeakMap();
 const nearestTreasure = (s) => {

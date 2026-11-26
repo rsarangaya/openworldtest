@@ -127,7 +127,7 @@ function advance(s, q, o, to, g) {
   if (o.gold) { s.gold += o.gold; s.score += o.gold; g.say(s, `+${o.gold} gold.`); s.events.push({ type: 'coin' }); }
   if (o.rep) addLocal(s, q.from.id, o.rep);
   if (o.world) addWorld(s, o.world);
-  if (to) { q.step = to; s.qa = null; s.tracked = q.id; g.say(s, goalOf(s, q)); } else finish(s, q, g);
+  if (to) { q.step = to; s.qa = null; g.say(s, goalOf(s, q)); } else finish(s, q, g);
 }
 export function chooseSide(s, id, i, g) {
   const q = sideOf(s).find((v) => v.id === id); if (!q) return false;
@@ -211,9 +211,9 @@ export function useActor(s, a, g) {
   if (st.opts) return { type: 'side', id: q.id, name: st.who, title: titleOf(q), lines: st.lines, opts: st.opts.map((o) => o.t) };
   advance(s, q, st, st.to, g); return { type: 'side', name: st.who, title: titleOf(q), lines: st.lines };
 }
-// the compass for the quest you touched last
-export function sideTarget(s) {
-  const here = sideOf(s).filter((v) => v.realm === realm(s)), q = here.find((v) => v.id === s.tracked) || here[0]; if (!q) return null; // only stories of the world you are in
+// where a story points: the one asked for, else the first of this world
+export function sideTarget(s, id = s.tracked) {
+  const here = sideOf(s).filter((v) => v.realm === realm(s)), q = here.find((v) => v.id === id) || here[0]; if (!q) return null; // only stories of the world you are in
   const p = placeOf(s, q), a = actors(s).find((v) => v.q === q.id);
   return { x: a ? a.x : p.x, z: a ? a.z : p.z, label: p.name, title: titleOf(q), goal: goalOf(s, q) };
 }

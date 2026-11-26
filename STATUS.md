@@ -1,40 +1,47 @@
 # Status
 
-Last updated: 2026-11-25. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (rounds 68-71 included).
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (rounds 68-73 included). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 95 tests, all passing
-npm run build      # writes index.html (285.7 kB, 112.8 kB gzipped)
+npm test           # 97 tests, all passing
+npm run build      # writes index.html (287.7 kB, 113.6 kB gzipped)
 npm run dev        # unminified build
 ```
 
 Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
 URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log, M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-25)
+## Where things stand (2026-11-26)
 
 **In the game**
+- Start: a welcome message and a one-page tutorial on a new game.
 - Story: 8 quests to the Wall; one weak spot, broken with the ram in a breakthrough scene; the breach stays open.
 - Open world after: Outer Sea, edge of the world picks the next world by bearing, fast travel to visited ports.
-- Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters.
-- Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets. Speeds doubled.
+- Side stories: layered, with choices and fights (up to 3 at once); three companions who join for a while.
+- Town events: nine kinds, changing with the notice board.
+- Quest choice: follow the story, a side story or a contract from the quest log.
+- Navigation: compass strip with your ship's direction; zoomable chart map, earned from the cartographer's story or by breaking the Wall.
+- Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
+- Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
-- World life: weather (rain, storms, fog, snow), sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
+- World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard (first pass): Norse names, cold islands, longhouses, viking people, longships, its own animals.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
-- Sound (never heard by me): splash, rain, thunder, whale song, bird cries, wall break.
-- In the running game: the bare fist, the tavern menu, contracts in the tavern, the trade-port crane and fortress walls.
+- Sound (never heard by me).
+- In the running game: story fights, event crowds, leaving a jail cell, the map, fortress towns, the trade-port crane.
 - Real tab switching with AFK on; frame rate on a normal foreground tab; real mouse play.
+- Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
+- Many ports have no guard station building (64 of 138 sampled), so no jail; many of those have no shop buildings at all and their people stand in the square.
 - Asgard still uses Terra's island generator and layout; no rune stones, aurora, fjord coasts, mead hall, Norse music or its own weak spot.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters, mercenary companies or fleet trade routes.
@@ -508,7 +515,7 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 ## Round 67 (2026-11-25): the fist read as a left hand
 - User: the single fist looked like the left arm. The hand is now mirrored (thumb on the right, little finger on the left); the forearm still comes from the lower right. 87 tests pass. Checked only as a drawing preview. Not pushed.
 
-## Round 68 (2026-11-25): layered stories, town events, companions, new hands (pushed with the next commit)
+## Round 68 (2026-11-25): layered stories, town events, companions, new hands (pushed)
 - Stories (rules/sidequests.js): saved as a small record, steps rebuilt from templates. Step kinds talk (with choices), find, fight. Four town stories (heirloom, missing brother, half a map, debt), two companion stories, five short event jobs. Taken from the notice board or the tavern (Anyone need help?), max 3, followed with a second compass line, listed in the Tab log (Follow / Give up).
 - Town events (rules/events.js): nine, about 55% of ports per notice issue; announced on arrival and on the board; some change food or goods prices, add a crowd or smoke, or post a job.
 - Companions: swordswoman, cartographer, the missing brother. One at a time, follows, fights, comments, can die; two can join the crew afterwards.
@@ -517,20 +524,20 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - NOT seen in the running game (Chrome extension not connected): any of it, including the new people on the ground, the crowd, the HUD layout and the hands over the 3D view. CPU time not measured. In the drawings the second hand on sword and axe is mostly hidden behind the first.
 - Not built yet from PLAN.md: board / bring / timer steps, the other events and companions, rival-crew races at sea, Asgard versions.
 
-## Round 69 (2026-11-25): bug and speed check of round 68 (pushed with the next commit)
+## Round 69 (2026-11-25): bug and speed check of round 68 (pushed)
 - Fixed: a story gang that knocked you out kept knocking you out (6 times in 30 s in a probe); 177 of 942 event-crowd places were inside props; the walk bob and idle stopped after the first swing; the pistol flash was invisible (no CSS size or place); pistol shots at a story gang made no sound; a second would-be companion vanished silently; rehiring a companion could duplicate a crew id.
 - Checked: 3707 story steps across 157 ports all put the right people on the ground; the built file starts up to the WebGPU check in a stand-in page.
 - Speed (Node, game rules only): a step is 13.5 us idle, 15.6 us with two stories and a companion; the HUD story line 2.4 us. No change needed. Drawing cost is still unmeasured.
 - 91 tests pass. Still not seen in the running game.
 
-## Round 70 (2026-11-25): headless playthrough and the bugs it found (pushed with the next commit)
+## Round 70 (2026-11-25): headless playthrough and the bugs it found (pushed)
 - A bot played through the rules (walking and sailing with a path finder): opening, quests, all 11 side stories, events, contract, bounty hand-in, crew and ship, boarding, the Wall, Asgard, fast travel, jail, navy hunters, bombardment, a sea bounty, save/load, ten idle minutes. It used free gold, healing and jumps where noted in its log; the main quest was not followed strictly in order (the warden step was checked separately).
 - Fixed, from today's work: walking into a house-fire town with no buildings crashed the game; the story compass vanished when the followed story was in another world; stories and event crowds were not cleared on changing worlds.
 - Fixed, older: every arrest to a cell left you frozen in the bunk (all 42 stations); saves already stuck are freed on the next step. Guards often never reached you (stuck on buildings, or behind a shop door or counter, or never appearing while you stood in their station).
 - 94 tests pass. Still not seen in the running game: drawing, menus, mouse and keyboard, sound.
 
 
-## Round 71 (2026-11-25): top compass, map zoom and a chart look (pushed with the next commit)
+## Round 71 (2026-11-25): top compass, map zoom and a chart look (pushed)
 - Compass strip at the top centre (src/compass.js): compass points only, plus your ship's direction and distance when you are ashore. The objective box moved below it.
 - Map: scroll to zoom (up to 10x), drag to move, + / - / Find me; redrawn as a parchment sea chart (soft explored water, lumpy islands, town marks, ice wall, compass rose, scale, your ship). The map is still locked until the Wall is broken.
 - Fixed: the page-wide canvas style also pinned the map canvas over the map window's corner; Terra's chart drew the wrong world's islands while you were in another world.
@@ -539,3 +546,11 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 ## Round 72 (2026-11-25): the map is a quest reward
 - Finishing The Last Chart (always offered in Port Haven until you have a map) gives the map; otherwise breaking the Wall does. Fast travel still needs the Wall.
 - 95 tests pass. Not seen in the running game.
+
+## Round 73 (2026-11-26): walls, station flag, welcome, quest choice (pushed)
+- Fortress towns no longer get loose curtain walls.
+- The guard station flies a tall flag. Port Haven always had one (with the cell), north-east of the square, behind the general store.
+- A new game opens with a welcome message and a one-page tutorial.
+- Quest log: Track the story, a side story or a contract; the box at the top, its arrow and the kind wind follow that one (src/rules/track.js).
+- 97 tests pass. Seen in Chrome: welcome, tutorial, tracking a contract, the station and flag. Fortress towns not seen.
+- Found, not fixed: 64 of 138 sampled ports have no guard station building; many have no shop buildings at all (their people stand in the square).

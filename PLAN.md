@@ -199,17 +199,21 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 - **The Wall** is a continuous ice cliff, same height all round, banded deep blue to white with a snow lip, icicles and rubble. One stretch (the weak spot, seeded; `gateAngle` in code) is paler and cracked. It needs the ram at speed above 3.2. When broken it **stays open** (ragged edges, ice rubble) and you can sail back through. More weak spots in other directions come with more worlds (one per world, on that world's bearing).
 - **Asgard must look and feel different from Terra:** Vikings, not villagers (fur, braids and beards, horned and plain helmets, round shields, axes), timber long-halls with carved dragon-head gables and turf or shingle roofs, stave halls, rune stones, drying racks, smoke holes, fjord cliffs and pines, snow, longships (square striped sail, dragon prow, shields along the rail) for local and enemy ships, a cold palette, aurora. Asgardian sea life and birds are different from Terra's (ice whales and narwhals, seals, orca, ravens and white eagles, no tropical fish). Each world gets its own people, building, ship and creature set.
 
-## Where the plan stands (2026-11-25)
-**Done since the last note:** contracts board and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, optimization pass.
+## Where the plan stands (2026-11-26)
+**Done:** contracts and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, side stories, town events, companions, compass and chart map, one hand for all weapons, welcome and tutorial, choosing the quest to follow.
 
 **Open, in a suggested order**
-1. Check by eye and ear what has only been tested (fist, tavern menu, sounds, new landmarks).
-2. First monster (see below).
-3. Asgard second pass: rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.
-4. More town types: mining, smugglers, temple; layouts and clothing per type.
-5. Day and night.
-6. Underwater and salvage, then Atlantis; Olympus.
-7. Mercenary companies, fleet trade routes, land battles.
+1. Gather player feedback, and check by eye and ear what has only been tested (story fights, event crowds, jail, map, sounds).
+2. Every town gets real buildings, including a guard station with a jail (today many ports have none).
+3. Rest of the town stories (see "Living towns" below).
+4. First monster (see below; waiting for the user's choice).
+5. Asgard second pass: rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.
+6. More town types: mining, smugglers, temple; layouts and clothing per type.
+7. Day and night.
+8. Underwater and salvage, then Atlantis; Olympus.
+9. Mercenary companies, fleet trade routes, land battles.
+
+The aim for the open game: the player picks a life (explorer, criminal, trader, guard, mercenary), taverns carry rumours and quests, and each town offers something new.
 
 ### Mythical creatures (suggested 2026-11-25, waiting for the user's choice)
 One monster active at a time, in rare places, flat pixel sprites, hinted first by rumours; mostly fought with existing cannons, special shot, boarding and melee.
@@ -263,9 +267,12 @@ Goal: towns with something going on, and side quests with more than one layer in
 2. Town events: the data table, notice board and tavern lines, 6 events with looks and effects.
 3. Companions: follow + fight + talk + two characters.
 4. Remaining steps (`board`, `bring`, `timer`), the other templates, the rest of the events and characters, Asgard versions.
+
+Steps 1 to 3 are built (first pass). Step 4 is open.
 **Budget:** under 25 kB of source for all three parts (mostly text), under 0.1 ms per step, one or two new sprites, no new meshes.
 
 ## Held weapon and hands: review (2026-11-25)
+Built since: one hand drawing for every weapon, held from the lower right, walk bob and wind-up (see STATUS.md). The list below is the original review.
 Seen as drawings (not in the game): the fist and the weapon hands do not match. The fist is big and detailed (thumb, tendons, long sleeve); the weapon hands are small, boxy and identical for both arms.
 1. **One hand drawing for everything.** Reuse the fist (the best drawing) for every weapon: draw the back of the hand, then the grip, then the fingers on top, so the hand wraps the handle. Same scale for fists and weapons. Removes the second arm builder, so the file gets smaller.
 2. **The second hand must be a left hand.** Today both hands are the same shape; mirror it (thumb on the other side) and bring its arm from the lower left, shorter, so it reads as two arms.

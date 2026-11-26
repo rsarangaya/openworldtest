@@ -339,12 +339,12 @@ function showMenu() {
   phase = 'menu'; s = null; ui.hud(false); ui.crosshair(false); ui.loading(false);
   ui.menu({ hasSave: hasSave(), getOptions, setOptions, onNew: newGameFlow, onContinue: continueFlow });
 }
-function startPlay(game) {
+function startPlay(game, then) {
   s = game; ui.fade(true); if (SEED !== s.seed) { SEED = s.seed; dropSectors(); }
   setTimeout(() => {
     const px = s.mode === 'ship' ? s.ship.x : s.foot.x, pz = s.mode === 'ship' ? s.ship.z : s.foot.z;
     updateSectors(px, pz, true); view.yaw = s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22;
-    ui.hud(true); phase = 'play'; ui.fade(false); saveT = 0;
+    ui.hud(true); phase = 'play'; ui.fade(false); saveT = 0; then?.();
   }, 850);
 }
 async function newGameFlow() {
@@ -356,7 +356,7 @@ async function newGameFlow() {
     'By morning your savings are spent and you are standing in Port Haven, the last harbour on the maps, with a one-way ticket and a lot of questions.',
     'Time to find out if the Wall is real.',
   ]);
-  startPlay(newGame(BASE_SEED));
+  startPlay(newGame(BASE_SEED), () => { phase = 'panel'; unlock(); ui.welcome(() => { phase = 'play'; lock(); }); });
 }
 function continueFlow() { goFullscreen(); const g = loadGame(); if (!g) return newGameFlow(); startPlay(g); }
 function pause() {

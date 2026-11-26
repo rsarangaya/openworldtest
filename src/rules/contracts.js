@@ -17,7 +17,7 @@ const done = (s) => (s.cdone = s.cdone || {});
 export function offers(s, isl, ports) {
   const issue = issueOf(s), r = rngFor(isl.seed, 9400 + issue), out = [];
   for (let i = 0; i < OFFERS; i++) {
-    const id = `k${isl.id}:${issue}:${i}`, cull = i === OFFERS - 1 || !ports.length, base = { id, from: isl.id, fromName: isl.port?.name || isl.name, pay: 0 };
+    const id = `k${isl.id}:${issue}:${i}`, cull = i === OFFERS - 1 || !ports.length, base = { id, from: isl.id, fromName: isl.port?.name || isl.name, at: { x: isl.x, z: isl.z }, pay: 0 };
     if (cull) { const n = 2 + Math.floor(r() * 2); out.push({ ...base, type: 'cull', n, window: 900, reward: five(120 * n + r() * 60), text: `Sink ${n} raiders on the lanes and report back here.` }); continue; }
     const to = pick(r, ports), good = pick(r, GOODS), n = 3 + Math.floor(r() * 4), d = Math.hypot(to.x - isl.x, to.z - isl.z);
     out.push({ ...base, type: 'deliver', n, good, to: { id: to.id, name: to.port?.name || to.name, x: to.x, z: to.z }, window: Math.round(240 + d / 4), reward: five(70 + d * 0.07 + n * 12), text: `Carry ${n} crates of ${good} to ${to.port?.name || to.name} (${Math.round(d)} m).` });

@@ -15,7 +15,7 @@ export const foodCost = (port) => (port?.style === 'fishing' ? 3 : 5);
 export const weaponMul = (port) => (port?.style === 'fortress' ? 0.85 : 1);
 export const extraGuards = (style) => (style === 'fortress' ? 2 : style === 'fishing' ? -1 : 0);
 // the landmarks of each kind of town: [kind, width, depth]
-export const LANDMARKS = { fishing: [['rack', 5, 1.8], ['rack', 5, 1.8], ['boat', 5.5, 2.6], ['boat', 5.5, 2.6]], trade: [['hall', 9, 6.5], ['crane', 3.6, 3.6]], fortress: [['tower', 5.5, 5.5], ['wall', 8, 1.6], ['wall', 8, 1.6]] };
+export const LANDMARKS = { fishing: [['rack', 5, 1.8], ['rack', 5, 1.8], ['boat', 5.5, 2.6], ['boat', 5.5, 2.6]], trade: [['hall', 9, 6.5], ['crane', 3.6, 3.6]], fortress: [['tower', 5.5, 5.5]] };
 // what blocks walking, as rectangles [x0, x1, z0, z1]: a market hall is open between its pillars
 export function markSolids(m) {
   const R = (cx, cz, w, d) => [cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2];

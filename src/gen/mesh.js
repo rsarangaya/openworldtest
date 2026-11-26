@@ -164,9 +164,7 @@ function landmark(m, k, x, y, z, w, d, seed) {
     for (let i = 0; i < 3; i++) for (const s of [-1, 1]) { m.box(x - w / 2 + 0.5 + i * (w / 2 - 0.5), y + 11.4, z + s * (d / 2 - 0.3), 0.9, 1.2, 0.6, stone); m.box(x + s * (w / 2 - 0.3), y + 11.4, z - d / 2 + 0.5 + i * (d / 2 - 0.5), 0.6, 1.2, 0.9, stone); }
     m.box(x, y + 1.2, z + (d - 0.8) / 2 + 0.03, 1.2, 2.4, 0.08, dark); for (const h of [4.5, 7.5]) m.box(x, y + h, z + (d - 0.8) / 2 + 0.03, 0.3, 1, 0.08, [0.1, 0.1, 0.12]);
     m.box(x, y + 13.2, z, 0.16, 4.4, 0.16, wood); m.box(x + 0.85, y + 14.7, z, 1.6, 1.1, 0.08, cloth);
-  } else if (k === 'wall') { // a length of curtain wall
-    m.box(x, y + 1.7, z, w, 3.4, d - 0.3, stone, 0.2); for (let i = 0; i < Math.floor(w / 1.4); i++) m.box(x - w / 2 + 0.55 + i * 1.4, y + 3.8, z, 0.8, 0.8, d, [0.5, 0.5, 0.55]);
-    m.box(x, y + 2, z + (d - 0.3) / 2 + 0.03, 0.9, 1.4, 0.06, cloth);
+
   }
 }
 function building(m, isl, b) {
@@ -219,6 +217,9 @@ function building(m, isl, b) {
     m.quadV([b.x + ex, y1 - 0.1, b.z - ez], [b.x + ex, y1 - 0.1, b.z + ez], [b.x, ry, b.z + ez], [b.x, ry, b.z - ez], roof, roof, rd, rd);
     m.tri([b.x + hw, y1, b.z - hd], [b.x, ry - 0.1, b.z - hd], [b.x - hw, y1, b.z - hd], wall); m.tri([b.x - hw, y1, b.z + hd], [b.x, ry - 0.1, b.z + hd], [b.x + hw, y1, b.z + hd], wall);
     m.box(b.x, ry + 0.05, b.z, 0.28, 0.18, ez * 2 + 0.2, dim(roof, 0.7));
+  }
+  if (b.kind === 'guard') { // a tall flag, to pick the station (and its jail) out from across town
+    m.box(b.x, ry + 2, b.z, 0.2, 4.4, 0.2, DARKWOOD); m.box(b.x + 1.2, ry + 3.4, b.z, 2.2, 1.4, 0.1, [0.22, 0.42, 0.86]); m.box(b.x + 1.2, ry + 3.4, b.z, 2.2, 0.3, 0.14, [0.92, 0.75, 0.24]);
   }
   if (vik) vikingTrim(m, b, y0, y1, ry, alongX);
   else if (!b.door && b.w > 5) { m.box(b.x + hw * 0.5, ry + 0.1, b.z + hd * 0.3, 0.9, 1.9, 0.9, [0.45, 0.4, 0.38], 0.1); m.box(b.x + hw * 0.5, ry + 1.1, b.z + hd * 0.3, 1.1, 0.2, 1.1, [0.3, 0.28, 0.27]); } // chimney with cap

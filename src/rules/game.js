@@ -20,6 +20,7 @@ import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, S
 import { cargoCount } from './trade.js';
 import { shipOf } from './ships.js';
 import { advanceQuests, dialog, currentQuest } from './quests.js';
+import { trackedQuest } from './track.js';
 import { hash, rngFor } from '../gen/rng.js';
 import { shipName, captainName } from '../gen/names.js';
 import { islandProps } from '../gen/props.js';
@@ -523,7 +524,7 @@ export function toggleRow(s) {
   s.row = !s.row; say(s, s.row ? 'Oars out: you row, wind or not.' : 'Oars shipped.');
 }
 // bearing (same convention as yaw) from the player to the current objective, or null when there is none: the wind favours it
-const windGoal = (s) => { const tg = currentQuest(s)?.target?.(s), f = s.mode === 'ship' ? s.ship : s.foot; return tg && f ? Math.atan2(tg.z - f.z, tg.x - f.x) : null; };
+const windGoal = (s) => { const tg = trackedQuest(s)?.target(), f = s.mode === 'ship' ? s.ship : s.foot; return tg && f ? Math.atan2(tg.z - f.z, tg.x - f.x) : null; };
 // the breakthrough scene: the ram bites, the ice cracks (ship held), the wall gives way (flash, spray), she surges through the breach, then control returns
 function stepCine(s, dt) {
   const c = s.cine; if (!c) return; const a = s.t - c.t0, X = Math.cos(c.ang) * WALL_R, Z = Math.sin(c.ang) * WALL_R;
