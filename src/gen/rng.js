@@ -9,8 +9,8 @@ export const hash = (a, b = 0, c = 0, d = 0) => {
   return h >>> 0;
 };
 
-// mulberry32: a small fast PRNG. Call the returned function for a float in [0,1).
-export const mulberry = (s) => {
+// A small fast seeded PRNG. Call the returned function for a float in [0,1).
+export const prng = (s) => {
   let t = s >>> 0;
   return () => {
     t = (t + 0x6d2b79f5) >>> 0;
@@ -20,7 +20,7 @@ export const mulberry = (s) => {
   };
 };
 // an independent random stream for (seed, a, b, c)
-export const rngFor = (seed, a = 0, b = 0, c = 0) => mulberry(hash(seed, a, b, c));
+export const rngFor = (seed, a = 0, b = 0, c = 0) => prng(hash(seed, a, b, c));
 
 export const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 export const mix = (a, b, t) => a + (b - a) * t;

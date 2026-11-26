@@ -234,13 +234,13 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - The held weapon is now a first-person view: a right forearm with a leather sleeve and cuff coming up from the bottom edge, the back of a right fist (knuckles on top, thumb on the left, fingers curling over the grip) closed around the handle, and the weapon tilted about 22 degrees toward the centre. It is bigger and sits lower-middle (left 52%, above the log). Swing, stab, chop and recoil animations pivot from the bottom so the arm stays attached. Seen in Chrome for sword, dagger, spear, axe and pistol. Weapons are in `WSVG` in ui.js; the hand is one shared drawing.
 - Not seen: the swing animations with the new arm (the earlier ones were checked with the old floating sprite).
 
-## Round 26 — first-person grip matched to the user's reference image
-- Weapons are now held like the reference screenshot: two hands on the grip (sword, axe, spear) with the forearms coming in from both lower corners, and four fingers curled round the handle and stacked down it with the back of the hand on the arm side; dagger and pistol are one-handed. Bigger and centred (left 30%, 66vh wide), tilted 6 degrees. The weapon generator is a small script (kept out of the project); the output lives in `WSVG` in ui.js.
+## Round 26 — first-person two-handed grip
+- Weapons are now held with two hands on the grip (sword, axe, spear) with the forearms coming in from both lower corners, and four fingers curled round the handle and stacked down it with the back of the hand on the arm side; dagger and pistol are one-handed. Bigger and centred (left 30%, 66vh wide), tilted 6 degrees. The weapon generator is a small script (kept out of the project); the output lives in `WSVG` in ui.js.
 - Seen in Chrome: sword and axe two-handed, pistol one-handed. Swing animations with the two-arm version not yet seen.
 
 ## Round 27 — people react differently from ships; the 3D weapon experiment was reverted
 - **People vs ships:** a hit person now sprays a few red droplets that fly out and fall (fx kind `hurt`), is knocked back half a unit away from you and squashed for a quarter second; a killed person sprays more and topples (no smoke, no flash). Flash, smoke and splash stay for ships only.
-- **Held weapon:** a 3D voxel viewmodel (extruded sprites, boxy arms) was tried and removed on request (too heavy, too 3D). The flat sprite overlay from Round 26 is back: two hands on the grip, forearms from both lower corners, copying the reference's angle only. The voxel code is deleted.
+- **Held weapon:** a 3D voxel viewmodel (extruded sprites, boxy arms) was tried and removed on request (too heavy, too 3D). The flat sprite overlay from Round 26 is back: two hands on the grip, forearms from both lower corners. The voxel code is deleted.
 - Not seen after the revert: the people hit reaction in a real fight.
 
 ## Round 28 — seamless held weapon

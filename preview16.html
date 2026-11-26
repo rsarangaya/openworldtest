@@ -11,7 +11,7 @@
     h ^= h >>> 16;
     return h >>> 0;
   };
-  var mulberry = (s) => {
+  var prng = (s) => {
     let t = s >>> 0;
     return () => {
       t = t + 1831565813 >>> 0;
@@ -20,7 +20,7 @@
       return ((r ^ r >>> 14) >>> 0) / 4294967296;
     };
   };
-  var rngFor = (seed, a = 0, b = 0, c = 0) => mulberry(hash(seed, a, b, c));
+  var rngFor = (seed, a = 0, b = 0, c = 0) => prng(hash(seed, a, b, c));
   var pick = (r, arr) => arr[r() * arr.length | 0];
 
   // src/render2d/art.js
@@ -390,7 +390,6 @@
     return canvas;
   }
 
-  // ../../../../../AppData/Local/Temp/claude/c3ccfd3c92334a35/1a29ff9b-59fd-4f5d-993b-4550f6bbd244/scratchpad/pv2.src.mjs
   var root = document.body;
   root.style.cssText = "background:#8fb4d0;font:14px system-ui;margin:12px";
   var kinds = ["player", "villager", "villager", "merchant", "tavern", "shipwright", "sailor", "warden"];
