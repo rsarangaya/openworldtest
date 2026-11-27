@@ -7,6 +7,7 @@ import { SHIPS } from './rules/ships.js';
 import { MAX_FOOD } from './rules/trade.js';
 import { PARTS } from './rules/parts.js';
 import { weatherForce, KINDS_W } from './rules/weather.js';
+import { lairs } from './rules/serpent.js';
 
 export const debugEnabled = () => /[?&]debug\b/.test(location.search);
 
@@ -26,6 +27,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: Outer Sea edge', (s) => { s.flags.crossed = true; const th = REALMS.find((r) => r.id === 'asgard').grand.ang; sail(s, Math.cos(th) * (OUTER_EDGE - 120), Math.sin(th) * (OUTER_EDGE - 120), th); }],
     ['World: Asgard', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('asgard'); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
+    ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
     ['Spawn raider', (s) => spawn(s, 'raider')],
     ['Spawn navy', (s) => spawn(s, 'navy')],
     ['Clear enemies', (s) => { s.enemies.clear(); s.guards = []; s.foes = []; }],

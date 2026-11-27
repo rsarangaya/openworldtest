@@ -391,6 +391,7 @@ export function paintShip(g, p) {
 export const CRIT_BOX = {
   whale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, icewhale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, dolphin: { x0: -2, x1: 2, y0: -1.6, y1: 1.6 }, orca: { x0: -3, x1: 3, y0: -2.4, y1: 2 }, narwhal: { x0: -2.6, x1: 4.2, y0: -2, y1: 2 },
   school: { x0: -1.8, x1: 1.8, y0: -0.7, y1: 0.5 }, flyfish: { x0: -0.8, x1: 0.8, y0: -0.6, y1: 0.5 }, turtle: { x0: -1.1, x1: 1.1, y0: -0.9, y1: 0.5 }, fin: { x0: -1, x1: 1, y0: -1.7, y1: 0.3 }, seal: { x0: -1.1, x1: 1.1, y0: -1.1, y1: 0.7 },
+  serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 },
   gull: { x0: -1.6, x1: 1.4, y0: -1.2, y1: 1.1 }, albatross: { x0: -3.1, x1: 3.1, y0: -1.2, y1: 1.2 }, raven: { x0: -1.4, x1: 1.2, y0: -1.1, y1: 1 }, eagle: { x0: -3, x1: 3, y0: -1.4, y1: 1.4 },
 };
 const curve = (...p) => (g) => { g.moveTo(p[0], p[1]); for (let i = 2; i + 3 < p.length; i += 4) g.quadraticCurveTo(p[i], p[i + 1], p[i + 2], p[i + 3]); g.closePath(); };
@@ -432,6 +433,18 @@ export function paintCritter(g, kind, dir, fr) {
     case 'school': { for (const [x, y, r] of [[-1.1, -0.1, 0.5], [0.2, -0.25, 0.9], [1.1, 0.0, 0.6]]) { g.beginPath(); g.ellipse(x, y, r, r * 0.28, 0, 0, TAU); g.lineWidth = 0.07; g.strokeStyle = 'rgba(230,245,255,0.85)'; g.stroke(); } const P = fr ? [[-0.9, -0.15], [-0.1, -0.35], [0.5, -0.05], [1.0, -0.3], [0.2, 0.1]] : [[-1.0, -0.25], [-0.3, -0.05], [0.4, -0.4], [0.9, -0.1], [0.0, -0.2]]; for (const [x, y] of P) { cel(g, ell(x, y, 0.2, 0.08), [0.78, 0.88, 0.96], { lw: 0.04 }); } break; }
     case 'fin': cel(g, poly(-0.8, 0.1, 0.1, -1.55, 0.7, 0.1), [0.34, 0.38, 0.44], { lw: 0.1 }); break;
     case 'seal': { cel(g, curve(-0.9, 0.5, -0.7, -0.15, 0, -0.2, 0.6, -0.1, 0.9, 0.5, 0, 0.7, -0.9, 0.5), [0.48, 0.44, 0.4], { lw: 0.09 }); const dy = fr ? 0.25 : 0; cel(g, ell(0.2, -0.55 + dy, 0.5, 0.4), [0.56, 0.52, 0.48], { lw: 0.09 }); fillPath(g, ell(0.48, -0.5 + dy, 0.07, 0.07), INK); fillPath(g, ell(0.62, -0.4 + dy, 0.1, 0.08), INK); for (const k of [-0.1, 0.1]) line(g, 0.62, -0.38 + dy + k, 1.0, -0.38 + dy + k * 2, 0.025, '#e8e4dc'); break; }
+    case 'serhead': case 'sercoil': { // the sea serpent: green scales, a pale belly, a red crest; the head opens its jaw on frame 1
+      const sc = [0.2, 0.5, 0.42], dk = [0.1, 0.3, 0.26], bel = [0.8, 0.82, 0.55], crest = [0.75, 0.2, 0.18];
+      if (kind === 'sercoil') { for (const x of [-1.5, -0.5, 0.5, 1.5]) cel(g, poly(x - 0.35, -2.2 + Math.abs(x) * 0.35, x, -3.2 + Math.abs(x) * 0.4, x + 0.35, -2.2 + Math.abs(x) * 0.35), crest, { lw: 0.08 }); cel(g, curve(-2.8, 0.4, -2.4, -3.2, 0, -2.9, 2.4, -3.2, 2.8, 0.4, 1.7, 0.4, 1.6, -1.6, 0, -1.8, -1.6, -1.6, -1.7, 0.4, -2.8, 0.4), sc, { lw: 0.12 }); fillPath(g, curve(-2.3, 0.3, -1.9, -1.2, -1.75, 0.3, -2.3, 0.3), rgb(bel)); fillPath(g, curve(2.3, 0.3, 1.9, -1.2, 1.75, 0.3, 2.3, 0.3), rgb(bel)); for (const [x, y] of [[-1.2, -2.5], [0, -2.6], [1.2, -2.5], [-2.1, -1.5], [2.1, -1.5]]) fillPath(g, ell(x, y, 0.22, 0.13), rgb(dk)); break; }
+      for (const y of [-1.4, -2.6, -3.8]) cel(g, poly(-1.1, y + 0.4, -2.0, y - 0.3, -1.0, y - 0.5), crest, { lw: 0.08 }); // fins down the back of the neck
+      cel(g, curve(-1.4, 0.5, -1.6, -3.4, -0.4, -4.9, 0.2, -5.2, 0.6, -4.2, -0.1, -3.2, 0.2, -1.2, 0.7, 0.5, -1.4, 0.5), sc, { lw: 0.12 }); // the neck
+      fillPath(g, curve(-0.2, 0.4, -0.3, -2.4, 0.3, -3.8, 0.4, -3.6, 0.0, -2.2, 0.5, 0.4, -0.2, 0.4), rgb(bel));
+      cel(g, curve(-0.6, -5.4, 0.4, -6.2, 2.0, -5.6, 3.4, -5.3, 3.2, -4.8, 2.2, -4.7, 0.6, -4.2, -0.6, -5.4), sc, { lw: 0.12 }); // the upper jaw and skull
+      cel(g, fr ? poly(0.6, -4.5, 2.9, -3.6, 2.7, -3.2, 0.4, -4.0) : poly(0.6, -4.5, 3.0, -4.6, 2.9, -4.3, 0.5, -4.1), mixc(sc, [0, 0, 0], 0.15), { lw: 0.1 }); // the lower jaw
+      if (fr) { fillPath(g, poly(0.8, -4.45, 2.8, -4.65, 2.8, -3.75), '#5a1416'); for (const x of [1.4, 2.0, 2.6]) fillPath(g, poly(x - 0.12, -4.7, x, -4.35, x + 0.12, -4.7), '#f4efe0'); }
+      cel(g, poly(-0.4, -5.6, -1.6, -6.3, -0.1, -5.9), crest, { lw: 0.08 }); fillPath(g, ell(1.3, -5.45, 0.24, 0.17), '#ffd84a'); fillPath(g, ell(1.36, -5.45, 0.07, 0.15), INK); // horn and eye
+      break;
+    }
     case 'gull': wingBird(g, { fr, len: 1.35, b: 0.45, body: [0.97, 0.97, 0.98], wing: [0.88, 0.9, 0.93], tips: [0.2, 0.22, 0.26] }); break;
     case 'albatross': wingBird(g, { fr, len: 2.9, b: 0.8, body: [0.97, 0.97, 0.98], wing: [0.95, 0.96, 0.97], tips: [0.12, 0.13, 0.16], beak: [0.95, 0.75, 0.55] }); break;
     case 'raven': wingBird(g, { fr, len: 1.2, b: 0.42, body: [0.1, 0.1, 0.14], wing: [0.14, 0.15, 0.2], beak: [0.25, 0.25, 0.3] }); break;
