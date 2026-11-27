@@ -1,21 +1,21 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 82, commit fafe75b). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 83, commit 5cbea8c). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 118 tests, all passing
-npm run build      # writes index.html (314.9 kB, 124.1 kB gzipped)
+npm test           # 120 tests, all passing
+npm run build      # writes index.html (317.0 kB, 124.9 kB gzipped)
 npm run dev        # unminified build
 ```
 
 Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
 URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
 ## Where things stand (2026-11-26)
 
@@ -32,7 +32,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
-- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, and a mead hall (feast and skald's songs) in place of each tavern.
+- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, and two Norse axes (bearded axe, Dane axe) sold only by its smiths.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
@@ -46,7 +46,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Asgard still uses Terra's island generator and layout; no fjord coasts, axes, Norse music or its own weak spot.
+- Asgard still uses Terra's island generator and layout; no fjord coasts, Norse music or its own weak spot. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
@@ -650,3 +650,15 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Not checked: sound, real mouse play (the tab is not focused for pointer lock).
 - Noticed, left: the keeper's first-visit chart line names a different island than the town you are in ("waters round Eaglegarth" in Beardal); the ship's stats stay on screen ashore (known).
 - Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed by me because the game asks to confirm leaving; its server is stopped, so just close the tab.
+
+## Round 83 (2026-11-26): Norse axes (pushed, commit 5cbea8c)
+- **Two Norse axes**, sold only by Asgard smiths (the armoury lists them with a gold "Norse" tag and a line saying only Asgard smiths forge them): the *bearded axe* (15 damage, reach 3.2, 0.6 s, 140 gold: quicker than the plain axe) and the *Dane axe* (30 damage, reach 4.4, widest swing, 1.15 s, 300 gold: the hardest blow in the game). Both reuse the one-hand weapon system: flat pixel sprites held in the same hand, with the axe swing animation (faster for the bearded axe, slower for the Dane axe).
+- **Key 4** picks your first axe; pressing it again moves to the next axe you own (axe -> bearded -> Dane -> axe). Keys 1-3 and 5 are unchanged.
+- **Debug:** new "Go: armoury (on foot)" puts you in front of the nearest smith's door, facing in.
+- Defaults chosen without asking: two axes rather than one; all axes share key 4 rather than new keys; Terra armouries do not sell them (Frostwatch lore already says nobody outside Asgard knows how to forge them); prices and damage as above.
+- Tests: 120 pass (2 new: only Asgard armouries list the Norse axes and every listed weapon has a key 1-5; a scripted player talks to an Asgard smith, buys both axes (refused when too poor), cycles key 4 through the real game step, and a foe 4 units ahead is hit by the Dane axe but out of the bearded axe's reach; axes survive a save).
+- Chrome (localhost, real build, debug "World: Asgard" then "Go: armoury"): walked into Olaf's armoury with a held W key, F opened the dialogue and the Armoury showed both Norse axes; bought the bearded axe, the Dane axe and the plain axe (1500 -> 998 gold); key 4 cycled bearded -> Dane -> axe with the HUD following; both new axes draw cleanly in hand and the Dane axe swings. No console errors. CPU in the armoury 0.14 ms step + 0.86 ms draw.
+- Performance against round 82 (Node, same machine): foot step with swings and key 4 about 52 us before and after. Build 314.9 -> 317.0 kB (124.1 -> 124.9 kB gzipped).
+- Not checked: sound, real mouse play, the second (lower) hand on the Dane axe (it sits below the screen edge, as on the spear).
+- Noticed, left: the Asgard smith was called "Olaf Ivarsdottir" (a man's name with a daughter's surname); the armoury header shows "Standing here: Unknown · Realm: Unknown" in Asgard.
+- Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed because the game asks to confirm leaving; its server is stopped, so just close the tab. Serving used a few lines of plain Node (downloading a server package was blocked).
