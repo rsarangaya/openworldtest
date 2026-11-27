@@ -6,7 +6,7 @@ import { PAL, SOFT, MID } from './palette.js';
 
 const MAXOBJ = 384, STRIDE = 256;
 const WGSL = /*wgsl*/`
-struct G{vp:mat4x4f,cam:vec4f,right:vec4f,up:vec4f,fwd:vec4f,sun:vec4f,fogC:vec4f,deepC:vec4f,shalC:vec4f,calm:array<vec4f,8>};
+struct G{vp:mat4x4f,cam:vec4f,right:vec4f,up:vec4f,fwd:vec4f,sun:vec4f,fogC:vec4f,deepC:vec4f,shalC:vec4f,calm:array<vec4f,8>,dn:vec4f}; // dn: night, dusk (day and night)
 struct O{m:mat4x4f,tint:vec4f};
 @group(0)@binding(0) var<uniform> g:G;
 @group(1)@binding(0) var<uniform> o:O;
@@ -19,32 +19,34 @@ fn wv(p:vec2f,t:f32,dist:f32)->vec3f{var r=vec3f(0.);for(var i=0;i<5;i++){let fi
 fn h21(p:vec2f)->f32{return fract(sin(dot(p,vec2f(127.1,311.7)))*43758.5453);}
 fn vn(p:vec2f)->f32{let i=floor(p);let f=fract(p);let u=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2f(1.,0.)),u.x),mix(h21(i+vec2f(0.,1.)),h21(i+vec2f(1.,1.)),u.x),u.y);}
 fn fbm2(p:vec2f)->f32{return .5*vn(p)+.25*vn(p*2.03)+.125*vn(p*4.1)+.0625*vn(p*8.3);}
-fn skyCol(rd:vec3f)->vec3f{
+fn skyCol(rd:vec3f,st:f32)->vec3f{ // st: draw stars (not in the sea's reflection, where waves would make them sparkle)
   let h=clamp(rd.y,0.,1.);
-  var c=mix(g.fogC.rgb,mix(vec3f(.25,.5,.9),vec3f(.3,.42,.62),g.fwd.w),pow(h,.5));
+  let nt=g.dn.x;var c=mix(g.fogC.rgb,mix(mix(vec3f(.25,.5,.9),vec3f(.3,.42,.62),g.fwd.w),vec3f(.04,.06,.16),nt),pow(h,.5));
   let sd=max(dot(rd,normalize(g.sun.xyz)),0.);
-  c+=vec3f(1.,.85,.6)*(pow(sd,600.)*3.+pow(sd,12.)*.25);
+  c+=mix(vec3f(1.,.85,.6),vec3f(.75,.8,.9),nt)*(pow(sd,600.)*3.+pow(sd,12.)*.25*(1.-nt*.8));
+  if(nt*st>0.&&rd.y>.04){let sq=rd.xz/(rd.y+.3)*70.;c=mix(c,vec3f(.95,.95,1.),step(.996,h21(floor(sq)))*nt*(1.-g.deepC.w));} // stars, fixed to the sky
   if(g.shalC.w>0.&&rd.y>.08){let q=rd.xz/(rd.y+.35);let w=q.y*.7+.5*sin(q.x*.55)+.22*sin(q.x*1.6+1.);let b=abs(fract(w*.45)-.5);let m=step(.45,vn(q*.35+vec2f(3.,1.)))*step(rd.y,.7);
     c=mix(c,mix(vec3f(.62,.4,.85),vec3f(.3,.95,.62),step(b,.06)),step(b,.1)*m*g.shalC.w);}
   if(rd.y>.01){let q=rd.xz/(rd.y+.2)*1.3+vec2f(0.,0.);let n=.6*vn(q*1.6)+.4*vn(q*3.3);let cl=step(.58,n)*step(.03,rd.y);
-    c=mix(c,vec3f(1.,.98,.95)*(.78+.22*sd)*mix(1.,.72,g.fwd.w),cl*.9);}
+    c=mix(c,vec3f(1.,.98,.95)*(.78+.22*sd)*mix(1.,.72,g.fwd.w)*mix(vec3f(1.),vec3f(.2,.24,.4),nt),cl*.9);}
   let o=g.deepC.w;c=mix(c,g.fogC.rgb*(.88+.24*vn(rd.xz/(abs(rd.y)+.25)*2.)),clamp(o*.95,0.,.97));
   return c;}
 fn fogMix(c:vec3f,w:vec3f)->vec3f{let d=length(w-g.cam.xyz);let f=clamp(1.-exp(-d*g.fogC.w),0.,1.);return mix(c,g.fogC.rgb,floor(f*8.+.5)/8.);}
-struct VO{@builtin(position)p:vec4f,@location(0)w:vec3f,@location(1)n:vec3f,@location(2)c:vec3f,@location(3)d:f32};
+struct VO{@builtin(position)p:vec4f,@location(0)w:vec3f,@location(1)n:vec3f,@location(2)c:vec3f,@location(3)d:f32,@location(4)gl:f32};
 @vertex fn vs(@location(0)p:vec3f,@location(1)n:vec3f,@location(2)c:vec3f)->VO{
-  var v:VO;let w=o.m*vec4f(p,1.);v.w=w.xyz;v.n=normalize((o.m*vec4f(n,0.)).xyz);v.c=c*o.tint.rgb;v.d=o.tint.w;v.p=g.vp*w;return v;}
+  var v:VO;let w=o.m*vec4f(p,1.);v.w=w.xyz;v.n=normalize((o.m*vec4f(n,0.)).xyz);v.gl=step(1.5,c.r);v.c=(c-2.*v.gl)*o.tint.rgb;v.d=o.tint.w; /* a colour above 1.5 marks glass and lamps: they glow at night */v.p=g.vp*w;return v;}
 @fragment fn fs(v:VO)->@location(0)vec4f{
   var n=normalize(v.n);let vd=normalize(g.cam.xyz-v.w);if(dot(n,vd)<0.){n=-n;}
   let d=max(dot(n,normalize(g.sun.xyz)),0.);
   let dB=floor(d*3.+.5)/3.;let hB=floor((n.y*.5+.5)*3.+.5)/3.;
-  let col=v.c*(mix(.45,.7,hB)*vec3f(.68,.72,.85)+dB*vec3f(1.,.92,.78)*.9);
+  let nt=g.dn.x;var col=v.c*(mix(.45,.7,hB)*mix(vec3f(.68,.72,.85),vec3f(.26,.3,.48),nt)+dB*mix(mix(vec3f(1.,.92,.78),vec3f(1.,.66,.42),g.dn.y),vec3f(.24,.3,.46),nt)*.9);
+  col=mix(col,vec3f(1.,.82,.42),v.gl*nt);
   return vec4f(fogMix(col,v.w),select(1.,.5,v.d>1.5));}
 struct SO{@builtin(position)p:vec4f,@location(0)uv:vec2f};
 @vertex fn vsSky(@builtin(vertex_index)i:u32)->SO{
   let x=f32((i<<1u)&2u);let y=f32(i&2u);var s:SO;s.p=vec4f(x*2.-1.,y*2.-1.,1.,1.);s.uv=vec2f(x*2.-1.,y*2.-1.);return s;}
 @fragment fn fsSky(s:SO)->@location(0)vec4f{
-  let rd=normalize(g.fwd.xyz+g.right.xyz*s.uv.x*g.cam.w*g.right.w+g.up.xyz*s.uv.y*g.cam.w);return vec4f(skyCol(rd),1.);}
+  let rd=normalize(g.fwd.xyz+g.right.xyz*s.uv.x*g.cam.w*g.right.w+g.up.xyz*s.uv.y*g.cam.w);return vec4f(skyCol(rd,1.),1.);}
 struct WO{@builtin(position)p:vec4f,@location(0)w:vec3f};
 @vertex fn vsW(@location(0)p:vec3f)->WO{
   var w=o.m*vec4f(p,1.);w.y=wave(w.xz,g.up.w);var v:WO;v.w=w.xyz;v.p=g.vp*w;return v;}
@@ -53,14 +55,14 @@ struct WO{@builtin(position)p:vec4f,@location(0)w:vec3f};
   let T=g.up.w;let q=v.w.xz;let cm=rise(q); // calm barely changes across a few units: work it out once per pixel
   let sw=cm*vec2f(swell(q+vec2f(3.,0.),T)-swell(q-vec2f(3.,0.),T),swell(q+vec2f(0.,3.),T)-swell(q-vec2f(0.,3.),T))/6.; // the big swell's slope, so crests and troughs show
   let n=normalize(vec3f(-W.y*1.1-sw.x*4.5,1.,-W.z*1.1-sw.y*4.5));let vd=normalize(g.cam.xyz-v.w);
-  let fr=pow(1.-max(dot(vd,n),0.),4.);let r=reflect(-vd,n);let sky=skyCol(vec3f(r.x,abs(r.y),r.z));
+  let fr=pow(1.-max(dot(vd,n),0.),4.);let r=reflect(-vd,n);let sky=skyCol(vec3f(r.x,abs(r.y),r.z),0.);
   let hh=clamp(.5+cm*swell(q,T)*.15+W.x*.1,0.,1.);
   var col=mix(g.deepC.rgb,g.shalC.rgb,hh*.5+.25);
   col*=.6+.6*clamp(dot(n,normalize(g.sun.xyz))*.9+.1,0.,1.); // lit slopes and shaded backs give the humps their shape
   col=mix(col,sky,clamp(fr*.5+.02,0.,.5));
-  let rs=max(dot(r,normalize(g.sun.xyz)),0.);col+=vec3f(1.,.93,.78)*(pow(rs,180.)*4.+pow(rs,24.)*.28);
+  let rs=max(dot(r,normalize(g.sun.xyz)),0.);col+=mix(vec3f(1.,.93,.78),vec3f(.5,.55,.7),g.dn.x)*(pow(rs,180.)*4.+pow(rs,24.)*.28*(1.-g.dn.x));
   let foam=smoothstep(.84,.97,hh+(vn(v.w.xz*.3+g.up.w*.12)-.5)*.25)*(1.-smoothstep(120.,380.,dist));
-  col=mix(col,vec3f(.94,.97,1.),foam*.85);
+  col=mix(col,vec3f(.94,.97,1.)*(1.-.6*g.dn.x),foam*.85);
   return vec4f(fogMix(col,v.w),1.);}
 @group(2)@binding(0) var tA:texture_2d<f32>;
 @group(2)@binding(1) var sA:sampler;
@@ -70,7 +72,7 @@ struct BO{@builtin(position)p:vec4f,@location(0)w:vec3f,@location(1)uv:vec2f};
   let cx=f32(vi&1u);let cy=f32((vi>>1u)&1u);var r=vec3f(g.right.x,0.,g.right.z);var sc=abs(i.a.w);if(i.a.w<-500.){r=vec3f(0.,0.,1.);sc=1.;}else if(i.a.w<0.){r=vec3f(1.,0.,0.);}
   let w=i.a.xyz+r*(mix(i.b.x,i.b.y,cx)*sc)+vec3f(0.,mix(i.b.w,i.b.z,cy)*sc,0.);
   var o2:BO;o2.w=w;o2.p=g.vp*vec4f(w,1.);o2.uv=vec2f(mix(i.c.x,i.c.z,cx),mix(i.c.w,i.c.y,cy));return o2;}
-@fragment fn fsB(v:BO)->@location(0)vec4f{let t=textureSampleLevel(tA,sA,v.uv,0.);if(t.a<.5){discard;}return vec4f(fogMix(t.rgb,v.w),1.);}
+@fragment fn fsB(v:BO)->@location(0)vec4f{let t=textureSampleLevel(tA,sA,v.uv,0.);if(t.a<.5){discard;}let lit=select(mix(mix(vec3f(1.),vec3f(1.,.86,.72),g.dn.y),vec3f(.4,.44,.66),g.dn.x),vec3f(1.),t.a<.9);return vec4f(fogMix(t.rgb*lit,v.w),1.);} // partly clear pixels (lamp flames) glow at night
 `;
 
 export async function createRenderer(canvas) {
@@ -158,7 +160,7 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
   };
   const water = upload(waterMesh(200));
   let W = 0, H = 0, depthTex = null;
-  const G = new Float32Array(80), objs = new Float32Array(MAXOBJ * 64);
+  const G = new Float32Array(84), objs = new Float32Array(MAXOBJ * 64);
   const resize = (w, h) => {
     w = Math.max(1, w | 0); h = Math.max(1, h | 0); if (w === W && h === H) return;
     W = canvas.width = w; H = canvas.height = h; depthTex?.destroy(); sceneTex?.destroy();
@@ -174,9 +176,9 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
     const ux = -fy * 0 + (0 * fz - sz * fy), uy = sz * fx - sx * fz, uz = sx * fy - 0 * fx; // up = right x forward
     const vp = mul(perspective(c.fov, W / H, 0.1, f.far), lookAt(c.x, c.y, c.z, c.x + fx, c.y + fy, c.z + fz));
     G.set(vp, 0);
-    G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, 0.45, 0.8, 0.3, (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, f.pal.aurora || 0], 16);
+    G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, ...(f.sun || [0.45, 0.8, 0.3]), (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, f.pal.aurora || 0], 16);
     for (let i = 0; i < 8; i++) { const z = f.calm?.[i]; G.set(z ? [z[0], z[1], z[2], 0] : [0, 0, 0, 0], 48 + i * 4); }
-    Q.writeBuffer(gBuf, 0, G, 0, 80);
+    G[80] = f.night || 0; G[81] = f.dusk || 0; Q.writeBuffer(gBuf, 0, G, 0, 84);
     const ext = f.extent, cell = 1.5, // the water grid follows the camera in small steps (its cells under the ship are a couple of units)
       wm = model(Math.round(c.x / cell) * cell, 0, Math.round(c.z / cell) * cell, 0, 0, 0, ext);
     const list = f.objects, n = Math.min(list.length, MAXOBJ - 1);

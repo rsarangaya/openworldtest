@@ -10,6 +10,8 @@ const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const norm = (v) => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
+// glass and lamps: every channel raised by 2 marks them for the renderer, which lights them up at night (and takes the 2 off)
+const glow = (c) => c.map((v) => v + 2);
 export class Mesh {
   constructor() { this.v = []; }
   push(p, n, c) { this.v.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0], c[1], c[2]); }
@@ -186,7 +188,7 @@ function building(m, isl, b) {
   if (b.door) {
     for (const [x0, x1, z0, z1] of b.solids) m.box((x0 + x1) / 2, y0 + b.h / 2, (z0 + z1) / 2, x1 - x0, b.h, z1 - z0, wall, 0.18);
     m.box(b.x, y0 + 0.05, b.z, b.w - 0.8, 0.14, b.d - 0.8, WOOD); // floor
-    m.box(b.x, y1 - 0.6, b.z, 0.35, 0.35, 0.35, [1, 0.85, 0.45]); // lamp
+    m.box(b.x, y1 - 0.6, b.z, 0.35, 0.35, 0.35, glow([1, 0.85, 0.45])); // lamp
     const [dx, dz] = DIRV[b.door], sc = SIGN[b.kind] || [0.5, 0.5, 0.5];
     m.box(b.x + dx * (hw + 0.1), y1 - 0.25, b.z + dz * (hd + 0.1), dx ? 0.2 : 3.4, 0.8, dz ? 0.2 : 3.4, sc); // sign over the door
     m.box(b.x + dx * (hw + 0.14), y1 - 0.25, b.z + dz * (hd + 0.14), dx ? 0.06 : 3.7, 1, dz ? 0.06 : 3.7, DARKWOOD);
@@ -211,7 +213,7 @@ function building(m, isl, b) {
       for (const s of [-1, 1]) {
         const cx = b.x + wx * (hw + 0.05) + (wz ? s * b.w * 0.25 : 0), cz = b.z + wz * (hd + 0.05) + (wx ? s * b.d * 0.25 : 0), cy = y0 + b.h * 0.6;
         m.box(cx, cy, cz, wx ? 0.14 : 1.15, 1.1, wz ? 0.14 : 1.15, trim); // frame
-        m.box(cx + wx * 0.05, cy, cz + wz * 0.05, wx ? 0.1 : 0.85, 0.85, wz ? 0.1 : 0.85, [0.28, 0.4, 0.55]); // glass
+        m.box(cx + wx * 0.05, cy, cz + wz * 0.05, wx ? 0.1 : 0.85, 0.85, wz ? 0.1 : 0.85, glow([0.28, 0.4, 0.55])); // glass
         m.box(cx + wx * 0.08, cy, cz + wz * 0.08, wx ? 0.1 : 0.06, 0.85, wz ? 0.1 : 0.06, trim); m.box(cx + wx * 0.08, cy, cz + wz * 0.08, wx ? 0.1 : 0.85, 0.06, wz ? 0.1 : 0.85, trim); // mullions
         for (const t of [-1, 1]) m.box(cx + wx * 0.1 + (wz ? t * 0.7 : 0), cy, cz + wz * 0.1 + (wx ? t * 0.7 : 0), wx ? 0.1 : 0.28, 1.1, wz ? 0.1 : 0.28, shut); // shutters
         if (rr() < 0.5) { m.box(cx + wx * 0.3, cy - 0.7, cz + wz * 0.3, wx ? 0.4 : 1, 0.25, wz ? 0.4 : 1, DARKWOOD); m.box(cx + wx * 0.3, cy - 0.5, cz + wz * 0.3, wx ? 0.3 : 0.9, 0.18, wz ? 0.3 : 0.9, pick(rr, FLOWERS)); } // flower box
@@ -243,7 +245,7 @@ function plazaProps(m, isl, town) {
   m.box(p.x, y + 0.5, p.z, 2.4, 1, 2.4, STONE, 0.2); m.box(p.x, y + 0.98, p.z, 1.7, 0.1, 1.7, [0.1, 0.18, 0.3]); // well
   for (const s of [-1, 1]) m.box(p.x, y + 1.5, p.z + s * 1.1, 0.14, 1.8, 0.14, DARKWOOD);
   m.box(p.x, y + 2.45, p.z, 0.3, 0.15, 2.7, DARKWOOD); m.quad([p.x - 0.8, y + 2.45, p.z - 1.45], [p.x - 0.8, y + 2.45, p.z + 1.45], [p.x, y + 3.1, p.z + 1.45], [p.x, y + 3.1, p.z - 1.45], ROOFS[0]); m.quad([p.x + 0.8, y + 2.45, p.z + 1.45], [p.x + 0.8, y + 2.45, p.z - 1.45], [p.x, y + 3.1, p.z - 1.45], [p.x, y + 3.1, p.z + 1.45], dim(ROOFS[0], 0.85));
-  for (let k = 0; k < 4; k++) { const a = (k / 4) * TAU + Math.PI / 4, x = p.x + Math.cos(a) * 6.3, z = p.z + Math.sin(a) * 6.3; m.box(x, y + 1.7, z, 0.18, 3.4, 0.18, [0.2, 0.2, 0.22]); m.box(x, y + 3.55, z, 0.5, 0.5, 0.5, [1, 0.85, 0.45]); } // lamp posts
+  for (let k = 0; k < 4; k++) { const a = (k / 4) * TAU + Math.PI / 4, x = p.x + Math.cos(a) * 6.3, z = p.z + Math.sin(a) * 6.3; m.box(x, y + 1.7, z, 0.18, 3.4, 0.18, [0.2, 0.2, 0.22]); m.box(x, y + 3.55, z, 0.5, 0.5, 0.5, glow([1, 0.85, 0.45])); } // lamp posts
   const stalls = isl.tier === 'village' ? 1 : isl.tier === 'town' ? 2 : 4, cols = [[0.85, 0.3, 0.25], [0.25, 0.5, 0.8], [0.9, 0.75, 0.25], [0.3, 0.65, 0.4]];
   for (let k = 0; k < stalls; k++) {
     const a = (k / stalls) * TAU + 0.35, x = p.x + Math.cos(a) * 6.2, z = p.z + Math.sin(a) * 6.2, c = cols[k % 4];
@@ -454,9 +456,9 @@ export function shipMesh(p, sailOut) {
   for (let i = 0; i < XS; i++) { const a = sec(-1 + (2 * i) / XS), b = sec(-1 + (2 * (i + 1)) / XS), c = deck; m.quad([a.x, a.sheer, -a.w * 0.92], [b.x, b.sheer, -b.w * 0.92], [b.x, b.sheer, b.w * 0.92], [a.x, a.sheer, a.w * 0.92], c); } // planked deck
   const st = sec(-1), cx = -L * 0.78, ch = st.sheer + 0.9;
   m.box(cx, ch, 0, L * 0.28, p.high ? 2.6 : 1.4, B * 1.5, deck, 0.15); m.box(cx, ch + (p.high ? 1.5 : 0.85), 0, L * 0.3, 0.16, B * 1.62, dark); // stern cabin + roof
-  for (const s of [-1, 0, 1]) m.box(cx - L * 0.14 - 0.02, ch + 0.1, s * B * 0.5, 0.06, 0.38, 0.5, [1, 0.85, 0.45]); // stern windows
-  for (const s of [-1, 1]) m.box(cx, ch + 0.1, s * (B * 0.75 + 0.03), L * 0.18, 0.34, 0.06, [0.95, 0.8, 0.4]); // side windows
-  m.box(cx - L * 0.14 - 0.1, ch + 1.1, 0, 0.5, 0.5, 0.5, [1, 0.8, 0.35]); // stern lantern
+  for (const s of [-1, 0, 1]) m.box(cx - L * 0.14 - 0.02, ch + 0.1, s * B * 0.5, 0.06, 0.38, 0.5, glow([1, 0.85, 0.45])); // stern windows
+  for (const s of [-1, 1]) m.box(cx, ch + 0.1, s * (B * 0.75 + 0.03), L * 0.18, 0.34, 0.06, glow([0.95, 0.8, 0.4])); // side windows
+  m.box(cx - L * 0.14 - 0.1, ch + 1.1, 0, 0.5, 0.5, 0.5, glow([1, 0.8, 0.35])); // stern lantern
   m.box(L * 1.08, sec(1).sheer + 0.1, 0, L * 0.35, 0.22, 0.34, hull); // bowsprit
   const bowTip = [L * 1.25, sec(1).sheer + 0.15, 0];
   for (const s of [-1, 1]) m.box(L * 0.82, sec(0.82).sheer + 0.15, s * (sec(0.82).w + 0.1), 0.5, 0.5, 0.2, [0.3, 0.3, 0.32]); // anchors

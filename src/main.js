@@ -29,6 +29,7 @@ import { newGame, step, interact, prompt, standingOn, nearbyIslands, say, camBlo
 import { wave, setCalm } from './rules/sea.js';
 import { saveGame, loadGame, hasSave, loadOptions, saveOptions } from './rules/save.js';
 import { createUI } from './ui.js';
+import { hourAt, lightAt } from './rules/daynight.js';
 import { SOFT, MID } from './render/palette.js';
 import { createAudio } from './audio.js';
 
@@ -43,6 +44,7 @@ let expectUnlock = false, saveT = 0, mouseDown = false;
 const IDENT = model(0, 0, 0);
 const wrapPi = (a) => a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
 const lerp = (a, b, t) => a + (b - a) * t;
+let lastNight = 0; // how dark the last frame was (the hand on screen darkens with it)
 
 // ---------------------------------------------------------------- sectors: built on demand, one per frame, freed when far
 const sectors = new Map(), shipMeshes = new Map(), npcMeshes = new Map(), tasks = [];
@@ -249,9 +251,12 @@ function render(t) {
   // the weather greys the sky and the light, thickens the haze and raises the swell
   const wx = s ? weatherNow(s) : null, over = wx ? Math.min(1, Math.max(wx.cloud * 0.75 + wx.storm * 0.25, wx.fog)) : 0, rough = wx ? roughOf(wx) : 1, haze = wx ? 1 + 8 * wx.fog * wx.fog + 0.6 * wx.rain + 0.5 * wx.snow + 0.5 * wx.storm : 1;
   const grey = wx && wx.fog > 0.5 ? [0.7, 0.74, 0.78] : [0.42, 0.47, 0.55], dull = (c) => c.map((v, i) => lerp(v, grey[i] * (wx && wx.storm > 0.5 ? 0.82 : 1), over * 0.8)), shade = (c) => c.map((v) => v * (1 - 0.32 * over));
-  renderer.draw({
+  // day and night: the sun (or moon) and how dark it is; indoors the lamps keep most of the dark out
+  const L = lightAt(s ? hourAt(s.t, s.dayOff) : 12), inside = s && s.mode === 'foot' && sectorIslands(s.seed, sectorOf(cam.x), sectorOf(cam.z)).some((i) => islandTown(i).buildings.some((b) => b.door && Math.abs(cam.x - b.x) < b.w / 2 && Math.abs(cam.z - b.z) < b.d / 2)), night = L.night * (inside ? 0.35 : 1); lastNight = night;
+  const dark = (c) => c.map((v, i) => lerp(v, [0.05, 0.07, 0.16][i], night * 0.85));
+  renderer.draw({ sun: L.sun, night, dusk: L.dusk,
     cam: { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch, fov: 1.05 }, t, far, extent: R * SECTOR * 1.3 + 200, objects, bb: BB, calm: calmZ,
-    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96])), deep: shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27])), shal: shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72])), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
+    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dark(dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96]))), deep: dark(shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27]))), shal: dark(shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72]))), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
   });
 }
 // pixel-art look: the world is drawn at a small internal height (opts.pixels, default 270) and the browser scales it up with hard edges
@@ -438,7 +443,7 @@ function loop(now) {
   if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
-    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)) }); showAfk();
+    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)), night: lastNight }); showAfk();
     audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
   const p2 = performance.now(), M = (window.__ms ||= { step: 0, draw: 0 }); M.step += (p1 - p0 - M.step) * 0.05; M.draw += (p2 - p1 - M.draw) * 0.05; // smoothed CPU milliseconds a frame

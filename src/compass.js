@@ -9,14 +9,15 @@ export function createCompass(doc = document) {
   let ticks = '';
   for (let d = -90; d <= 450; d += 15) { const n = ((d % 360) + 360) % 360, main = n % 45 === 0; ticks += `<i style="left:${(d + 90) * PX}px" class="${main ? (n % 90 ? 'mid' : n ? 'main' : 'main north') : ''}">${main ? NAMES[n / 45] : ''}</i>`; }
   const el = doc.createElement('div'); el.id = 'compass';
-  el.innerHTML = `<div class=win><div class=strip>${ticks}</div><b class=mark></b></div><div class=ship>${BOAT}<small></small></div>`;
-  const strip = el.querySelector('.strip'), ship = el.querySelector('.ship'), dist = el.querySelector('small');
+  el.innerHTML = `<div class=win><div class=strip>${ticks}</div><b class=mark></b></div><div class=ship>${BOAT}<small></small></div><span class=clk></span>`;
+  const clk = el.querySelector('.clk'), strip = el.querySelector('.strip'), ship = el.querySelector('.ship'), dist = el.querySelector('small');
   let last = '';
   // yaw: where you look; at: your position; boat: your ship, or null when you are aboard or have none
-  const update = (yaw, at, boat) => {
+  const update = (yaw, at, boat, time = '') => { // time: the clock, shown beside the strip
     const h = heading(yaw), d = boat ? Math.hypot(boat.x - at.x, boat.z - at.z) : 0;
     let rel = boat ? heading(Math.atan2(boat.z - at.z, boat.x - at.x)) - h : 0; rel = ((rel + 540) % 360) - 180;
     const key = `${Math.round(h * PX)},${boat ? Math.round(rel) + ',' + Math.round(d) : ''}`;
+    if (time !== clk.textContent) clk.textContent = time;
     if (key === last) return; last = key;
     strip.style.transform = `translateX(${Math.round(W / 2 - (h + 90) * PX)}px)`;
     ship.style.display = boat ? 'block' : 'none';

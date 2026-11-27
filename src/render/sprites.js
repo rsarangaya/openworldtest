@@ -4,18 +4,20 @@ import { bake } from '../render2d/art.js';
 import * as A from '../render2d/art.js';
 import { quantize, SOFT } from './palette.js';
 
+// warm bright pixels (a lamp's flame) are left partly clear: the renderer keeps them bright at night
+const glowPixels = (c) => { const g = c.getContext('2d'), im = g.getImageData(0, 0, c.width, c.height), d = im.data; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] > 200 && d[i + 1] > 170 && d[i + 2] < 170) d[i + 3] = 190; g.putImageData(im, 0, 0); };
 const PERSON_SCALE = 0.6; // the painted person is ~3.4 units tall; scale to a ~2 unit human
 export function createSprites(R) {
   const cache = new Map(); let epoch = R.atlasEpoch, theme = 'terra'; // the look of the realm in play (people and, later, more)
   // new sprites are painted within a small time budget a frame (a new town needs hundreds): the rest appear over the next frames
   let spent = 0; const BUDGET = 4;
   const frame = () => { spent = 0; };
-  function get(key, box, S, paint) {
+  function get(key, box, S, paint, lit) {
     if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
     let s = cache.get(key); if (s) return s;
     if (spent > BUDGET) return null;
     const t0 = performance.now();
-    const b = bake(box, SOFT ? S * 3 : S, paint); if (!SOFT) quantize(b.c);
+    const b = bake(box, SOFT ? S * 3 : S, paint); if (!SOFT) quantize(b.c); if (lit) glowPixels(b.c);
     const uv = R.addSprite(b.c); if (R.atlasEpoch !== epoch) { cache.clear(); epoch = R.atlasEpoch; }
     s = { uv, x0: box.x0, x1: box.x1, top: -box.y0, bot: -box.y1 }; cache.set(key, s); spent += performance.now() - t0; return s;
   }
@@ -28,7 +30,7 @@ export function createSprites(R) {
       case 'tuft': return get(`u${p.v % 4}`, A.TUFT_BOX, 12, (g) => A.paintTuft(g, p.v));
       case 'crate': return get(`c${p.v % 2}`, A.CRATE_BOX, 12, (g) => A.paintCrate(g, p.v));
       case 'barrel': return get('a', A.CRATE_BOX, 12, (g) => A.paintBarrel(g));
-      case 'lamp': return get('l', A.LAMP_BOX, 12, (g) => A.paintLamp(g));
+      case 'lamp': return get('l', A.LAMP_BOX, 12, (g) => A.paintLamp(g), true);
       case 'well': return get('w', A.WELL_BOX, 11, (g) => A.paintWell(g));
       case 'stall': return get(`s${theme}${p.v % 4}`, A.STALL_BOX, 11, (g) => A.paintStall(g, p.v));
       case 'bench': return get('n', A.BENCH_BOX, 12, (g) => A.paintBench(g));

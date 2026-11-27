@@ -21,6 +21,7 @@ import { SHIPS, SHIP_ORDER, TRADE_IN } from './rules/ships.js';
 import { localRep, worldRep, tier, buyMult } from './rules/rep.js';
 import { drawTerra, drawWorld, makeView, zoomView, panView, centreView, where } from './mapview.js';
 import { createCompass } from './compass.js';
+import { hourAt, clockText } from './rules/daynight.js';
 import { realmState, REALMS as WORLDS, HINTED } from './rules/map.js';
 import { ROLES, candidates, hire, dismiss, capacity, crewOf, aboard, wages, PAY_EVERY, FLEET_UPKEEP } from './rules/crew.js';
 import { fleetOf, sellShip, sellValue, orderOf, ORDER_TEXT, MAX_FLEET } from './rules/fleet.js';
@@ -152,10 +153,11 @@ export function createUI() {
   ui.hurt = () => { const e = $('hurt'); if (!e) return; e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); };
 
   ui.crosshair = (v) => { const c = $('cross'); if (c) c.style.display = v ? 'block' : 'none'; };
-  const compass = createCompass(); $('hud').appendChild(compass.el);
+  let lastDim = 0; const compass = createCompass(); $('hud').appendChild(compass.el);
   ui.updateHud = (s, info) => {
-    compass.update(info.yaw, s.mode === 'ship' && s.ship ? s.ship : s.foot, s.mode === 'foot' && s.ship && !s.deck ? s.ship : null);
+    compass.update(info.yaw, s.mode === 'ship' && s.ship ? s.ship : s.foot, s.mode === 'foot' && s.ship && !s.deck ? s.ship : null, ((h) => (h >= 6 && h < 18 ? '☀ ' : '☾ ') + clockText(h))(hourAt(s.t, s.dayOff)));
     showWeapon(s.mode === 'foot' && !s.over ? (s.weapon || 'fists') : null); $('weapon')?.toggleAttribute('data-walk', !!info.moving);
+    const dim = Math.round((info.night || 0) * 4) / 4; if (dim !== lastDim && $('weapon')) { lastDim = dim; $('weapon').style.filter = dim ? `brightness(${1 - dim * 0.55}) saturate(${1 - dim * 0.4})` : ''; } // the hand darkens at night, in four steps
     const list = trackable(s), q = trackedQuest(s, list), tg = q?.target(), goal = q?.goal(), mode = s.mode, p = s.ship, ti = p ? trimInfo(s) : null;
     const so = $('speedo'); if (so) { if (mode === 'ship' && p) { const kn = (Math.abs(p.speed) * 1.2).toFixed(1), pc = Math.min(100, Math.round((Math.abs(p.speed) / (15 * (SHIPS[s.shipClass] || SHIPS.sailboat).speed)) * 100)), h = `<b>${kn}</b> kn<div class=bar><i style="width:${pc}%"></i></div>`; if (so._h !== h) { so._h = h; so.innerHTML = h; } so.style.display = 'block'; } else so.style.display = 'none'; }
     const dist = tg ? Math.hypot(tg.x - (mode === 'ship' ? p.x : s.foot.x), tg.z - (mode === 'ship' ? p.z : s.foot.z)) : 0;
