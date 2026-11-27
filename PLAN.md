@@ -1,9 +1,11 @@
 # Plan
 
+The current order is in **Where the plan stands (2026-11-26)**, near the end. Earlier lists and phases are history.
+
 ## Requirement: think lean, always moving forward
 Applies to every item in this plan, before it counts as done.
 - **Lean:** the smallest change that does the job. Reuse what exists (data, sprites, systems) before adding code, files or assets. No dead code.
-- **Optimize first:** measure CPU time and build size against the last pushed version, and fix what got worse before pushing. Cache, and build in small per-frame budgets.
+- **Optimize first:** measure CPU time, graphics-card time and build size against the last pushed version, and fix what got worse before pushing. Cache, and build in small per-frame budgets.
 - **Always moving forward:** ship each step playable and take the next item. Do not stall on polish or rework; note what is left in STATUS.md and carry on.
 
 ## The two concepts
@@ -206,10 +208,10 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 - **Asgard must look and feel different from Terra:** Vikings, not villagers (fur, braids and beards, horned and plain helmets, round shields, axes), timber long-halls with carved dragon-head gables and turf or shingle roofs, stave halls, rune stones, drying racks, smoke holes, fjord cliffs and pines, snow, longships (square striped sail, dragon prow, shields along the rail) for local and enemy ships, a cold palette, aurora. Asgardian sea life and birds are different from Terra's (ice whales and narwhals, seals, orca, ravens and white eagles, no tropical fish). Each world gets its own people, building, ship and creature set.
 
 ## Where the plan stands (2026-11-26)
-**Done:** contracts and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, side stories, town events, companions, compass and chart map, one hand for all weapons, welcome and tutorial, choosing the quest to follow.
+**Done:** contracts and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, side stories, town events, companions, compass and chart map, one hand for all weapons, welcome and tutorial, choosing the quest to follow, buildings and a jail in every town, the graphics speed-up, the rim-or-explore message after the supply cache. All pushed (round 76).
 
 **Open, in a suggested order**
-1. Gather player feedback, and check by eye and ear what has only been tested (story fights, event crowds, jail, map, sounds).
+1. Gather player feedback, and check by eye and ear what has only been tested (story fights, event crowds, jail, map, sounds; soft and mid looks, storms, Asgard and a weak graphics card since the speed-up).
 2. (Done, round 74) Every town gets real buildings, including a guard station with a jail.
 3. Rest of the town stories (see "Living towns" below).
 4. First monster (see below; waiting for the user's choice).

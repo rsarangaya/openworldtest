@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (rounds 68-73 included). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 76, commit 8f600eb). Work in progress: players are asked for feedback.
 
 ## Run it
 
@@ -21,7 +21,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
-- Story: 8 quests to the Wall; one weak spot, broken with the ram in a breakthrough scene; the breach stays open.
+- Story: 8 quests to the Wall (after the supply cache a pop-up says you can head straight for the rim or explore first); one weak spot, broken with the ram in a breakthrough scene; the breach stays open.
 - Open world after: Outer Sea, edge of the world picks the next world by bearing, fast travel to visited ports.
 - Side stories: layered, with choices and fights (up to 3 at once); three companions who join for a while.
 - Town events: nine kinds, changing with the notice board.
@@ -29,14 +29,18 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Navigation: compass strip with your ship's direction; zoomable chart map, earned from the cartographer's story or by breaking the Wall.
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
+- Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard (first pass): Norse names, cold islands, longhouses, viking people, longships, its own animals.
+- Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
 - Sound (never heard by me).
-- In the running game: story fights, event crowds, leaving a jail cell, the map, fortress towns, the trade-port crane.
+- In the running game: story fights, event crowds, leaving a jail cell, the map, fortress towns, the trade-port crane, the new town jails, Asgard towns.
+- Soft and mid looks, storms and a weak graphics card since the speed-up (round 75).
+- The "Your call" pop-up after really digging up a cache (it was triggered directly in Chrome).
 - Real tab switching with AFK on; frame rate on a normal foreground tab; real mouse play.
 - Difficulty, pacing and the economy over a full playthrough.
 
@@ -554,7 +558,7 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - 97 tests pass. Seen in Chrome: welcome, tutorial, tracking a contract, the station and flag. Fortress towns not seen.
 - Found, not fixed: 64 of 138 sampled ports have no guard station building; many have no shop buildings at all (their people stand in the square).
 
-## Round 74 (2026-11-26): every town gets its buildings
+## Round 74 (2026-11-26): every town gets its buildings (pushed)
 - **Cause:** every port without a guard station sat on a hilly island, where almost no spot was level enough to build on (112 of 249 sampled ports had no station).
 - **Fix:** the ground where a town stands is now levelled the same way flat islands are. Small islands end up flat almost all over; large ones keep hills beyond the town. On the smallest islands the station may also stand closer to its neighbours.
 - The notice board gets a closer-packed second pass when four market stalls leave it no room.
@@ -565,13 +569,13 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 - Build 287.7 -> 288.6 kB.
 - 99 tests pass. Seen in Chrome (before the speed changes, which leave heights identical and the ground the same to rounding): Town Golden (a village that had no station) with its station, and two other towns from the dock; no console errors. Not seen: Asgard, and a walk through the new jails by hand.
 
-## Round 75 (2026-11-26): graphics speed
+## Round 75 (2026-11-26): graphics speed (pushed)
 - **Measured first** (instrumented copy, one machine, GPU pass timestamps): CPU about 0.8 ms a frame, fast sailing had no frame over 26 ms, so the GPU was the thing to cut.
 - Palette snap is one lookup in a 64x64x64 table (built once, about 55 ms at start) instead of 43 comparisons per pixel. Palette colours map as before; a colour almost exactly between two palette colours may now pick the other one (about 4% of random colours).
 - Sea shader works out the island calm once per pixel instead of five times; the sky is drawn last, only where nothing covers it; water no longer blends.
 - GPU ms per frame, before -> after: 270p town 3.5 -> 2.4, sea 3.4 -> 2.7-3.5; 720p town 10.0 -> 3.6, sea 16.1 -> 5.0.
-- 99 tests pass; build 289.8 kB. Seen in Chrome: sea and town look the same by eye, no console errors. Not seen: soft and mid looks, storms, Asgard, a weak GPU.
+- 99 tests pass; build 289.4 kB. Seen in Chrome: sea and town look the same by eye, no console errors. Not seen: soft and mid looks, storms, Asgard, a weak GPU.
 
-## Round 76 (2026-11-26): your call after the cache
+## Round 76 (2026-11-26): your call after the cache (pushed)
 
 Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explore this world and its towns and cities first. 99 tests pass; seen in Chrome. 289.8 kB.
