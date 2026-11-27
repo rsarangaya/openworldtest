@@ -10,8 +10,10 @@ import { compassWord } from './serpent.js';
 export const SEE_R = 420, RANGE = 260, LEAVE_R = 520, HIT_R = 10, HP = 360, GOLD = 750, THROW_CD = 4, SPLASH_R = 12, ROCK = 12, WIND = 0.9;
 const MUL = { fire: 1.4, chain: 0.5 };
 const cache = new Map();
-// the lairs of an Olympus world: [{ id, x, z, y, iid, island, cx, cz }], the two biggest wild islands past a third of the way out, each with a spot on its shore
-export function cyclopsLairs(seed) {
+// wild shores of an Olympus world: [{ id, x, z, y, iid, island, cx, cz }], the biggest wild islands past a third of the way out, far apart, each with a
+// spot on its shore. The first two are the cyclops's lairs, the third (when there is one) the harpies' nest
+export const cyclopsLairs = (seed) => wildShores(seed).slice(0, 2);
+export function wildShores(seed) {
   if (cache.has(seed)) return cache.get(seed);
   const n = Math.ceil(WALL_R / SECTOR), cand = [];
   for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) for (const isl of sectorIslands(seed, i, j)) {
@@ -20,11 +22,11 @@ export function cyclopsLairs(seed) {
   cand.sort((a, b) => b.r - a.r || a.id.localeCompare(b.id));
   const out = [];
   for (const isl of cand) {
-    if (out.length >= 2) break; if (out.some((l) => Math.hypot(l.x - isl.x, l.z - isl.z) < 1500)) continue; // far apart
+    if (out.length >= 3) break; if (out.some((l) => Math.hypot(l.x - isl.x, l.z - isl.z) < 1500)) continue; // far apart
     const a = ((hash(isl.seed >>> 0, 61) >>> 0) % 1000) / 1000 * TAU, c = Math.cos(a), sn = Math.sin(a);
     let sh = 0; for (let dd = isl.r * 1.5; dd > 0; dd -= 0.5) if (rawHeight(isl, isl.x + c * dd, isl.z + sn * dd) > 1.2) { sh = dd; break; }
     if (!sh) continue; const x = isl.x + c * (sh - 2), z = isl.z + sn * (sh - 2); // just up the beach, facing the sea
-    out.push({ id: 'cyclops' + out.length, x, z, y: rawHeight(isl, x, z), iid: isl.id, island: isl.name, cx: isl.x, cz: isl.z });
+    out.push({ id: out.length < 2 ? 'cyclops' + out.length : 'harpies', x, z, y: rawHeight(isl, x, z), iid: isl.id, island: isl.name, cx: isl.x, cz: isl.z });
   }
   cache.set(seed, out); return out;
 }

@@ -13,6 +13,7 @@ import { serpentRumour } from './serpent.js';
 import { krakenRumour } from './kraken.js';
 import { cyclopsRumour } from './cyclops.js';
 import { hydraRumour } from './hydra.js';
+import { harpyRumour } from './harpies.js';
 import { draugrRumour } from './draugr.js';
 import { wreckRumour } from './salvage.js';
 import { townState, TOWN_STATE } from './game.js';
@@ -47,6 +48,7 @@ const PLAYER = [
   [(s) => (s.killsBy.raider || 0) >= 1, (s, t) => ['Fewer raiders', `Raider sails are rarer on the lanes. ${t.know} People credit one blue-striped captain; the navy credits itself.`]],
   [(s) => (s.killsBy.serpent || 0) >= 1, (s, t) => ['Serpent slain', `A sea serpent has been killed by cannon fire, the first anyone can remember. ${t.know} The fish market is selling "serpent steaks"; nobody believes them.`]],
   [(s) => (s.killsBy.cyclops || 0) >= 1, (s, t) => ['Cyclops slain', `A one-eyed giant who threw boulders at ships has been brought down by cannon fire from the sea. ${t.know} The goatherds are back on the cliffs.`]],
+  [(s) => (s.killsBy.harpies || 0) >= 1, (s, t) => ['Harpies driven off', `A ship has shot the harpies out of the sky over their own cliffs. ${t.know} The fishermen are mending their nets in the open again.`]],
   [(s) => (s.killsBy.hydra || 0) >= 1, (s, t) => ['Hydra slain', `A many-headed hydra has been burned and shot to pieces at sea. ${t.know} The sponge divers say they will believe it when they see the last head.`]],
   [(s) => (s.killsBy.kraken || 0) >= 1, (s, t) => ['Kraken slain', `A kraken has been cut loose and sunk by cannon fire. ${t.know} The pearl divers are back in the water, and they swear the sea is bluer.`]],
   [(s) => (s.killsBy.wreck || 0) >= 1, (s, t) => ['Wreck stripped', `A diver has brought up the strongbox of an old wreck. ${t.know} Half the harbour has bought a diving bell since, and nobody has found a thing.`]],
@@ -85,7 +87,7 @@ export function newsFor(s, isl) {
   town.know = isl.port?.home ? 'It all happened right here in our harbour.' : fame >= 3 ? `People in ${isl.name} talk about little else.` : `Word of it reached ${isl.name} a few days ago.`;
   if (isl.port) { items.push({ tag: 'Prices', head: 'Harbourmaster', body: `${cap(isl.port.cheap)} is plentiful and cheap here this week. ${cap(isl.port.dear)} is short and dear. Buy and sell accordingly.` }); }
   const ev = eventFor(s, isl); if (ev) items.push({ tag: 'Happening now', head: ev.name, body: ev.line });
-  if ((isl.seed + n) % 2 === 0) { const sr = serpentRumour(s, isl.x, isl.z), dr = !sr && draugrRumour(s, isl.x, isl.z), kr = !sr && !dr && krakenRumour(s, isl.x, isl.z), hr = !sr && !dr && !kr && (n >> 1) % 2 && hydraRumour(s, isl.x, isl.z), cr = !sr && !dr && !kr && !hr && cyclopsRumour(s, isl.x, isl.z); if (sr || dr || kr || hr || cr) items.push({ tag: 'Rumour', head: sr ? 'Sea serpent' : dr ? 'The sea barrow' : kr ? 'A kraken' : hr ? 'A hydra' : 'A cyclops', body: sr || dr || kr || hr || cr }); } else { const wr = wreckRumour(s, isl.x, isl.z); if (wr) items.push({ tag: 'Rumour', head: 'An old wreck', body: wr }); } // every other issue, the monster of this world
+  if ((isl.seed + n) % 2 === 0) { const sr = serpentRumour(s, isl.x, isl.z), dr = !sr && draugrRumour(s, isl.x, isl.z), kr = !sr && !dr && krakenRumour(s, isl.x, isl.z), hr = !sr && !dr && !kr && (n >> 1) % 3 === 1 && hydraRumour(s, isl.x, isl.z), pr = !sr && !dr && !kr && !hr && (n >> 1) % 3 === 2 && harpyRumour(s, isl.x, isl.z), cr = !sr && !dr && !kr && !hr && !pr && cyclopsRumour(s, isl.x, isl.z); if (sr || dr || kr || hr || pr || cr) items.push({ tag: 'Rumour', head: sr ? 'Sea serpent' : dr ? 'The sea barrow' : kr ? 'A kraken' : hr ? 'A hydra' : pr ? 'Harpies' : 'A cyclops', body: sr || dr || kr || hr || pr || cr }); } else { const wr = wreckRumour(s, isl.x, isl.z); if (wr) items.push({ tag: 'Rumour', head: 'An old wreck', body: wr }); } // every other issue, the monster of this world
   items.push({ tag: 'Overheard', head: 'North of the ice', body: asgardLine(s, isl.seed, n) }); // the long legend: it starts on day one
   for (const f of [pick(r, LOCAL)]) { const [h, b] = f(town, r); items.push({ tag: 'Local', head: h, body: b }); }
   if (isl.port) for (const w of board(s).slice(0, 2)) items.push({ tag: 'Wanted', head: w.name, body: `${w.crime}. Last heard of ${w.kind === 'ship' ? 'sailing the lanes in the ' + w.ship : 'near ' + w.where}. ${w.aliveOnly ? 'Wanted ALIVE only.' : 'Dead or alive.'} Reward ${w.reward} gold.` });

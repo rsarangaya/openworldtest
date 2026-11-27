@@ -447,7 +447,7 @@ export const CRIT_BOX = {
   whale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, icewhale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, dolphin: { x0: -2, x1: 2, y0: -1.6, y1: 1.6 }, orca: { x0: -3, x1: 3, y0: -2.4, y1: 2 }, narwhal: { x0: -2.6, x1: 4.2, y0: -2, y1: 2 },
   school: { x0: -1.8, x1: 1.8, y0: -0.7, y1: 0.5 }, flyfish: { x0: -0.8, x1: 0.8, y0: -0.6, y1: 0.5 }, turtle: { x0: -1.1, x1: 1.1, y0: -0.9, y1: 0.5 }, fin: { x0: -1, x1: 1, y0: -1.7, y1: 0.3 }, seal: { x0: -1.1, x1: 1.1, y0: -1.1, y1: 0.7 }, ray: { x0: -1.9, x1: 1.6, y0: -1.3, y1: 0.5 },
   serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, krarm: { x0: -1.8, x1: 2.4, y0: -7, y1: 0.6 }, krhead: { x0: -3.8, x1: 3.8, y0: -6.2, y1: 0.7 }, hyhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, hybody: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, cyclops: { x0: -3.4, x1: 3.4, y0: -7.6, y1: 0.2 }, boulder: { x0: -1, x1: 1, y0: -1, y1: 0.9 },
-  gull: { x0: -1.6, x1: 1.4, y0: -1.2, y1: 1.1 }, albatross: { x0: -3.1, x1: 3.1, y0: -1.2, y1: 1.2 }, raven: { x0: -1.4, x1: 1.2, y0: -1.1, y1: 1 }, eagle: { x0: -3, x1: 3, y0: -1.4, y1: 1.4 },
+  gull: { x0: -1.6, x1: 1.4, y0: -1.2, y1: 1.1 }, albatross: { x0: -3.1, x1: 3.1, y0: -1.2, y1: 1.2 }, raven: { x0: -1.4, x1: 1.2, y0: -1.1, y1: 1 }, eagle: { x0: -3, x1: 3, y0: -1.4, y1: 1.4 }, harpy: { x0: -3, x1: 3, y0: -2.4, y1: 2.6 },
 };
 const curve = (...p) => (g) => { g.moveTo(p[0], p[1]); for (let i = 2; i + 3 < p.length; i += 4) g.quadraticCurveTo(p[i], p[i + 1], p[i + 2], p[i + 3]); g.closePath(); };
 const porp = (g, o) => { // a porpoise-like body (dolphin, orca, narwhal), nose to the right
@@ -532,5 +532,11 @@ export function paintCritter(g, kind, dir, fr) {
     case 'albatross': wingBird(g, { fr, len: 2.9, b: 0.8, body: [0.97, 0.97, 0.98], wing: [0.95, 0.96, 0.97], tips: [0.12, 0.13, 0.16], beak: [0.95, 0.75, 0.55] }); break;
     case 'raven': wingBird(g, { fr, len: 1.2, b: 0.42, body: [0.1, 0.1, 0.14], wing: [0.14, 0.15, 0.2], beak: [0.25, 0.25, 0.3] }); break;
     case 'eagle': wingBird(g, { fr, len: 2.6, b: 0.7, body: [0.42, 0.3, 0.2], wing: [0.36, 0.26, 0.18], head: [0.95, 0.95, 0.93], tail: [0.97, 0.97, 0.97], tips: [0.18, 0.12, 0.08], beak: [1, 0.78, 0.2] }); break;
+    case 'harpy': { // a harpy: dark grey-brown wings, a woman's pale face with black hair streaming back, red eyes and gold talons; fr 0 wings up, 1 down
+      for (const x of [-0.25, 0.2]) line(g, x, 0.25, x + 0.15, 0.95, 0.09, rgb([0.85, 0.65, 0.2])); // talons
+      g.save(); g.scale(1.3, 1.3); fillPath(g, poly(0.75, -0.42, -0.3, -0.6, -0.9, -0.2, 0.55, -0.12), rgb([0.08, 0.07, 0.1])); g.restore(); // hair
+      wingBird(g, { fr, len: 2.4, b: 0.8, body: [0.3, 0.26, 0.24], wing: [0.36, 0.32, 0.3], head: [0.9, 0.74, 0.62], tips: [0.12, 0.1, 0.1], beak: [0.82, 0.64, 0.52] });
+      fillPath(g, ell(0.86, -0.12, 0.07, 0.06), '#d0201c'); break;
+    }
   }
 }
