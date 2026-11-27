@@ -28,6 +28,7 @@ import { townsfolk, folkPos } from '../gen/world.js';
 import { eventFor } from './events.js';
 import { stepSerpent, shotSerpent, nearLair, compassWord } from './serpent.js';
 import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
+import { stepKraken, shotKraken, nearKraken } from './kraken.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine, pillarLine, statueLine } from './lore.js';
 import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
@@ -488,14 +489,14 @@ function manageEnemies(s) {
   ensureRaiders(s); manageHunters(s);
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const e of sectorEnemies(s.seed, cx + i, cz + j)) {
     want.add(e.id);
-    if (!s.enemies.has(e.id) && !s.dead.has(e.id) && !nearLair(s, e.x, e.z) && !nearBarrow(s, e.x, e.z)) s.enemies.set(e.id, { ...e, gen: true, speed: 0, hp: KINDS[e.kind].hp, maxHp: KINDS[e.kind].hp, cd: [1, 1] });
+    if (!s.enemies.has(e.id) && !s.dead.has(e.id) && !nearLair(s, e.x, e.z) && !nearBarrow(s, e.x, e.z) && !nearKraken(s, e.x, e.z)) s.enemies.set(e.id, { ...e, gen: true, speed: 0, hp: KINDS[e.kind].hp, maxHp: KINDS[e.kind].hp, cd: [1, 1] });
   }
   for (const [id, e] of s.enemies) if (e.gen && !want.has(id)) s.enemies.delete(id);
   for (const [id, e] of s.enemies) if (!e.gen && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) > 1200) s.enemies.delete(id); // story-spawned ships do not pile up behind you
 }
 const isHostile = (s, e) => { const h = KINDS[e.kind].hostile; return h === true || (h === 'bounty' && s.bounty > 0) || (e.hunter && s.bountyGold > 0); };
 // a hostile ship (or the serpent, up) within r of your ship: no diving then
-const foeNear = (s, r) => !!s.serpent || [...s.enemies.values()].some((e) => isHostile(s, e) && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) < r);
+const foeNear = (s, r) => !!s.serpent || !!s.kraken?.grip || [...s.enemies.values()].some((e) => isHostile(s, e) && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) < r);
 // the navy hunts a bad record, but not right away: from HUNT_AT gold of bounty, hunters appear round you (more and more as the record worsens) and vanish when it is cleared
 export const HUNT_AT = 300, HUNT_RANGE = 650;
 export const hunterCount = (s) => ((s.bountyGold || 0) >= HUNT_AT ? Math.min(4, 1 + Math.floor((s.bountyGold - HUNT_AT) / 300)) : 0);
@@ -625,7 +626,7 @@ function stepShip(s, inp, dt) {
   manageEnemies(s);
   let near = null, nd = 1e9;
   for (const e of s.enemies.values()) { const dd = Math.hypot(e.x - p.x, e.z - p.z); if (dd < nd) { nd = dd; near = e; } }
-  stepDraugr(s, dt, say, puff); stepDive(s, dt, say, puff, foeNear); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; // the guns lay for the serpent when it is the nearest thing up
+  stepDraugr(s, dt, say, puff); stepDive(s, dt, say, puff, foeNear); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; const kr = stepKraken(s, dt, say, puff); if (kr) near = kr; // the guns lay for the serpent when it is the nearest thing up
   for (const [side, key, i] of [[-1, 'fireL', 0], [1, 'fireR', 1]]) if (inp[key] && p.cd[i] <= 0) { const sh = shotNow(s); if (sh !== 'round') { ammoOf(s)[sh]--; if (!ammoOf(s)[sh]) say(s, AMMO[sh].name + ' is spent: back to round shot.'); } fire(s, 'player', p, side, near || { x: p.x, z: p.z }, cls.dmg * gunMul(s) * AMMO[sh].dmg, sh); p.cd[i] = CANNON_CD * cls.cd * reloadMul(s); }
   for (const e of s.enemies.values()) {
     const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < (e.hunter ? HUNT_RANGE : 240);
@@ -646,7 +647,7 @@ function stepShip(s, inp, dt) {
     b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt;
     if (b.owner !== 'player' && b.life > 0) for (const f of s.fleet) if (Math.hypot(f.x - b.x, f.z - b.z) < 5) { b.life = 0; b.hit = true; f.hp -= b.dmg; f.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); break; }
     if (b.owner === 'player') {
-      if (b.life > 0 && shotSerpent(s, b)) { b.life = 0; b.hit = true; puff(s, 'flash', b.x, 2.5, b.z, 0.25, { sc: 2 }); puff(s, 'splash', b.x, 0.6, b.z, 0.7, { sc: 1.6 }); continue; }
+      if (b.life > 0 && (shotSerpent(s, b) || shotKraken(s, b))) { b.life = 0; b.hit = true; puff(s, 'flash', b.x, 2.5, b.z, 0.25, { sc: 2 }); puff(s, 'splash', b.x, 0.6, b.z, 0.7, { sc: 1.6 }); continue; }
       if (s.bombard && b.life > 0) { const th = townHit(s, b.x, b.z); if (th) { b.life = 0; b.hit = true; bombardTown(s, th.isl, th.b, b.dmg, b.x, b.z); continue; } }
       for (const e of s.enemies.values()) if (Math.hypot(e.x - b.x, e.z - b.z) < 6 && b.life > 0) { b.life = 0; b.hit = true; e.hp -= b.dmg * shotMul(e, b.kind); e.hitT = s.t; if (b.kind === 'chain') { e.slow = s.t + 8; puff(s, 'splash', b.x, 3, b.z, 0.5, { sc: 1 }); } if (b.kind === 'fire') e.burn = s.t + 6; puff(s, 'flash', b.x, 3.5, b.z, 0.25, { sc: 2 }); puff(s, 'smoke', b.x, 3.5, b.z, 1.4, { vy: 2, sc: 1.6 }); puff(s, 'splash', b.x, 0.4, b.z, 0.7, { sc: 1.4 }); if (!isHostile(s, e) && KINDS[e.kind].dmg > 0) s.bounty = Math.max(s.bounty, 1); }
     } else if (Math.hypot(p.x - b.x, p.z - b.z) < 4.5 && b.life > 0) { b.life = 0; b.hit = true; s.hull -= b.dmg; s.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); say(s, 'We are hit!'); s.events.push({ type: 'hit' }); }

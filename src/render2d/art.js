@@ -446,7 +446,7 @@ export function paintShip(g, p) {
 export const CRIT_BOX = {
   whale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, icewhale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, dolphin: { x0: -2, x1: 2, y0: -1.6, y1: 1.6 }, orca: { x0: -3, x1: 3, y0: -2.4, y1: 2 }, narwhal: { x0: -2.6, x1: 4.2, y0: -2, y1: 2 },
   school: { x0: -1.8, x1: 1.8, y0: -0.7, y1: 0.5 }, flyfish: { x0: -0.8, x1: 0.8, y0: -0.6, y1: 0.5 }, turtle: { x0: -1.1, x1: 1.1, y0: -0.9, y1: 0.5 }, fin: { x0: -1, x1: 1, y0: -1.7, y1: 0.3 }, seal: { x0: -1.1, x1: 1.1, y0: -1.1, y1: 0.7 }, ray: { x0: -1.9, x1: 1.6, y0: -1.3, y1: 0.5 },
-  serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 },
+  serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, krarm: { x0: -1.8, x1: 2.4, y0: -7, y1: 0.6 }, krhead: { x0: -3.8, x1: 3.8, y0: -6.2, y1: 0.7 },
   gull: { x0: -1.6, x1: 1.4, y0: -1.2, y1: 1.1 }, albatross: { x0: -3.1, x1: 3.1, y0: -1.2, y1: 1.2 }, raven: { x0: -1.4, x1: 1.2, y0: -1.1, y1: 1 }, eagle: { x0: -3, x1: 3, y0: -1.4, y1: 1.4 },
 };
 const curve = (...p) => (g) => { g.moveTo(p[0], p[1]); for (let i = 2; i + 3 < p.length; i += 4) g.quadraticCurveTo(p[i], p[i + 1], p[i + 2], p[i + 3]); g.closePath(); };
@@ -499,6 +499,19 @@ export function paintCritter(g, kind, dir, fr) {
       cel(g, fr ? poly(0.6, -4.5, 2.9, -3.6, 2.7, -3.2, 0.4, -4.0) : poly(0.6, -4.5, 3.0, -4.6, 2.9, -4.3, 0.5, -4.1), mixc(sc, [0, 0, 0], 0.15), { lw: 0.1 }); // the lower jaw
       if (fr) { fillPath(g, poly(0.8, -4.45, 2.8, -4.65, 2.8, -3.75), '#5a1416'); for (const x of [1.4, 2.0, 2.6]) fillPath(g, poly(x - 0.12, -4.7, x, -4.35, x + 0.12, -4.7), '#f4efe0'); }
       cel(g, poly(-0.4, -5.6, -1.6, -6.3, -0.1, -5.9), crest, { lw: 0.08 }); fillPath(g, ell(1.3, -5.45, 0.24, 0.17), '#ffd84a'); fillPath(g, ell(1.36, -5.45, 0.07, 0.15), INK); // horn and eye
+      break;
+    }
+    case 'krarm': { // a kraken's arm: a deep red-purple tentacle rising from the water and curling over, pale suckers on the inside; frame 1 leans
+      const c = [0.56, 0.2, 0.36]; if (fr) g.transform(1, 0, -0.18, 1, 0, 0);
+      cel(g, curve(-0.9, 0.4, -1.4, -3.2, -0.6, -5.0, 0.2, -6.7, 1.5, -6.1, 2.2, -5.4, 1.4, -4.9, 0.7, -5.4, 0.3, -4.4, 0.4, -2.0, 0.9, 0.4), c, { lw: 0.12 });
+      for (const [x, y] of [[0.55, -0.8], [0.4, -1.8], [0.3, -2.8], [0.35, -3.7], [0.75, -4.6]]) fillPath(g, ell(x, y, 0.17, 0.14), rgb([0.95, 0.78, 0.72]));
+      break;
+    }
+    case 'krhead': { // the kraken's head: a great red-purple dome with darker blotches and two gold eyes with black slits
+      const c = [0.5, 0.18, 0.33];
+      cel(g, curve(-3.6, 0.5, -3.8, -3.6, -1.2, -5.4, 0.2, -6.4, 1.6, -5.2, 3.9, -3.4, 3.6, 0.5, 0, 0.8, -3.6, 0.5), c, { lw: 0.14 });
+      for (const [x, y, r] of [[-1.6, -3.4, 0.5], [0.4, -4.6, 0.4], [1.9, -2.8, 0.45], [-0.3, -2.6, 0.3]]) fillPath(g, ell(x, y, r, r * 0.7), rgb(mixc(c, [0, 0, 0], 0.3)));
+      for (const x of [-1.5, 1.5]) { fillPath(g, ell(x, -1.2, 0.62, 0.48), '#ffd84a'); fillPath(g, ell(x, -1.2, 0.5, 0.12), INK); }
       break;
     }
     case 'gull': wingBird(g, { fr, len: 1.35, b: 0.45, body: [0.97, 0.97, 0.98], wing: [0.88, 0.9, 0.93], tips: [0.2, 0.22, 0.26] }); break;

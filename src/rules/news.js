@@ -10,6 +10,7 @@ import { SHIPS } from './ships.js';
 import { board } from './hunt.js';
 import { eventFor } from './events.js';
 import { serpentRumour } from './serpent.js';
+import { krakenRumour } from './kraken.js';
 import { draugrRumour } from './draugr.js';
 import { wreckRumour } from './salvage.js';
 import { townState, TOWN_STATE } from './game.js';
@@ -43,6 +44,7 @@ const PLAYER = [
   [(s) => s.ship && (s.shipClass || 'sailboat') !== 'sailboat', (s, t) => ['A bigger boat', `The blue-striped boat is a ${SHIPS[s.shipClass].name} now. ${t.know} The harbourmaster says it is the same captain who started on a plain sailboat.`]],
   [(s) => (s.killsBy.raider || 0) >= 1, (s, t) => ['Fewer raiders', `Raider sails are rarer on the lanes. ${t.know} People credit one blue-striped captain; the navy credits itself.`]],
   [(s) => (s.killsBy.serpent || 0) >= 1, (s, t) => ['Serpent slain', `A sea serpent has been killed by cannon fire, the first anyone can remember. ${t.know} The fish market is selling "serpent steaks"; nobody believes them.`]],
+  [(s) => (s.killsBy.kraken || 0) >= 1, (s, t) => ['Kraken slain', `A kraken has been cut loose and sunk by cannon fire. ${t.know} The pearl divers are back in the water, and they swear the sea is bluer.`]],
   [(s) => (s.killsBy.wreck || 0) >= 1, (s, t) => ['Wreck stripped', `A diver has brought up the strongbox of an old wreck. ${t.know} Half the harbour has bought a diving bell since, and nobody has found a thing.`]],
   [(s) => (s.killsBy.barrow || 0) >= 1, (s, t) => ['Draugr laid to rest', `A sea barrow is quiet: every dead longship of it burned and sunk. ${t.know} The skalds are already arguing over who gets to make the song.`]],
   [(s) => s.kills >= 5, (s, t) => ['Wrecks', `The navy has stopped counting wrecks along the lanes. Sailors say one captain is behind most of them, and will not say which.`]],
@@ -79,7 +81,7 @@ export function newsFor(s, isl) {
   town.know = isl.port?.home ? 'It all happened right here in our harbour.' : fame >= 3 ? `People in ${isl.name} talk about little else.` : `Word of it reached ${isl.name} a few days ago.`;
   if (isl.port) { items.push({ tag: 'Prices', head: 'Harbourmaster', body: `${cap(isl.port.cheap)} is plentiful and cheap here this week. ${cap(isl.port.dear)} is short and dear. Buy and sell accordingly.` }); }
   const ev = eventFor(s, isl); if (ev) items.push({ tag: 'Happening now', head: ev.name, body: ev.line });
-  if ((isl.seed + n) % 2 === 0) { const sr = serpentRumour(s, isl.x, isl.z), dr = !sr && draugrRumour(s, isl.x, isl.z); if (sr || dr) items.push({ tag: 'Rumour', head: sr ? 'Sea serpent' : 'The sea barrow', body: sr || dr }); } else { const wr = wreckRumour(s, isl.x, isl.z); if (wr) items.push({ tag: 'Rumour', head: 'An old wreck', body: wr }); } // every other issue, the monster of this world
+  if ((isl.seed + n) % 2 === 0) { const sr = serpentRumour(s, isl.x, isl.z), dr = !sr && draugrRumour(s, isl.x, isl.z), kr = !sr && !dr && krakenRumour(s, isl.x, isl.z); if (sr || dr || kr) items.push({ tag: 'Rumour', head: sr ? 'Sea serpent' : dr ? 'The sea barrow' : 'A kraken', body: sr || dr || kr }); } else { const wr = wreckRumour(s, isl.x, isl.z); if (wr) items.push({ tag: 'Rumour', head: 'An old wreck', body: wr }); } // every other issue, the monster of this world
   items.push({ tag: 'Overheard', head: 'North of the ice', body: asgardLine(s, isl.seed, n) }); // the long legend: it starts on day one
   for (const f of [pick(r, LOCAL)]) { const [h, b] = f(town, r); items.push({ tag: 'Local', head: h, body: b }); }
   if (isl.port) for (const w of board(s).slice(0, 2)) items.push({ tag: 'Wanted', head: w.name, body: `${w.crime}. Last heard of ${w.kind === 'ship' ? 'sailing the lanes in the ' + w.ship : 'near ' + w.where}. ${w.aliveOnly ? 'Wanted ALIVE only.' : 'Dead or alive.'} Reward ${w.reward} gold.` });
