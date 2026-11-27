@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, step, interact, prompt } from '../src/rules/game.js';
-import { wrecks, startDive, DIVES, DIVE_S, DIVE_R } from '../src/rules/salvage.js';
+import { wrecks, startDive, divesLeft, DIVES, DIVE_S, DIVE_R, BOX } from '../src/rules/salvage.js';
 import { newsFor, ISSUE_LEN } from '../src/rules/news.js';
 import { serialize, deserialize } from '../src/rules/save.js';
 import { enterRealm } from '../src/rules/realm.js';
@@ -86,4 +86,38 @@ test('the chart map learns of a wreck from the board, then from the diver, and s
   globalThis.document = { createElement: () => ({ getContext: () => ctx, width: 0, height: 0 }) };
   const { drawTerra, makeView } = await import('../src/mapview.js');
   const v = makeView(); drawTerra(ctx, s, 640, 0, v); v.zoom = 5; v.x = w.x; v.z = w.z; drawTerra(ctx, s, 640, 0, v); delete globalThis.document;
+});
+
+test('a dive can go wrong over a deep wreck or in a swell: the line fouls, or the diver comes up hurt and must rest; calm shallow water is safe', async () => {
+  const { diveRisk, stepDive, REST_S } = await import('../src/rules/salvage.js');
+  // the odds: none in calm water over a shallow wreck, more for deep water, the strongbox and a heavy swell
+  const W = wrecks(42); assert.ok(!W[0].deep && !W[1].deep && W[2].deep && W[3].deep, 'the far wrecks should lie deep');
+  assert.equal(diveRisk(W[0], 1, 0), 0); assert.ok(diveRisk(W[3], 1, 0) > 0); assert.ok(diveRisk(W[3], DIVES, 0) > diveRisk(W[3], 1, 0)); assert.ok(diveRisk(W[0], 1, 1) > diveRisk(W[3], 1, 0));
+  // a scripted captain dives a deep wreck in a heavy swell again and again on many seeds, through the real start and finish of each dive
+  let fouled = 0, hurt = 0, fine = 0, rested = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = newGame(seed), w = wrecks(seed)[3]; atSea(s, w.x, w.z); s.cargo = {}; s.t = 100 + seed * 7.3;
+    for (let k = 0; k < 8 && divesLeft(s, w) > 0; k++) {
+      const said = [], before = (s.salvage || {})['terra:' + w.id] || 0, g = s.gold;
+      if (s.t < (s.diveRest || 0)) {
+        interact(s); assert.equal(s.dive ?? null, null, 'dived while the diver was resting'); assert.match(s.log.at(-1), /getting over/); assert.match(prompt(s), /resting/);
+        s.t = s.diveRest + 0.1; rested++;
+      }
+      startDive(s, w, (_, m) => said.push(m), false, () => false, 1); assert.ok(s.dive, said.join('|')); assert.match(said[0], /risky dive/);
+      s.t += DIVE_S + 0.01; stepDive(s, 1 / 60, (_, m) => said.push(m), () => {}, () => false, 1);
+      const now = s.salvage['terra:' + w.id] || 0, msg = said.at(-1);
+      if (/fouls/.test(msg)) { fouled++; assert.equal(now, before, 'a fouled dive counted'); assert.equal(s.gold, g); }
+      else if (/recover/.test(msg)) { hurt++; assert.equal(now, before + 1); assert.ok(s.gold - g <= BOX[1] / 2, 'a hurt diver brought up full pay'); assert.ok(s.diveRest > s.t && s.diveRest - s.t <= REST_S + 1e-6); }
+      else { fine++; assert.equal(now, before + 1); }
+    }
+  }
+  assert.ok(fouled > 0 && hurt > 0 && fine > 0 && rested > 0, `fouled ${fouled}, hurt ${hurt}, fine ${fine}, rested ${rested}`);
+  // the rest survives a save
+  const s = newGame(3); s.diveRest = 500; s.t = 450; assert.equal(deserialize(serialize(s)).diveRest, 500);
+  // calm water over a shallow wreck never goes wrong
+  for (let seed = 1; seed <= 20; seed++) {
+    const t = newGame(seed), w = wrecks(seed)[0]; atSea(t, w.x, w.z); t.t = 50 + seed;
+    for (let n = 1; n <= DIVES; n++) { const said = []; startDive(t, w, (_, m) => said.push(m), false, () => false, 0); assert.doesNotMatch(said[0], /risky/); t.t += DIVE_S + 0.01; stepDive(t, 1 / 60, (_, m) => said.push(m), () => {}, () => false, 0); assert.doesNotMatch(said.at(-1), /fouls|recover/); }
+    assert.equal(divesLeft(t, w), 0);
+  }
 });

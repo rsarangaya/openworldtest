@@ -627,7 +627,7 @@ function stepShip(s, inp, dt) {
   manageEnemies(s);
   let near = null, nd = 1e9;
   for (const e of s.enemies.values()) { const dd = Math.hypot(e.x - p.x, e.z - p.z); if (dd < nd) { nd = dd; near = e; } }
-  stepDraugr(s, dt, say, puff); stepDive(s, dt, say, puff, foeNear); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; const kr = stepKraken(s, dt, say, puff); if (kr) near = kr; const cy = stepCyclops(s, dt, say, puff); if (cy && Math.hypot(cy.x - p.x, cy.z - p.z) < nd) near = cy; // the guns lay for the serpent when it is the nearest thing up
+  stepDraugr(s, dt, say, puff); if (s.dive) stepDive(s, dt, say, puff, foeNear, (roughOf(wx) - 1) / 0.8); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; const kr = stepKraken(s, dt, say, puff); if (kr) near = kr; const cy = stepCyclops(s, dt, say, puff); if (cy && Math.hypot(cy.x - p.x, cy.z - p.z) < nd) near = cy; // the guns lay for the serpent when it is the nearest thing up
   for (const [side, key, i] of [[-1, 'fireL', 0], [1, 'fireR', 1]]) if (inp[key] && p.cd[i] <= 0) { const sh = shotNow(s); if (sh !== 'round') { ammoOf(s)[sh]--; if (!ammoOf(s)[sh]) say(s, AMMO[sh].name + ' is spent: back to round shot.'); } fire(s, 'player', p, side, near || { x: p.x, z: p.z }, cls.dmg * gunMul(s) * AMMO[sh].dmg, sh); p.cd[i] = CANNON_CD * cls.cd * reloadMul(s); }
   for (const e of s.enemies.values()) {
     const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < (e.hunter ? HUNT_RANGE : 240);
@@ -757,7 +757,7 @@ export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
 
 // what pressing F would do right now (for the on-screen prompt)
 export function prompt(s) {
-  if (s.mode === 'ship') { if (s.dive) return `Your diver is down... ${Math.max(1, Math.ceil(DIVE_S - (s.t - s.dive.t0)))} s`; const g = nearestShip(s), wk = !g && !findLand(s) && wreckHere(s); if (wk) return `F  Dive on the wreck of the ${wk.name.replace(/^The /, '')} (${divesLeft(s, wk)} dive${divesLeft(s, wk) > 1 ? 's' : ''} left)`; return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
+  if (s.mode === 'ship') { if (s.dive) return `Your diver is down... ${Math.max(1, Math.ceil(DIVE_S - (s.t - s.dive.t0)))} s`; const g = nearestShip(s), wk = !g && !findLand(s) && wreckHere(s); if (wk) return s.t < (s.diveRest || 0) ? `Your diver is resting... ${Math.ceil(s.diveRest - s.t)} s` : `F  Dive on the wreck of the ${wk.name.replace(/^The /, '')} (${wk.deep ? 'deep, ' : ''}${divesLeft(s, wk)} dive${divesLeft(s, wk) > 1 ? 's' : ''} left)`; return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
   if (s.deck && !nearSub(s)) return s.deck.won ? 'F  Decide the ship\'s fate' : 'F  Cut the grapples and retreat';
   const sb = nearSub(s); if (sb) return s.prisoner ? 'You are already holding a prisoner' : `F  Bind ${sb.name} (${sb.crime})`;
   const qa = nearActor(s); if (qa) return qa.kind === 'find' ? 'F  Search here' : `F  Speak with ${qa.name}`;
@@ -775,7 +775,7 @@ export function interact(s) {
   if (s.over || s.ending) return { type: 'none' };
   if (s.deck && !nearSub(s)) return s.deck.won ? { type: 'prize' } : retreat(s);
   if (s.mode === 'ship') {
-    const l = findLand(s), wk = !l && wreckHere(s); if (wk) { startDive(s, wk, say, weatherNow(s).storm > 0.6, foeNear); return { type: s.dive ? 'dive' : 'none' }; }
+    const l = findLand(s), wk = !l && wreckHere(s); if (wk) { const wx = weatherNow(s); startDive(s, wk, say, wx.storm > 0.6, foeNear, (roughOf(wx) - 1) / 0.8); return { type: s.dive ? 'dive' : 'none' }; }
     if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
     unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, 'Ashore.'); return { type: 'ashore' };
   }
