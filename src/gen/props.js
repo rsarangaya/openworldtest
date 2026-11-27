@@ -41,6 +41,7 @@ function build(isl) {
   for (const b of town.buildings) if (b.door && b.kind !== 'guard') { // inside each shop: a counter in front of the shopkeeper, a shelf on the back wall, and a barrel or crate
     out.push({ k: 'counter', x: b.x, z: b.z, v: 0, kind: b.kind }); out.push({ k: 'shelf', x: b.x, z: b.z - b.d / 2 + 0.8, v: 0, kind: b.kind });
     out.push({ k: b.kind === 'tavern' ? 'barrel' : 'crate', x: b.x + b.w / 2 - 1.1, z: b.z - b.d / 2 + 1.6, v: 1 });
+    if (b.hall) out.push({ k: 'hearth', x: b.x - 4, z: b.z + 0.4, v: 0 }, { k: 'feast', x: b.x + 3.9, z: b.z - 0.6, v: 0 }, { k: 'feast', x: b.x + 3.9, z: b.z + 1.9, v: 1 }, { k: 'barrel', x: b.x - b.w / 2 + 1.1, z: b.z - b.d / 2 + 1.2, v: 1 }); // the mead hall: a long hearth on one side, feast tables on the other
   }
   for (const b of town.buildings) { // armoury and guard station furniture, as flat sprites (the guard station's cell bars also block walking: b.bars)
     if (b.kind === 'smith') { const bz = b.z - b.d / 2 + 0.75; out.push({ k: 'rack', x: b.x - 1.9, z: bz, v: 0 }, { k: 'rack', x: b.x + 1.9, z: bz, v: 1 }, { k: 'forge', x: b.x - b.w / 2 + 1.5, z: bz, v: 0 }, { k: 'anvil', x: b.x + 1.2, z: b.z - 0.4, v: 0 }, { k: 'barrel', x: b.x + b.w / 2 - 1.2, z: b.z - 0.2, v: 1 }); }

@@ -230,10 +230,10 @@ export function islandTown(isl) {
   const toward = () => '+z'; // in the 2D view every door faces the viewer (south)
   kinds.forEach((k, i) => {
     for (let tries = 0; tries < (k === 'guard' ? 420 : 260); tries++) {
-      const w = k === 'guard' ? (tries < 130 ? 10 : 9) : 8, d = k === 'guard' && tries < 130 ? 8 : 7; // the guard station is big; on a cramped island smaller ones are tried
+      const hall = k === 'tavern' && isl.theme === 'asgard' && tries < 130, w = k === 'guard' ? (tries < 130 ? 10 : 9) : hall ? 13 : 8, d = (k === 'guard' && tries < 130) || hall ? 8 : 7; // the guard station and Asgard's mead hall are big; on a cramped island smaller ones are tried
       const last = tries >= 260, an = (i / kinds.length) * TAU + (r() - 0.5) * 0.6 + tries * 0.21, ring = last ? 11 + (tries - 260) * 0.15 : 13 + r() * 6 + tries * 0.12, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, true, last ? 1.2 : 3.8); // last resort on a tiny island (guard only): search inward again, closer to its neighbours
       if (!sp) continue;
-      const b = { x, z, w, d, h: 4, pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: toward(x, z), kind: k };
+      const b = { x, z, w, d, h: hall ? 5 : 4, pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: toward(x, z), kind: k, ...(hall ? { hall: true } : {}) };
       b.solids = solidsOf(b); buildings.push(b);
       if (k === 'guard') { // a barred cell in the back right corner: bars along its front (with a gate you can be locked behind) and its left side; the sergeant's desk is at the front left
         const cx = x + 0.7, bz = z - 0.8, bar = (x0, x1, z0, z1) => (b.bars ||= []).push([x0, x1, z0, z1]); // bars block walking but are drawn as thin iron bars (mesh.js), not walls

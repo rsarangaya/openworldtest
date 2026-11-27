@@ -91,32 +91,6 @@ const SIGN = { merchant: [0.2, 0.6, 0.3], tavern: [0.75, 0.2, 0.15], shipwright:
 const DIRV = { '+x': [1, 0], '-x': [-1, 0], '+z': [0, 1], '-z': [0, -1] };
 const WOOD = [0.5, 0.36, 0.22], DARKWOOD = [0.33, 0.22, 0.13], STONE = [0.5, 0.48, 0.46];
 
-// furniture and goods inside a shop, in door-relative coordinates: u runs from the middle toward the door, v along the wall
-function shopProps(m, b, y0) {
-  const [dx, dz] = DIRV[b.door], P = (u, v, y) => [b.x + dx * u - dz * v, y, b.z + dz * u + dx * v], sx = dx ? 1 : 0;
-  const bx = (u, v, y, w, h, d, col, ao) => { const p = P(u, v, y); m.box(p[0], p[1], p[2], sx ? w : d, h, sx ? d : w, col, ao); }; // w along u, d along v
-  const hw = (dx ? b.w : b.d) / 2 - 0.7, hv = (dx ? b.d : b.w) / 2 - 0.7;
-  const goods = [[0.8, 0.3, 0.2], [0.3, 0.55, 0.3], [0.85, 0.75, 0.3], [0.35, 0.4, 0.7], [0.7, 0.45, 0.2]];
-  const rr = rngFor(Math.round(b.x * 7 + b.z * 13), 1);
-  switch (b.kind) {
-    case 'merchant': // shelves of goods along the back wall, barrels and sacks
-      for (const lv of [0.5, 1.2, 1.9]) { bx(-hw + 0.25, 0, y0 + lv, 0.5, 0.1, hv * 1.7, DARKWOOD); for (let k = -2; k <= 2; k++) bx(-hw + 0.25, k * hv * 0.34, y0 + lv + 0.2, 0.3, 0.28, 0.4, pick(rr, goods)); }
-      bx(-hw + 0.6, -hv + 0.3, y0 + 0.4, 0.7, 0.8, 0.7, WOOD, 0.2); bx(-hw + 0.6, hv - 0.3, y0 + 0.4, 0.7, 0.8, 0.7, WOOD, 0.2); bx(0.5, hv, y0 + 0.25, 0.7, 0.5, 0.55, [0.75, 0.68, 0.5], 0.2); break;
-    case 'tavern': // two tables with stools, a barrel, a hearth glow
-      for (const v of [-hv * 0.55, hv * 0.55]) { bx(-0.2, v, y0 + 0.8, 1.5, 0.1, 1.2, WOOD); bx(-0.2, v, y0 + 0.4, 0.2, 0.8, 0.2, DARKWOOD); for (const s of [-1, 1]) bx(-0.2 + s * 1.1, v, y0 + 0.3, 0.45, 0.5, 0.45, DARKWOOD); bx(-0.2, v + 0.2, y0 + 0.95, 0.15, 0.18, 0.15, [0.75, 0.6, 0.3]); }
-      bx(-hw + 0.5, 0, y0 + 0.55, 0.9, 1.1, 0.9, WOOD, 0.2); bx(-hw + 0.1, hv - 0.2, y0 + 1.3, 0.2, 1.5, 1.2, STONE); bx(-hw + 0.25, hv - 0.2, y0 + 0.5, 0.1, 0.6, 0.9, [1, 0.55, 0.15]); break;
-    case 'shipwright': // a half-built model ship on a stand, planks and tools
-      bx(-0.4, 0, y0 + 0.6, 2.6, 0.12, 1.2, DARKWOOD); bx(-0.4, 0, y0 + 0.85, 2.2, 0.4, 0.8, [0.5, 0.35, 0.2]); bx(-0.4, 0, y0 + 1.5, 0.08, 1.1, 0.08, DARKWOOD); bx(-0.4, 0, y0 + 1.5, 0.05, 0.8, 0.7, [0.92, 0.9, 0.82]);
-      for (let k = 0; k < 4; k++) bx(-hw + 0.5, hv - 0.4, y0 + 0.12 + k * 0.2, 2, 0.14, 0.5, k % 2 ? WOOD : DARKWOOD); bx(-hw + 0.4, -hv + 0.4, y0 + 0.45, 0.6, 0.9, 0.6, [0.4, 0.4, 0.42]); break;
-    case 'sailor': // a bunk, a chart table, a seat
-      bx(-hw + 0.7, hv - 0.5, y0 + 0.35, 2.2, 0.3, 1, WOOD); bx(-hw + 0.7, hv - 0.5, y0 + 0.6, 1.8, 0.2, 0.8, [0.7, 0.3, 0.3]);
-      bx(-0.2, -hv * 0.4, y0 + 0.8, 1.6, 0.08, 1.2, WOOD); bx(-0.2, -hv * 0.4, y0 + 0.86, 1.3, 0.02, 0.9, [0.93, 0.88, 0.7]); bx(-0.2, -hv * 0.4, y0 + 0.4, 0.2, 0.8, 0.2, DARKWOOD); bx(0.9, -hv * 0.4, y0 + 0.3, 0.5, 0.5, 0.5, DARKWOOD); break;
-    default: // warden: hearth with a fire, a fur rug, a rack of tools
-      bx(-hw + 0.3, 0, y0 + 0.9, 0.6, 1.8, 2, STONE); bx(-hw + 0.5, 0, y0 + 0.35, 0.2, 0.6, 1.1, [1, 0.5, 0.12]); bx(0.1, 0, y0 + 0.07, 2.4, 0.04, 1.8, [0.92, 0.94, 0.98]);
-      bx(-hw + 0.3, hv - 0.4, y0 + 1.4, 0.1, 1.8, 0.1, DARKWOOD); bx(-hw + 0.3, hv - 0.4, y0 + 2.2, 0.1, 0.1, 1.2, DARKWOOD);
-  }
-}
-
 // Asgard's longhouses: dark timber walls with plank lines, steep turf or thatch roofs with an overhang, a carved dragon head at each end of the ridge, round shields along the walls, a smoke hole instead of a chimney
 const VK_WALL = [[0.4, 0.27, 0.17], [0.33, 0.23, 0.15], [0.45, 0.31, 0.2]], VK_ROOF = [[0.36, 0.42, 0.26], [0.52, 0.44, 0.28], [0.3, 0.36, 0.3]], VK_SHIELD = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.88, 0.86, 0.8], [0.15, 0.4, 0.25]];
 function vikingTrim(m, b, y0, y1, ry, alongX) {

@@ -6,6 +6,7 @@ import { sideOffersFor, takeSide, pickSide, dropSide } from './rules/game.js';
 // All DOM: menus, intro, HUD, shop dialogs, quest log, pause, ending. The game rules never touch the DOM.
 import { QUESTS, currentQuest, questText } from './rules/quests.js';
 import { asgardLine } from './rules/lore.js';
+import { isHall, feast, feastReady, songFor, FEAST_PRICE } from './rules/meadhall.js';
 import { STYLES } from './gen/style.js';
 import { GOODS } from './gen/world.js';
 import { WEAPONS, WEAPON_ORDER, owns } from './rules/weapons.js';
@@ -181,7 +182,7 @@ export function createUI() {
     };
     const port = ctx.island?.port;
     // the tavern keeper: a menu of everything a tavern offers, each choice with a way back
-    let tavPage = null, rumours = 0;
+    let tavPage = null, rumours = 0, songs = 0; const hall = isHall(ctx.island);
     const page = (title, body, extra = '') => {
       el.innerHTML = `<div class=box style="max-height:86vh;overflow:auto">${head}<h2>${title}</h2>${body}<p>${extra}<button id=pB>Back</button></p></div>`;
       $('pB').onclick = tavern;
@@ -189,14 +190,16 @@ export function createUI() {
     const tavern = () => {
       tavPage = null;
       const tip = res.lines.slice(3).map((l) => `<p><small>${esc(l)}</small></p>`).join(''); // e.g. a chart the keeper scrawls you the first time
-      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town']];
-      el.innerHTML = `<div class=box style="text-align:center">${head}<p>Pull up a stool. What will it be?</p>${tip}${opts.map(([k, n]) => `<button data-t=${k}>${n}</button><br>`).join('')}<button id=pC>Leave</button></div>`;
+      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town'], ...(hall ? [['feast', feastReady(s) ? `Join the feast (${FEAST_PRICE}g)` : 'Join the feast (tables bare)'], ['song', 'Ask the skald for a song']] : [])];
+      el.innerHTML = `<div class=box style="text-align:center">${head}${hall ? '<h2>Mead Hall</h2><p>Sit at the long table, by the fire. Mead, meat or a song?</p>' : '<p>Pull up a stool. What will it be?</p>'}${tip}${opts.map(([k, n]) => `<button data-t=${k}>${n}</button><br>`).join('')}<button id=pC>Leave</button></div>`;
       $('pC').onclick = close;
       el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => choose(b.dataset.t)));
     };
     const choose = (k) => {
       if (k === 'jobs' || k === 'crew') { tavPage = k; shop(); return; }
       if (k === 'help') { const st = storiesFor(s, ctx.island); page('Troubles', st.html); el.querySelectorAll('[data-q]').forEach((b) => (b.onclick = () => { takeSide(s, st.offs[+b.dataset.q]); ctx.onChange?.(); choose('help'); })); return; }
+      if (k === 'feast') { const line = feast(s); ctx.audio?.coin(); ctx.onChange?.(); page('The Feast', `<p>${esc(line)}</p>`); return; }
+      if (k === 'song') { page('The Skald Sings', `<p><i>${esc(songFor(res.npc.seed, songs++))}</i></p>`, '<button id=pM>Another</button> '); $('pM').onclick = () => choose('song'); return; }
       if (k === 'rumour') {
         const issue = Math.floor(s.t / 300), n = rumours++, items = newsFor(s, ctx.island).items.filter((q) => q.tag !== 'Overheard' && q.tag !== 'Prices'), item = items[n % Math.max(1, items.length)];
         page('Rumours', `<p>${esc(asgardLine(s, res.npc.seed + n * 977, issue + n))}</p>${item ? `<p><small class=gold>${esc(item.head)}</small><br>${esc(item.body)}</p>` : ''}`, '<button id=pM>Another</button> ');
@@ -207,7 +210,7 @@ export function createUI() {
     };
     let tavernOffers = [], settled = false;
     const shop = () => {
-      let h = `<div class=box>${head}<h2>${res.panel === 'market' ? 'Market' : res.panel === 'shipyard' ? 'Shipyard' : res.panel === 'arms' ? 'Armoury' : res.panel === 'guard' ? 'Guard Station' : res.panel === 'tavern' ? 'Tavern' : 'The Warden'}</h2><div>Gold: <b class=gold>${Math.round(s.gold)}</b>${port ? ` · Standing here: <b>${tier(localRep(s, port.iid))}</b> · Realm: <b>${tier(worldRep(s))}</b>` : ''}</div>`;
+      let h = `<div class=box>${head}<h2>${res.panel === 'market' ? 'Market' : res.panel === 'shipyard' ? 'Shipyard' : res.panel === 'arms' ? 'Armoury' : res.panel === 'guard' ? 'Guard Station' : res.panel === 'tavern' ? (isHall(ctx.island) ? 'Mead Hall' : 'Tavern') : 'The Warden'}</h2><div>Gold: <b class=gold>${Math.round(s.gold)}</b>${port ? ` · Standing here: <b>${tier(localRep(s, port.iid))}</b> · Realm: <b>${tier(worldRep(s))}</b>` : ''}</div>`;
       if (res.panel === 'market') {
         h += `<p>Provisions (${foodPrice(s, port)}g each): you have <b>${s.food}</b>/${MAX_FOOD} <button class=small data-a=f1>+1</button><button class=small data-a=f5>+5</button><button class=small data-a=fm>Fill</button></p>`;
         h += '<table><tr><th>Goods</th><th class=n>Buy</th><th class=n>Sell</th><th class=n>Have</th><th></th></tr>';

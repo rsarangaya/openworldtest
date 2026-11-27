@@ -212,6 +212,20 @@ export const ANVIL_BOX = { x0: -0.8, x1: 0.8, y0: -1.2, y1: 0.2 };
 export function paintAnvil(g) { cel(g, rr(-0.35, -0.45, 0.7, 0.45, 0.05), WOOD); cel(g, poly(-0.75, -1.0, 0.7, -1.0, 0.5, -0.8, 0.28, -0.72, 0.4, -0.45, -0.4, -0.45, -0.28, -0.72, -0.5, -0.8), IRON, { lw: 0.07 }); cel(g, rr(-0.75, -1.05, 1.4, 0.14, 0.04), IRON_L, { lw: 0.05 }); }
 export const FORGE_BOX = { x0: -1, x1: 1, y0: -2.2, y1: 0.2 };
 export function paintForge(g) { cel(g, rr(-0.9, -2.0, 1.8, 2.0, 0.08), [0.5, 0.48, 0.46]); cel(g, rr(-0.55, -0.95, 1.1, 0.95, 0.12), [0.2, 0.18, 0.18], { lw: 0.06 }); fillPath(g, ell(0, -0.35, 0.4, 0.28), '#ff8a2e'); fillPath(g, ell(0, -0.3, 0.22, 0.17), '#ffe066'); cel(g, rr(-0.35, -2.25, 0.7, 0.3, 0.05), [0.4, 0.38, 0.36], { lw: 0.05 }); }
+// the mead hall: a long stone-ringed hearth with a fire and a spit, and a long feast table with meat, bread and drinking horns
+export const HEARTH_BOX = { x0: -1.8, x1: 1.8, y0: -2.2, y1: 0.2 };
+export function paintHearth(g) {
+  cel(g, rr(-1.7, -0.55, 3.4, 0.55, 0.1), [0.5, 0.48, 0.46]); for (let i = 0; i < 6; i++) fillPath(g, ell(-1.45 + i * 0.58, -0.5, 0.22, 0.12), rgb([0.6, 0.58, 0.55]));
+  for (const [x, h] of [[-0.9, 0.9], [-0.3, 1.25], [0.35, 1.05], [0.95, 0.8]]) { fillPath(g, poly(x - 0.32, -0.5, x, -0.5 - h, x + 0.32, -0.5), '#ff8a2e'); fillPath(g, poly(x - 0.16, -0.5, x, -0.5 - h * 0.55, x + 0.16, -0.5), '#ffe066'); }
+  for (const s of [-1, 1]) line(g, s * 1.35, -0.5, s * 1.35, -1.9, 0.09, '#2a1c10'); line(g, -1.5, -1.85, 1.5, -1.85, 0.07, '#2a1c10'); fillPath(g, ell(0.1, -1.75, 0.5, 0.24), '#8a4a26');
+}
+export const FEAST_BOX = { x0: -1.9, x1: 1.9, y0: -1.6, y1: 0.2 };
+export function paintFeast(g, v) {
+  cel(g, rr(-1.8, -1.05, 3.6, 0.22, 0.05), [0.62, 0.44, 0.26]); for (const x of [-1.55, 1.55]) cel(g, rr(x - 0.08, -0.85, 0.16, 0.85, 0.03), [0.4, 0.28, 0.17]);
+  cel(g, rr(-1.6, -0.42, 3.2, 0.16, 0.04), [0.55, 0.38, 0.22]); // the bench in front
+  fillPath(g, ell(v ? 0.7 : -0.6, -1.22, 0.42, 0.2), '#9a5a2e'); fillPath(g, ell(v ? -0.5 : 0.6, -1.17, 0.26, 0.14), '#d8b070'); // a roast and a loaf
+  for (const x of v ? [-1.3, 0.1, 1.4] : [-1.35, 0, 1.35]) cel(g, poly(x - 0.12, -1.05, x + 0.12, -1.05, x + 0.2, -1.45, x - 0.02, -1.35), [0.92, 0.88, 0.76], { lw: 0.04 }); // drinking horns
+}
 // battle effects: a muzzle/impact flash, a puff of smoke and a splash (drawn as flat pixel sprites, scaled and moved by the game)
 export const FX_BOX = { x0: -1.2, x1: 1.2, y0: -1.2, y1: 1.2 };
 export function paintFlash(g) {
