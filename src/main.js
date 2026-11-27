@@ -16,7 +16,7 @@ import { lifeAt, clearLife } from './rules/life.js';
 import { serpentParts, LUNGE_AT } from './rules/serpent.js';
 import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
 import { quantize } from './render/palette.js';
-import { CINE_S } from './rules/realm.js';
+import { CINE_S, RUNE_GATE, runeGateAngle } from './rules/realm.js';
 import { soundScene as sceneOf } from './rules/meadhall.js';
 import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
@@ -58,7 +58,8 @@ const key = (x, z) => `${x},${z}`;
 const atkFrame = (e, near, walk) => { const la = s.t - (e.atk ?? -9); if (la >= 0 && la < 0.28) return 4; if (near && e.cd > 0 && e.cd < 0.32) return 3; return walk; };
 // a sector is created empty and its meshes are built one at a time within a few ms per frame, so sailing never hitches
 // the wall's mesh for one sector (flagged so it can be swapped alone when the breach opens)
-const wallTask = (sx, sz) => () => { if (s && s.realm && s.realm !== 'terra') return null; const w = wallMesh(s?.baseSeed || BASE_SEED, sx, sz, !!s?.flags?.crossed); return w ? { m: renderer.upload(w), mat: IDENT, tint: [1, 1, 1], wall: true } : null; };
+const wallTask = (sx, sz) => () => { const rl = s?.realm || 'terra', rune = rl === RUNE_GATE.realm; if (rl !== 'terra' && !rune) return null; // Terra's ice wall, or Asgard's rune gate
+  const w = rune ? wallMesh(s.seed, sx, sz, !!s.flags.runeGate, { ang: runeGateAngle(), arc: RUNE_GATE.arc }) : wallMesh(s?.baseSeed || BASE_SEED, sx, sz, !!s?.flags?.crossed); return w ? { m: renderer.upload(w), mat: IDENT, tint: [1, 1, 1], wall: true } : null; };
 // a city is built over several frames: each stage of the ground is one step of the task, which puts itself back at the front of the queue until done
 const islandTasks = (k, isl) => {
   const it = islandGroundSteps(isl);

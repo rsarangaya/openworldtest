@@ -9,7 +9,7 @@ import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
 import { shipParams } from '../gen/mesh.js';
 import { explore, visit, learn, mapOf } from './map.js';
 import { stepContracts, offers as contractOffers, accept as acceptContract, settle as settleContracts, abandon as abandonContract, active as activeContracts, progress as contractProgress } from './contracts.js';
-import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S } from './realm.js';
+import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S, bearing, RUNE_GATE, RUNES_NEEDED, runeGateAngle } from './realm.js';
 import { REALMS } from './map.js';
 import { clearWorldCaches } from '../gen/world.js';
 import { extraGuards, STYLES } from '../gen/style.js';
@@ -26,7 +26,7 @@ import { shipName, captainName } from '../gen/names.js';
 import { islandProps } from '../gen/props.js';
 import { townsfolk, folkPos } from '../gen/world.js';
 import { eventFor } from './events.js';
-import { stepSerpent, shotSerpent, nearLair } from './serpent.js';
+import { stepSerpent, shotSerpent, nearLair, compassWord } from './serpent.js';
 import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
 import { runeLine } from './lore.js';
 import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
@@ -541,8 +541,8 @@ const windGoal = (s) => { const tg = trackedQuest(s)?.target(), f = s.mode === '
 function stepCine(s, dt) {
   const c = s.cine; if (!c) return; const a = s.t - c.t0, X = Math.cos(c.ang) * WALL_R, Z = Math.sin(c.ang) * WALL_R;
   if (!c.broke && Math.floor(a * 7) !== Math.floor((a - dt) * 7)) puff(s, 'splash', X + (hash(s.seed, Math.floor(a * 7)) % 40) - 20, 8 + (a * 6), Z + (hash(s.seed, Math.floor(a * 7), 4) % 40) - 20, 1.2, { vy: 3, sc: 2.4 });
-  if (!c.broke && a >= CINE_BREAK) { c.broke = true; s.events.push({ type: 'break' }); say(s, 'The Wall breaks! A breach opens in the ice.'); for (let i = 0; i < 12; i++) puff(s, i % 3 ? 'splash' : 'smoke', X + (hash(s.seed, i, 8) % 50) - 25, 6 + (i % 4) * 5, Z + (hash(s.seed, i, 9) % 50) - 25, 1.8, { vy: 4, sc: 3.4 }); }
-  if (a >= CINE_S) { s.cine = null; s.flags.beyond = true; s.events.push({ type: 'banner', text: 'Beyond the Wall', sub: 'The sea goes on. The map is yours now (M).' }); }
+  if (!c.broke && a >= CINE_BREAK) { c.broke = true; s.events.push({ type: 'break' }); say(s, c.rune ? 'The runes blaze green and the veil parts!' : 'The Wall breaks! A breach opens in the ice.'); for (let i = 0; i < 12; i++) puff(s, c.rune ? (i % 3 ? 'flash' : 'smoke') : i % 3 ? 'splash' : 'smoke', X + (hash(s.seed, i, 8) % 50) - 25, 6 + (i % 4) * 5, Z + (hash(s.seed, i, 9) % 50) - 25, 1.8, { vy: 4, sc: 3.4 }); }
+  if (a >= CINE_S) { s.cine = null; if (c.rune) { s.gateT = s.t; s.events.push({ type: 'banner', text: 'The Rune Gate is open', sub: 'Beyond it the sea runs on toward Olympus.' }); return; } s.flags.beyond = true; s.events.push({ type: 'banner', text: 'Beyond the Wall', sub: 'The sea goes on. The map is yours now (M).' }); }
 }
 // the fade is done: swap worlds and put the ship on the matching edge of the new one
 export function warpNow(s) {
@@ -551,7 +551,7 @@ export function warpNow(s) {
   solidCache.clear(); stationCache.clear(); clearWorldCaches(); clearHuntCaches(); s.targets = questWorld(s.seed);
   const p = s.ship; p.speed = 2;
   if (to === 'terra') { const th = REALMS.find((r) => r.id === from)?.grand.ang ?? w.ang; p.x = Math.cos(th) * (OUTER_EDGE - 260); p.z = Math.sin(th) * (OUTER_EDGE - 260); p.yaw = th + Math.PI; }
-  else { const th = (REALMS.find((r) => r.id === to)?.grand.ang ?? 0) + Math.PI; let r = WALL_R - 200; for (; r > 3000; r -= 150) if (!hullHit(s, Math.cos(th) * r, Math.sin(th) * r, th + Math.PI, 12, 5)) break; p.x = Math.cos(th) * r; p.z = Math.sin(th) * r; p.yaw = th + Math.PI; }
+  else { const th = bearing(to, from); let r = WALL_R - 200; for (; r > 3000; r -= 150) if (!hullHit(s, Math.cos(th) * r, Math.sin(th) * r, th + Math.PI, 12, 5)) break; p.x = Math.cos(th) * r; p.z = Math.sin(th) * r; p.yaw = th + Math.PI; }
   s.mode = 'ship'; s.foot = { ...s.foot, x: p.x, z: p.z }; s.edgeT = s.t; s.wind = windAt(s.t, null);
   say(s, to === 'terra' ? 'Back in the Outer Sea. The Wall lies ahead.' : 'You have crossed into a new world.'); return true;
 }
@@ -602,6 +602,18 @@ function stepShip(s, inp, dt) {
       if (d > OUTER_EDGE - EDGE_HINT && s.t - (s.edgeT || -99) > 60) { s.edgeT = s.t; say(s, 'The water changes ahead. The sea seems to go on forever.'); }
       if (d >= OUTER_EDGE) { const a = Math.atan2(p.z, p.x), dest = destinationAt(a); if (dest) { s.warp = { to: dest.id, t0: s.t, ang: a }; s.events.push({ type: 'warp', to: dest.id }); } }
     }
+  } else if (realmOf(s) === RUNE_GATE.realm && d > RIM_EXIT - 200 && Math.abs(wrapPi(Math.atan2(p.z, p.x) - runeGateAngle())) * WALL_R < RUNE_GATE.arc) { // Asgard's rune gate: cliffs, a veil, and past it the next world
+    if (d > WALL_R - 12 && d < WALL_R + 14) {
+      const veil = Math.abs(wrapPi(Math.atan2(p.z, p.x) - runeGateAngle())) * WALL_R < GATE_HALF, c = s.cine, n = (s.runes || []).length;
+      if (!s.flags.runeGate && veil && n >= RUNES_NEEDED) { // the runes answer at a touch, even if she is already resting against the veil: the scene starts
+        s.flags.runeGate = true; s.cine = { t0: s.t, ang: Math.atan2(p.z, p.x), rune: true }; p.x = ox; p.z = oz; p.speed = Math.min(p.speed, 2.5); s.events.push({ type: 'cine' });
+        say(s, 'The runes you copied glow on the veil, one by one...');
+      } else if (s.flags.runeGate && veil && (!c || c.broke)) { /* the open gate */ }
+      else {
+        p.x = ox; p.z = oz; p.speed = c ? p.speed * 0.5 : -Math.abs(p.speed) * 0.3;
+        if (!c && s.t - s.msgT > 6) { s.msgT = s.t; say(s, veil ? `A veil of green light, carved all over with runes. You know ${n} of the ${RUNES_NEEDED} stones it answers to: read more rune stones on Asgard's islands.` : 'Black cliffs at the edge of the world. In their middle a veil of green light shimmers.'); }
+      }
+    } else if (d >= WALL_R + 14 && !s.warp && !s.cine && s.t - (s.gateT ?? -99) > 4) { /* the banner after the scene gets a few seconds before the fade */ s.warp = { to: RUNE_GATE.to, t0: s.t, ang: Math.atan2(p.z, p.x) }; s.events.push({ type: 'warp', to: RUNE_GATE.to }); }
   } else if (d > RIM_EXIT && !s.warp) { s.warp = { to: 'terra', t0: s.t, ang: Math.atan2(p.z, p.x) }; s.events.push({ type: 'warp', to: 'terra' }); }
   if (wx.storm > 0.6 && p.sail > 0.55 && !s.cine && calm(p.x, p.z) > 0.8 && s.t - (s.stormT || 0) > 8) { s.stormT = s.t; if (s.hull > 10) { s.hull = Math.max(10, s.hull - 2); s.hitT = s.t; say(s, 'The storm batters her! Reef your sails (S) or find the lee of an island.'); } } // in open water under too much sail; weather alone never sinks you
   if (Math.abs(p.speed) > 0.5) { s.foodT += dt; if (s.foodT > 45) { s.foodT = 0; if (s.food > 0) s.food--; } }
@@ -713,10 +725,12 @@ const nearNpc = (s) => {
 const nearBoard = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.port) for (const p of islandProps(i)) if (p.k === 'board' && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 4.6) return i; return null; };
 // an Asgard rune stone within reach (its island), or null
 const nearRune = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.theme === 'asgard') for (const p of islandProps(i)) if (p.k === 'rune' && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 3.2) return i; return null; };
+// what the stones say of the rune gate: which way it lies from this island, and how many more stones it wants
+const gateHint = (s, isl) => { const a = runeGateAngle(), n = (s.runes || []).length; return `The stones speak of a gate of runes at the edge of this world, far to the ${compassWord(Math.cos(a) * WALL_R - isl.x, Math.sin(a) * WALL_R - isl.z)}. ${n >= RUNES_NEEDED ? 'You have read enough to make its veil answer you.' : `Read ${RUNES_NEEDED - n} more and its veil will answer you.`}`; };
 // read a rune stone: its line of lore; the first read of each stone counts (s.runes, saved) and adds a little to your score
 export function readRune(s, isl) {
   const seen = (s.runes ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
-  return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`], panel: null };
+  return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`, ...(s.flags.runeGate ? [] : [gateHint(s, isl)])], panel: null };
 }
 const nearTreasure = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.treasure && !s.found.has(i.id) && Math.hypot(i.treasure.x - s.foot.x, i.treasure.z - s.foot.z) < 5) return i; return null; };
 export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;

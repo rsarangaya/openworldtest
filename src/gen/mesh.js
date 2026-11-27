@@ -286,22 +286,24 @@ export function islandStructs(isl) {
 
 // ---------------------------------------------------------------- ice wall: a continuous cliff, same height all the way round, banded deep blue to white, with an overhanging snow lip, icicles and rubble at the foot.
 // One stretch (the weak spot, `gateAngle`) is paler and cracked. Once the ram has broken it (`open`) the wall is gone there and the edges are ragged.
-export function wallMesh(seed, sx, sz, open = false) {
+// With `rune` ({ ang, arc }) it is Asgard's rune gate instead: only `arc` either side of `ang`, black stone tapering at the ends, the middle a green veil of runes.
+export function wallMesh(seed, sx, sz, open = false, rune = null) {
   const x0 = sx * SECTOR - 40, x1 = (sx + 1) * SECTOR + 40, z0 = sz * SECTOR - 40, z1 = (sz + 1) * SECTOR + 40;
   const near = Math.hypot(clamp(0, x0, x1), clamp(0, z0, z1)), far = Math.max(Math.hypot(x0, z0), Math.hypot(x1, z0), Math.hypot(x0, z1), Math.hypot(x1, z1));
   if (near > WALL_R + 30 || far < WALL_R - 30) return null;
-  const m = new Mesh(), da = 22 / WALL_R, g = gateAngle(seed), WI = WALL_R - 6, WO = WALL_R + 8, F = [0, 0.25, 0.5, 0.8, 1], RAD = [0, 0, 3, 8, 9];
+  const m = new Mesh(), da = 22 / WALL_R, g = rune ? rune.ang : gateAngle(seed), WI = WALL_R - 6, WO = WALL_R + 8, F = [0, 0.25, 0.5, 0.8, 1], RAD = [0, 0, 3, 8, 9];
   const gdOf = (a) => Math.abs(((a - g + Math.PI * 3) % TAU) - Math.PI) * WALL_R;
-  const H = (a) => { const gd = gdOf(a); let h = 150 + 50 * fbm(seed, a * 260, 5, 3) + 12 * Math.sin(a * 900); if (open && gd < GATE_HALF + 36) h *= 0.12 + 0.88 * clamp((gd - GATE_HALF) / 36, 0, 1) ** 1.5 * (0.7 + 0.6 * fbm(seed, a * 1500, 3, 2)); return h; };
-  const BAND = [[0.2, 0.44, 0.8], [0.36, 0.62, 0.92], [0.64, 0.84, 0.98], [0.94, 0.98, 1]]; // base to top, flat colours
-  const WEAK = [[0.5, 0.82, 0.95], [0.66, 0.9, 0.98], [0.8, 0.95, 1], [0.97, 0.99, 1]];
+  const H = (a) => { const gd = gdOf(a); let h = 150 + 50 * fbm(seed, a * 260, 5, 3) + 12 * Math.sin(a * 900); if (open && gd < GATE_HALF + 36) h *= 0.12 + 0.88 * clamp((gd - GATE_HALF) / 36, 0, 1) ** 1.5 * (0.7 + 0.6 * fbm(seed, a * 1500, 3, 2)); return rune ? h * (1 - 0.6 * (gd / rune.arc) ** 3) : h; };
+  const BAND = rune ? [[0.13, 0.13, 0.17], [0.2, 0.21, 0.26], [0.3, 0.31, 0.37], [0.9, 0.94, 0.98]] : [[0.2, 0.44, 0.8], [0.36, 0.62, 0.92], [0.64, 0.84, 0.98], [0.94, 0.98, 1]]; // base to top, flat colours
+  const WEAK = rune ? [[0.2, 0.62, 0.48], [0.3, 0.78, 0.6], [0.5, 0.9, 0.74], [0.74, 0.98, 0.88]] : [[0.5, 0.82, 0.95], [0.66, 0.9, 0.98], [0.8, 0.95, 1], [0.97, 0.99, 1]];
   const V = (rad, ang, y) => [Math.cos(ang) * rad, y, Math.sin(ang) * rad];
   for (let a = 0, k = 0; a < TAU; a += da, k++) {
     const px = Math.cos(a) * WALL_R, pz = Math.sin(a) * WALL_R;
     if (px < x0 || px > x1 || pz < z0 || pz > z1) continue;
     const b = a + da, gd = gdOf(a), weak = gd < GATE_HALF;
+    if (rune && gd > rune.arc) continue;
     if (open && weak) { // the breach: only a ragged rubble heap at the waterline
-      if (fbm(seed, a * 700, 3, 2) > 0.45) m.box(Math.cos(a + da / 2) * WALL_R, 1.2, Math.sin(a + da / 2) * WALL_R, 9, 5, 9, [0.82, 0.93, 1]);
+      if (fbm(seed, a * 700, 3, 2) > 0.45) m.box(Math.cos(a + da / 2) * WALL_R, 1.2, Math.sin(a + da / 2) * WALL_R, 9, 5, 9, rune ? BAND[1] : [0.82, 0.93, 1]);
       continue;
     }
     const h0 = H(a), h1 = H(b), pal = weak ? WEAK : BAND, crack = weak && k % 3 === 0;
