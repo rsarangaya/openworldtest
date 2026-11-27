@@ -1,21 +1,21 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 90, commit 1efe726). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 91, commit c50e5de). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 137 tests, all passing
-npm run build      # writes index.html (333.0 kB, 131.4 kB gzipped)
+npm test           # 140 tests, all passing
+npm run build      # writes index.html (336.5 kB, 132.8 kB gzipped)
 npm run dev        # unminified build
 ```
 
 Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
 URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
 ## Where things stand (2026-11-27)
 
@@ -35,6 +35,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
+- Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last).
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
@@ -50,7 +51,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
-- No underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
+- Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
 The round-by-round history follows (newest at the end).
@@ -754,3 +755,14 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 89 (Node, same machine): island build 1.60-1.71 vs 1.60 ms (noise), game step 0.017 ms (no change); the indoor check costs under 0.001 ms a frame. Chrome CPU 0.9-1.0 ms a frame. Build 330.5 -> 333.0 kB (130.2 -> 131.4 kB gzipped).
 - Not checked: soft and mid looks at night, storms and fog at night, Asgard's aurora at night, GPU time, real mouse play. The moon's glint on the sea is bright.
 - Left on the machine: Chrome test tabs on 127.0.0.1:8772 could not be closed because the game asks to confirm leaving; the server is stopped, so just close them.
+
+## Round 91 (2026-11-27): wrecks and salvage (pushed, commit c50e5de)
+- **Wrecks:** `rules/salvage.js`. Four per world (every realm), in open water at least 120 units from land, spread from near the start to the rim; each has a ship name and a cargo. Floating barrels and crates bob over each one (drawn within 450 units) until it is stripped.
+- **Rumours:** notice boards carry "An old wreck" on the issues that do not carry the monster rumour, and Terra tavern keepers mention the nearest one every other five minutes, both with a compass bearing.
+- **Diving:** stop within 35 units of the wreck (speed under 2) and the prompt reads "F  Dive on the wreck of the ... (n dives left)". The diver is down 6 s; the ship holds still and the helm does nothing meanwhile (prompt counts down). Each of the first two dives brings up 40-110 gold and 1-2 of the wreck's cargo (if the hold has room); the third brings up the strongbox (160-260 gold) and the wreck is stripped (saved in s.salvage per world). Refused: under way ("Heave to first"), in a storm, or with a hostile ship within 200 (or the serpent up). A hostile ship coming within 150 hauls the diver up empty-handed. Towns run a "Wreck stripped" story after the first. Debug panel: "Go: wreck".
+- Defaults chosen without asking: four wrecks per world, three dives each, 6 s dives, no risk to the diver beyond being hauled up, nothing drawn underwater (flat looks), wrecks not marked on the map.
+- Tests: 140 pass (3 new: four wrecks in open water per world and in Asgard; a scripted captain reads the board rumour, rows to the named wreck, is refused while under way, dives three times with the helm locked, gets gold and cargo, the wreck stays stripped through a save and leaves the board; refused near a raider and in a storm, hauled up when a raider closes in, no cargo into a full hold).
+- Chrome (localhost, real build, debug "Go: wreck"): crates and barrels float by the ship, the prompt shows, three F presses gave the countdown, coins and cannon cargo, then the strongbox; the debris and prompt vanished after. No console errors.
+- Performance against round 90 (Node, same machine): sea step plus prompt 0.045-0.047 ms vs 0.044-0.046 ms (noise). Build 333.0 -> 336.5 kB (131.4 -> 132.8 kB gzipped). Graphics: up to 16 more billboards near wrecks, sprites already in the atlas.
+- Not checked: the splash sound, the tavern line by eye, wrecks in Asgard by eye, GPU time.
+- Left on the machine: the Chrome test tab (127.0.0.1:8781) could not be closed because the game asks to confirm leaving; the server is stopped, so just close it.
