@@ -17,6 +17,7 @@ import { serpentParts, LUNGE_AT } from './rules/serpent.js';
 import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
 import { quantize } from './render/palette.js';
 import { CINE_S } from './rules/realm.js';
+import { soundScene as sceneOf } from './rules/meadhall.js';
 import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
 import { board, byId } from './rules/hunt.js';
@@ -389,11 +390,11 @@ const dbg = debugEnabled() ? createDebug({
   get: () => s, say,
   teleport: () => { clearLife(); updateSectors(s.ship.x, s.ship.z, true); cam.blend = 1; view.yaw = s.ship.yaw; orbit.yaw = 0; },
   warp: (to) => { if ((s.realm || 'terra') === to) { say(s, 'You are already in ' + to + '.'); return; } if (phase === 'warp') return; if (phase === 'paused' || phase === 'panel') { document.getElementById('pause')?.classList.remove('on'); document.getElementById('panel')?.classList.remove('on'); } phase = 'play'; s.cine = null; s.warp = { to, t0: s.t, ang: -1.5 }; startWarp(to); },
-  info: () => 'fps ' + (window.__fps || 0).toFixed(0) + '  cpu ' + (window.__ms?.step || 0).toFixed(2) + '+' + (window.__ms?.draw || 0).toFixed(2) + ' ms  sectors ' + sectors.size + (performance.memory ? '  heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : ''),
+  info: () => 'music ' + audio.style + '  fps ' + (window.__fps || 0).toFixed(0) + '  cpu ' + (window.__ms?.step || 0).toFixed(2) + '+' + (window.__ms?.draw || 0).toFixed(2) + ' ms  sectors ' + sectors.size + (performance.memory ? '  heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB' : ''),
 }) : null;
 // ---------------------------------------------------------------- main loop
 // what the ears should hear: at sea, or ashore, and how busy the town around you is (louder near the plaza, bigger in cities)
-const soundScene = () => { if (s.mode !== 'foot') return { foot: false, town: 0 }; const i = standingOn(s), pz = i?.port && islandTown(i).plaza; if (!pz) return { foot: true, town: 0 }; const w = { village: 0.5, town: 0.8, city: 1 }[i.tier] || 0.5; return { foot: true, town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) }; };
+const soundScene = () => sceneOf(s, s.mode === 'foot' ? standingOn(s) : null);
 let prevMode = null, last = performance.now(), acc = 0, T = 0, fpsN = 0, fpsT = 0;
 // one slice of game time: step the rules and react to what happened
 function advance(dt, maxSteps) {

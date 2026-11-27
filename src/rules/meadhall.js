@@ -1,9 +1,11 @@
 // Asgard's mead halls: the tavern of an Asgard town is a long hall with a hearth and feast tables. Two extras on the keeper's menu:
 // the feast (pay, eat: full health and a merrier crew, once a feast) and the skald's songs (saga verses; some hint at what lies ahead).
 import { hash } from '../gen/rng.js';
+import { islandTown } from '../gen/world.js';
 
 export const FEAST_PRICE = 15, FEAST_EVERY = 300; // a new feast is laid every 300 s of game time (same rhythm as the notice boards)
 export const isHall = (isl) => isl?.theme === 'asgard';
+export const inHall = (isl, x, z) => isHall(isl) && !!isl.port && islandTown(isl).buildings.some((b) => b.hall && Math.abs(b.x - x) < b.w / 2 && Math.abs(b.z - z) < b.d / 2); // standing inside the mead hall (its tune plays)
 export const feastReady = (s) => s.t - (s.feastT ?? -1e9) >= FEAST_EVERY;
 // returns the line to show; changes the state only when the feast is joined
 export function feast(s) {
@@ -27,3 +29,11 @@ const SONGS = [
 ];
 export const SONG_COUNT = SONGS.length;
 export const songFor = (seed, n) => SONGS[(((hash(seed, 31) >>> 0) % SONGS.length) + n) % SONGS.length]; // each ask moves to the next verse
+// what the music and crowd should do: on foot near a town plaza the crowd swells; Asgard has its own music, the mead hall its own tune.
+// isl is the island underfoot (standingOn), or null at sea
+export function soundScene(s, isl) {
+  const norse = s.realm === 'asgard'; if (s.mode !== 'foot') return { foot: false, town: 0, norse };
+  const pz = isl?.port && islandTown(isl).plaza; if (!pz) return { foot: true, town: 0, norse };
+  const w = { village: 0.5, town: 0.8, city: 1 }[isl.tier] || 0.5;
+  return { foot: true, norse, hall: inHall(isl, s.foot.x, s.foot.z), town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) };
+}

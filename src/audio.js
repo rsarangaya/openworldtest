@@ -1,4 +1,27 @@
 // Procedural audio (no sample files): sea, wind, cannons, coins. Built on the first click or key press.
+// Generative music in three styles: Terra (calm D major pads), Asgard (D minor over a low open-fifth drone, a horn call now and then)
+// and the mead hall (a quicker lyre tune over a frame drum). A style is a pure list of notes per bar, so it can be checked without sound.
+export const musicStyle = (sc) => (sc?.hall ? 'hall' : sc?.norse ? 'norse' : 'terra');
+const CH = { terra: [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 0, 4, 7], [7, 11, 14, 18]], norse: [[0, 7, 12, 15], [-2, 5, 10, 14], [-4, 3, 8, 12], [-2, 5, 10, 14]] };
+const SCALE = { terra: [0, 2, 4, 7, 9, 12, 14, 16], norse: [0, 3, 5, 7, 10, 12, 15, 17], hall: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15] }; // major pentatonic, minor pentatonic, D dorian
+// one bar: { len (s), notes: [{ t, n (semitones from D3), type, peak, a, d, pad?, drum? }] }; rnd is a 0..1 random source
+export function barNotes(style, bar, rnd) {
+  const notes = [], P = (t, n, type, peak, a, d) => notes.push({ t, n, type, peak, a, d });
+  if (style === 'hall') { // 4 s bars in a lilting 6/8: a drum on every beat, a lyre stepping round the dorian scale, a drone under it
+    const len = 4, root = bar % 2 ? -2 : 0, S = SCALE.hall;
+    for (const n of [root, root + 7]) notes.push({ t: 0, n: n + 12, pad: true, peak: 0.035, a: 0.6, d: len });
+    for (let i = 0; i < 6; i++) notes.push({ t: i * len / 6, drum: true, peak: i % 3 ? 0.12 : 0.28 });
+    let k = 4 + ((rnd() * 3) | 0); for (let i = 0; i < 6; i++) { if (i && rnd() < 0.15) continue; k = Math.max(0, Math.min(S.length - 1, k + ((rnd() * 5) | 0) - 2)); P(i * len / 6 + 0.02, S[k] + 12, 'triangle', 0.08, 0.008, 0.55); }
+    return { len, notes };
+  }
+  const norse = style === 'norse', c = CH[norse ? 'norse' : 'terra'][bar % 4], len = 8, S = SCALE[norse ? 'norse' : 'terra'];
+  for (const n of c) notes.push({ t: 0, n: n + 12, pad: true, peak: 0.05, a: 2.5, d: len - 1 });
+  P(0, norse ? -12 : c[0], 'sine', 0.08, 1.5, len); // slow bass (Asgard: a low D drone under every chord)
+  if (norse) { P(0, -5, 'sine', 0.05, 1.5, len); if (rnd() < 0.35) { P(1.2, -5, 'sawtooth', 0.018, 0.5, 1.6); P(3.0, 0, 'sawtooth', 0.022, 0.4, 2.6); } } // the low fifth, and now and then a two-note horn call
+  const root = norse ? 12 : c[0] + 12, hits = (norse ? 2 : 3) + ((rnd() * 3) | 0);
+  for (let i = 0; i < hits; i++) { const pick = rnd() < 0.6 ? c[(rnd() * 4) | 0] + 24 : root + S[(rnd() * S.length) | 0]; P(0.8 + i * (len / hits) + rnd() * 0.6, pick, 'triangle', 0.07, 0.015, norse ? 2.2 : 1.6); }
+  return { len, notes };
+}
 export function createAudio() {
   let ac, out, rainGain, sea, wind, windF, vol = 0.7, mus, murmur, echo, scene = { foot: false, town: 0 }, nextBar = 0, nextVoice = 0, nextGull = 0, bar = 0;
   const noiseBuf = () => { const n = ac.sampleRate * 3, b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); for (let i = 0, l = 0; i < n; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = l * 3.5; } return b; };
@@ -17,21 +40,26 @@ export function createAudio() {
     mus = ac.createGain(); mus.gain.value = 0; echo = ac.createDelay(1); echo.delayTime.value = 0.47; const fb = ac.createGain(), lp = ac.createBiquadFilter(); fb.gain.value = 0.42; lp.type = 'lowpass'; lp.frequency.value = 1800;
     mus.connect(out); mus.connect(echo); echo.connect(lp); lp.connect(fb); fb.connect(echo); lp.connect(out);
   }
-  // relaxing generative music in D major: slow chord pads with a few soft plucked notes over them, never the same twice
-  const CH = [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 0, 4, 7], [7, 11, 14, 18]], PENT = [0, 2, 4, 7, 9, 12, 14, 16];
+  // generative music, never the same twice: barNotes (below) picks the notes, this plays them
   const hz = (n) => 146.83 * Math.pow(2, n / 12);
   function note(t, f, type, peak, a, d, dest) { const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; env(g, t, a, d, peak); o.connect(g); g.connect(dest || mus); o.start(t); o.stop(t + a + d + 0.1); }
+  let style = 'terra', drumBuf;
+  function drum(t, peak) { // a frame drum: a falling low thump with a short muffled slap
+    drumBuf ||= noiseBuf(); const o = ac.createOscillator(), g = ac.createGain(), n = ac.createBufferSource(), f = ac.createBiquadFilter(), g2 = ac.createGain();
+    o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.25); env(g, t, 0.005, 0.3, peak); o.connect(g); g.connect(mus); o.start(t); o.stop(t + 0.4);
+    n.buffer = drumBuf; f.type = 'lowpass'; f.frequency.value = 160; env(g2, t, 0.003, 0.15, peak * 0.8); n.connect(f); f.connect(g2); g2.connect(mus); n.start(t, Math.random() * 2); n.stop(t + 0.25);
+  }
   function playBar(t) {
-    const c = CH[bar % 4], len = 8;
-    for (const n of c) { const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter(); o.type = 'sine'; o.frequency.value = hz(n + 12) * (1 + (Math.random() - 0.5) * 0.004); f.type = 'lowpass'; f.frequency.value = 900; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 2.5); g.gain.exponentialRampToValueAtTime(0.0001, t + len + 1.5); o.connect(f); f.connect(g); g.connect(mus); o.start(t); o.stop(t + len + 1.6); }
-    note(t, hz(c[0]), 'sine', 0.08, 1.5, len, mus); // slow bass
-    const root = c[0] + 12, hits = 3 + ((Math.random() * 3) | 0);
-    for (let i = 0; i < hits; i++) { const pick = Math.random() < 0.6 ? c[(Math.random() * 4) | 0] + 24 : root + PENT[(Math.random() * PENT.length) | 0]; note(t + 0.8 + i * (len / hits) + Math.random() * 0.6, hz(pick), 'triangle', 0.07, 0.015, 1.6); }
-    bar++;
+    const b = barNotes(style, bar++, Math.random);
+    for (const x of b.notes) { const at = t + x.t;
+      if (x.drum) drum(at, x.peak);
+      else if (x.pad) { const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter(); o.type = 'sine'; o.frequency.value = hz(x.n) * (1 + (Math.random() - 0.5) * 0.004); f.type = 'lowpass'; f.frequency.value = 900; env(g, at, x.a, x.d, x.peak); o.connect(f); f.connect(g); g.connect(mus); o.start(at); o.stop(at + x.a + x.d + 0.1); }
+      else note(at, hz(x.n), x.type, x.peak, x.a, x.d, mus); }
+    return b.len;
   }
   function scheduleMusic() {
     const t = ac.currentTime; if (t + 1 < nextBar) return; // schedule a bar ahead
-    playBar(Math.max(nextBar, t + 0.1)); nextBar = Math.max(nextBar, t) + 8;
+    const len = playBar(Math.max(nextBar, t + 0.1)); nextBar = Math.max(nextBar, t) + len;
   }
   // town voices and bells, gulls and the odd creak on the shore
   function chatter(t, town) {
@@ -50,10 +78,11 @@ export function createAudio() {
     for (let i = 0; i < 2 + ((Math.random() * 2) | 0); i++) { const o = ac.createOscillator(), gn = ac.createGain(), s = t + i * 0.3; o.type = 'sine'; o.frequency.setValueAtTime(2100, s); o.frequency.exponentialRampToValueAtTime(1300, s + 0.22); env(gn, s, 0.03, 0.2, 0.02 * g); o.connect(gn); gn.connect(out); o.start(s); o.stop(s + 0.35); } }
   const env = (g, t, a, d, peak) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); };
   return {
+    get style() { return style; }, // the music style playing now (shown in the debug panel)
     init, setVolume(v) { vol = v; if (out) out.gain.value = v * 0.95; },
     // wind loudness follows ship speed and the cold near the wall
-    update(speed, cold, sc) { if (!ac) return; const t = ac.currentTime; if (sc) scene = sc; const foot = scene.foot, town = scene.town || 0; scheduleMusic(); chatter(t, town); if (foot && town < 0.2) gull(t);
-      mus.gain.setTargetAtTime(foot ? 0.7 - 0.12 * town : 0.7, t, 2); murmur.gain.setTargetAtTime(0.6 * town, t, 1.5); sea.gain.setTargetAtTime(foot ? 0.4 - 0.15 * town : 0.5, t, 1);
+    update(speed, cold, sc) { if (!ac) return; const t = ac.currentTime; if (sc) scene = sc; style = musicStyle(scene); const foot = scene.foot, town = scene.town || 0; scheduleMusic(); chatter(t, town); if (foot && town < 0.2) gull(t);
+      mus.gain.setTargetAtTime(scene.hall ? 0.8 : foot ? 0.7 - 0.12 * town : 0.7, t, 2); murmur.gain.setTargetAtTime(0.6 * town, t, 1.5); sea.gain.setTargetAtTime(foot ? 0.4 - 0.15 * town : 0.5, t, 1);
       wind.gain.setTargetAtTime(foot ? 0.05 + cold * 0.2 : Math.min(0.5, 0.05 + Math.abs(speed) * 0.04 + cold * 0.25), t, 0.3); windF.frequency.setTargetAtTime(700 + cold * 500, t, 0.5); },
     // nearest whale-like animal and bird distances (world units), called each frame
     critters(c) { if (!ac) return; const t = ac.currentTime; if (c.whale < 320 && t > nextWhale) { nextWhale = t + 16 + Math.random() * 18; whaleSong(Math.max(0.15, 1 - c.whale / 320)); } if (c.bird < 110 && t > nextCry) { nextCry = t + 4 + Math.random() * 8; cry(c.birdKind, Math.max(0.2, 1 - c.bird / 110)); } },

@@ -34,10 +34,10 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
     ['Go: draugr barrow', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const b = barrows(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('barrow')); s.draugr = null; sail(s, b.x - 260, b.z, 0); }],
-    ['Go: armoury (on foot)', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; let best = null, bd = 1e9; // in front of the nearest smith's door, facing in
-      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) { const b = islandTown(isl).buildings.find((q) => q.kind === 'smith'); if (b) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < bd) { bd = d; best = [isl, b]; } } }
-      if (!best) { say(s, 'No armoury nearby'); return; } const [isl, b] = best; needShip(s); Object.assign(s.ship, { x: isl.port.berth.x, z: isl.port.berth.z, yaw: -Math.PI / 2, speed: 0 });
-      const x = b.x, z = b.z + b.d / 2 + 2; s.enemies.clear(); teleport(); s.mode = 'foot'; s.foot = { x, z, y: groundAt(s, x, z), yaw: -Math.PI / 2, vy: 0 }; }],
+    ...[['armoury', 'smith'], ['mead hall', 'tavern']].map(([name, kind]) => ['Go: ' + name + ' (on foot)', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; let best = null, bd = 1e9; // in front of the nearest such door, facing in
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) { const b = islandTown(isl).buildings.find((q) => q.kind === kind); if (b) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < bd) { bd = d; best = [isl, b]; } } }
+      if (!best) { say(s, 'No ' + name + ' nearby'); return; } const [isl, b] = best; needShip(s); Object.assign(s.ship, { x: isl.port.berth.x, z: isl.port.berth.z, yaw: -Math.PI / 2, speed: 0 });
+      const x = b.x, z = b.z + b.d / 2 + 2; s.enemies.clear(); teleport(); s.mode = 'foot'; s.foot = { x, z, y: groundAt(s, x, z), yaw: -Math.PI / 2, vy: 0 }; }]),
     ['Spawn raider', (s) => spawn(s, 'raider')],
     ['Spawn navy', (s) => spawn(s, 'navy')],
     ['Clear enemies', (s) => { s.enemies.clear(); s.guards = []; s.foes = []; }],
