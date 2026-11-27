@@ -7,7 +7,7 @@ export const MAX_FLEET = 3, UPKEEP = FLEET_UPKEEP, ORDERS = ['follow', 'escort',
 export const ORDER_TEXT = { follow: 'Follow: stay close behind you and keep out of fights', escort: 'Escort: stay close, fire at hostile ships that come within 180', attack: 'Attack: hunt down any hostile ship within 400', guard: 'Guard: hold this spot and fight whatever comes near' };
 export const fleetOf = (s) => (s.fleet = Array.isArray(s.fleet) ? s.fleet : []);
 export const orderOf = (s) => s.fleetOrder || 'follow';
-export const fleetUpkeep = (s) => fleetOf(s).length * UPKEEP;
+export const fleetUpkeep = (s) => fleetOf(s).filter((f) => !f.merc).length * UPKEEP; // hired ships are paid up front
 // a hand who is not already captaining a ship
 export const spareHand = (s) => crewOf(s).find((c) => !c.captain) || null;
 export const canKeep = (s) => fleetOf(s).length < MAX_FLEET && !!spareHand(s);

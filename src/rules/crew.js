@@ -37,8 +37,8 @@ export function dismiss(s, id) { if (crewOf(s).find((c) => c.id === id)?.captain
 export function stepCrew(s, dt, say) {
   const crew = crewOf(s); if (!crew.length) return; s.payT = (s.payT || 0) + dt;
   if (s.ship && s.hull > 0 && s.hull < s.maxHull && s.t - (s.hitT ?? -99) > 8) s.hull = Math.min(s.maxHull, s.hull + repairRate(s) * dt);
-  if (s.payT < PAY_EVERY) return; s.payT = 0; const due = wages(s) + (s.fleet || []).length * FLEET_UPKEEP;
-  if (s.gold >= due) { s.gold -= due; for (const c of crew) c.morale = Math.min(100, c.morale + 6); say(s, `Pay day: ${due} gold in wages${(s.fleet || []).length ? ' and upkeep' : ''} to ${crew.length} hand${crew.length > 1 ? 's' : ''}.`); return; }
+  if (s.payT < PAY_EVERY) return; s.payT = 0; const kept = (s.fleet || []).filter((f) => !f.merc).length, due = wages(s) + kept * FLEET_UPKEEP;
+  if (s.gold >= due) { s.gold -= due; for (const c of crew) c.morale = Math.min(100, c.morale + 6); say(s, `Pay day: ${due} gold in wages${kept ? ' and upkeep' : ''} to ${crew.length} hand${crew.length > 1 ? 's' : ''}.`); return; }
   s.gold = Math.max(0, s.gold - Math.floor(s.gold / 2)); const gone = [];
   for (const c of crew) { c.morale -= 30; if (c.morale <= 0) gone.push(c); }
   say(s, `You cannot pay the crew (${due} gold). They grumble.`);

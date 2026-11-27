@@ -11,11 +11,12 @@ import { hydraRumour } from './hydra.js';
 import { wreckRumour } from './salvage.js';
 import { learnQuest } from './map.js';
 import { cargoCount } from './trade.js';
-import { sectorOf, sectorIslands } from '../gen/world.js';
+import { sectorOf, sectorIslands, KINDS } from '../gen/world.js';
 // where the player is, on foot or afloat
 const here = (s) => (s.mode === 'foot' || !s.ship ? s.foot : s.ship);
 // the nearest live raider: the target for "Clear the Lanes"
-export const nearestRaider = (s) => { const p = here(s); let best = null, bd = 1e12; for (const e of s.enemies.values()) if (e.kind === 'raider') { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } } return best && { x: best.x, z: best.z, label: 'Raider ship' }; };
+export const nearestShip = (s, kind, label = KINDS[kind].label) => { const p = here(s); let best = null, bd = 1e12; for (const e of s.enemies.values()) if (e.kind === kind) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; best = e; } } return best && { x: best.x, z: best.z, label }; };
+export const nearestRaider = (s) => nearestShip(s, 'raider', 'Raider ship');
 // the nearest buried cache you have not dug up (searched a few sectors out, re-checked twice a second)
 const tcache = new WeakMap();
 const nearestTreasure = (s) => {

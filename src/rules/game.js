@@ -15,6 +15,7 @@ import { clearWorldCaches } from '../gen/world.js';
 import { extraGuards, STYLES, bountyMul, OFFERING, OFFER_WAIT } from '../gen/style.js';
 import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
+import { stepMercs } from './mercs.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
 import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
 import { cargoCount } from './trade.js';
@@ -383,6 +384,11 @@ function keepOffLand(s, e, ox, oz, hh, dt) {
   e.avoid = s.t + AVOID_S; e.away = away; e.speed *= 1 - Math.min(0.5, dt * 2);
 }
 const turnTo = (e, want, rate, dt) => { e.yaw = wrapPi(e.yaw + Math.max(-rate * dt, Math.min(rate * dt, wrapPi(want - e.yaw)))); };
+// a fleet ship anchors in open water near b (your ship or a dock), never on the island
+export function anchorNear(s, f, i, b) {
+  let px = b.x, pz = b.z; for (let k = 0; k < 40; k++) { const a = b.yaw + (k % 20) * 0.63, d = 22 + 14 * i + 12 * Math.floor(k / 20), x = b.x + Math.cos(a) * d, z = b.z + Math.sin(a) * d; if (!hullHit(s, x, z, b.yaw, 12, 5)) { px = x; pz = z; break; } }
+  f.x = px; f.z = pz; f.ax = px; f.az = pz; f.speed = 0; f.yaw = b.yaw;
+}
 export function stepFleet(s, dt) {
   const fl = s.fleet; if (!fl || !fl.length) return; const p = s.mode === 'ship' && s.ship ? s.ship : null, order = s.fleetOrder || 'follow';
   for (let i = fl.length - 1; i >= 0; i--) {
@@ -704,7 +710,7 @@ export function step(s, input, dt = DT) {
     if (a >= SINK_S) s.over = true; return;
   }
   if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
-  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepSide(s, dt, G); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) { stepContracts(s, say); stepEvents(s); } stepGuards(s, dt); updateFx(s, dt);
+  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepSide(s, dt, G); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) { stepContracts(s, say); stepMercs(s, say); stepEvents(s); } stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
 }
@@ -830,9 +836,7 @@ export function travelTo(s, id) {
   if (s.food < q.food) { say(s, `Not enough provisions for the voyage (need ${q.food}).`); return false; }
   s.food -= q.food; s.t += q.time;
   const b = spot.b, p = s.ship; p.x = b.x; p.z = b.z; p.yaw = b.yaw; p.speed = 0; p.sail = 0.5; s.auto = false; s.row = false; s.enemies = new Map(); s.shots = []; s.fx = []; s.mode = 'ship';
-  fleetOf(s).forEach((f, i) => { // each ship anchors in open water near the dock, never on the island
-    let px = b.x, pz = b.z; for (let k = 0; k < 40; k++) { const a = b.yaw + (k % 20) * 0.63, d = 22 + 14 * i + 12 * Math.floor(k / 20), x = b.x + Math.cos(a) * d, z = b.z + Math.sin(a) * d; if (!hullHit(s, x, z, b.yaw, 12, 5)) { px = x; pz = z; break; } }
-    f.x = px; f.z = pz; f.ax = px; f.az = pz; f.speed = 0; f.yaw = b.yaw; });
+  fleetOf(s).forEach((f, i) => anchorNear(s, f, i, b));
   const l = findLand(s); if (l) { unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw, vy: 0 }; }
   s.wind = windAt(s.t, null); say(s, `You sail to ${spot.n}. ${Math.round(q.time / 60) || 1} min at sea, ${q.food} provisions.`); return true;
 }

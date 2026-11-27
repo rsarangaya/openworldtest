@@ -13,7 +13,7 @@ import { WEAPONS, armoryOf, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
 import { buyWeapon, equip } from './rules/weapons.js';
 import { foodCost, weaponMul, repairCost, bountyMul } from './gen/style.js';
-import { travelList, travelBlock, trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract } from './rules/game.js';
+import { travelList, travelBlock, trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract, anchorNear } from './rules/game.js';
 import { active as contractList, describe as contractText, quote as quoteContract, MAX_ACTIVE } from './rules/contracts.js';
 import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
 import { newsFor, markRead } from './rules/news.js';
@@ -25,6 +25,7 @@ import { hourAt, clockText, isNight, nowHour, sleepTillDawn, BED } from './rules
 import { realmState, REALMS as WORLDS, HINTED } from './rules/map.js';
 import { ROLES, candidates, hire, dismiss, capacity, crewOf, aboard, wages, PAY_EVERY, FLEET_UPKEEP } from './rules/crew.js';
 import { fleetOf, sellShip, sellValue, orderOf, ORDER_TEXT, MAX_FLEET } from './rules/fleet.js';
+import { COMPANIES, agentsAt, mercOf, rankOf as mercRank, refusal, join as joinCo, leave as leaveCo, offer as mercOffer, takeJob, report as mercReport, jobText, hirePrice, hireShip, hired, JOIN_FEE, TERM, JOB_WINDOW } from './rules/mercs.js';
 import { PARTS, PART_ORDER, level as plevel, partPrice, fitPart, AMMO, buyAmmo, ammoOf } from './rules/parts.js';
 import { buy, sell, buyFood, repair, buyShip, shipQuote, buyRam, buyPrice, sellPrice, cargoCount, SHIP_PRICE, RAM_PRICE, FOOD_PRICE, MAX_FOOD } from './rules/trade.js';
 
@@ -196,7 +197,7 @@ export function createUI() {
     const tavern = () => {
       tavPage = null;
       const tip = res.lines.slice(3).map((l) => `<p><small>${esc(l)}</small></p>`).join(''); // e.g. a chart the keeper scrawls you the first time
-      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town'], ...(isNight(nowHour(s)) ? [['sleep', `Rent a bed until dawn (${BED}g)`]] : []), ...(hall ? [['feast', feastReady(s) ? `Join the feast (${FEAST_PRICE}g)` : 'Join the feast (tables bare)'], ['song', 'Ask the skald for a song']] : [])];
+      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ...(agentsAt(ctx.island).length ? [['mercs', 'Mercenary companies']] : []), ['wanted', 'Who is wanted?'], ['town', 'About this town'], ...(isNight(nowHour(s)) ? [['sleep', `Rent a bed until dawn (${BED}g)`]] : []), ...(hall ? [['feast', feastReady(s) ? `Join the feast (${FEAST_PRICE}g)` : 'Join the feast (tables bare)'], ['song', 'Ask the skald for a song']] : [])];
       el.innerHTML = `<div class=box style="text-align:center">${head}${hall ? '<h2>Mead Hall</h2><p>Sit at the long table, by the fire. Mead, meat or a song?</p>' : '<p>Pull up a stool. What will it be?</p>'}${tip}${opts.map(([k, n]) => `<button data-t=${k}>${n}</button><br>`).join('')}<button id=pC>Leave</button></div>`;
       $('pC').onclick = close;
       el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => choose(b.dataset.t)));
@@ -207,6 +208,7 @@ export function createUI() {
       if (k === 'feast') { const line = feast(s); ctx.audio?.coin(); ctx.onChange?.(); page('The Feast', `<p>${esc(line)}</p>`); return; }
       if (k === 'sleep') { const line = sleepTillDawn(s); ctx.audio?.coin(); ctx.onChange?.(); page('A Bed for the Night', `<p>${esc(line)}</p>`); return; }
       if (k === 'song') { page('The Skald Sings', `<p><i>${esc(songFor(res.npc.seed, songs++))}</i></p>`, '<button id=pM>Another</button> '); $('pM').onclick = () => choose('song'); return; }
+      if (k === 'mercs') { mercs(); return; }
       if (k === 'rumour') {
         const issue = Math.floor(s.t / 300), n = rumours++, items = newsFor(s, ctx.island).items.filter((q) => q.tag !== 'Overheard' && q.tag !== 'Prices'), item = items[n % Math.max(1, items.length)];
         page('Rumours', `<p>${esc(asgardLine(s, res.npc.seed + n * 977, issue + n))}</p>${item ? `<p><small class=gold>${esc(item.head)}</small><br>${esc(item.body)}</p>` : ''}`, '<button id=pM>Another</button> ');
@@ -214,6 +216,21 @@ export function createUI() {
       } else if (k === 'next') { const q = currentQuest(s); page('What next', `<p><b class=gold>${esc(q.title)}</b></p><p>${esc(q.hint)}</p>`); }
       else if (k === 'wanted') page('Wanted', '<table>' + board(s).map((w) => `<tr><td><b>${esc(w.name)}</b><br><small>${esc(w.crime)} · ${w.kind === 'ship' ? 'sails ' + esc(w.ship) : 'hiding near ' + esc(w.where)}</small></td><td class=n>${w.reward}g${w.aliveOnly ? '<br><small>alive only</small>' : ''}</td></tr>`).join('') + '</table><p class=hint>Bring them to any guard station to be paid.</p>');
       else if (k === 'town') { const st = STYLES[ctx.island?.style]; page(esc(port?.name || 'This town'), `<p>${st?.label ? 'A ' + st.label + '. ' + st.perk : 'A harbour like many others.'}</p><p>${port ? `${esc(port.cheap)} is cheap here; ${esc(port.dear)} sells dear.` : ''}</p><p>Your standing here: <b>${port ? tier(localRep(s, port.iid)) : 'Unknown'}</b></p>`); }
+    };
+    // mercenary companies: join one and take its jobs, or hire one of its ships for a while
+    const mercs = (msg = '') => {
+      const m = mercOf(s), say = (_, t) => { msg += (msg ? ' ' : '') + t; ctx.say(t); }; if (m?.job && mercReport(s, ctx.island, say)) { ctx.audio?.coin(); ctx.onChange?.(); }
+      let h = msg ? `<p class=gold>${esc(msg)}</p>` : '';
+      for (const co of agentsAt(ctx.island)) {
+        const C = COMPANIES[co], why = refusal(s, co), mine = m?.co === co, o = mine && mercOffer(s), pr = hirePrice(s, co);
+        h += `<p><b class=gold>${C.name}</b><br><small>${C.blurb}</small></p>` + (why && !mine ? `<p class=bad>${esc(why)}</p>` : '');
+        if (mine) h += `<p>You are <b>${mercRank(m.jobs)[0]}</b> (${m.jobs} job${m.jobs === 1 ? '' : 's'} done). ${m.job ? esc(jobText(s)) : ''}</p>` + (o ? `<button class=small data-m=job>Take the job: ${esc(o.text)} (${o.pay}g, ${JOB_WINDOW / 60} min)</button> ` : '') + '<button class=small data-m=leave>Leave the company</button>';
+        else if (!why) h += `<button class=small data-m=join-${co} ${m || s.gold < JOIN_FEE ? 'disabled' : ''}>Join (${JOIN_FEE}g)</button>${m ? ' <small>(you sail with another company)</small>' : ''}`;
+        if (!why) h += ` <button class=small data-m=hire-${co} ${!s.ship || fleetOf(s).length >= MAX_FLEET || s.gold < pr ? 'disabled' : ''}>Hire a ship for ${TERM / 60} min (${pr}g)</button>`;
+      }
+      const hs = hired(s); if (hs.length) h += '<p><b class=gold>Hired ships</b></p><table>' + hs.map((f) => `<tr><td>${esc(f.name)} · ${COMPANIES[f.merc].name}</td><td class=n>${Math.max(0, Math.ceil((f.until - s.t) / 60))} min left</td></tr>`).join('') + '</table>';
+      page('Mercenary Companies', h + `<p class=hint>Hired ships follow your fleet order (T at sea) and cost no upkeep. Members get the hire cheaper; Captains at half price.</p>`);
+      el.querySelectorAll('[data-m]').forEach((b) => (b.onclick = () => { const a = b.dataset.m; let t = ''; const sy = (_, x) => { t += (t ? ' ' : '') + x; ctx.say(x); }; if (a === 'job') takeJob(s, sy); else if (a === 'leave') leaveCo(s, sy); else if (a.startsWith('join-')) joinCo(s, a.slice(5), sy); else if (a.startsWith('hire-')) { const f = hireShip(s, a.slice(5), sy); if (f) anchorNear(s, f, fleetOf(s).length - 1, s.ship); } ctx.audio?.coin(); ctx.onChange?.(); mercs(t); }));
     };
     let tavernOffers = [], settled = false;
     const shop = () => {
@@ -249,7 +266,7 @@ export function createUI() {
         const mine = SHIP_ORDER.indexOf(s.shipClass || 'sailboat'), near = s.ship && Math.hypot(s.ship.x - ctx.island.port.berth.x, s.ship.z - ctx.island.port.berth.z) <= 45;
         h += s.ship ? `<p>Your ${SHIPS[s.shipClass || 'sailboat'].name} is moored at the dock.${near ? ' Trade her in for ' + Math.round(TRADE_IN * 100) + '% of her price.' : ' Bring her here to trade up.'}</p>` : '<p>Pick a ship. She will be moored at the dock.</p>';
         for (const id of SHIP_ORDER) { const c = SHIPS[id], i = SHIP_ORDER.indexOf(id); if (i <= (s.ship ? mine : -1)) continue; h += `<p><b>${c.name}</b>: ${c.blurb}<br><small>Hull ${c.hull} · Hold ${c.hold} · Speed ${Math.round(c.speed * 100)}% · Guns ${c.ports}</small></p><button data-a=ship-${id} ${s.gold < shipQuote(s, id) || (s.ship && !near) ? 'disabled' : ''}>Buy the ${c.name} (${shipQuote(s, id)} gold)</button>`; }
-        if (fleetOf(s).length) h += `<p><b class=gold>Your fleet</b> (${fleetOf(s).length}/${MAX_FLEET}, ${FLEET_UPKEEP}g upkeep each a pay day) · order: <b>${orderOf(s)}</b><br><small>${esc(ORDER_TEXT[orderOf(s)])}. Press T at sea to change it.</small></p><table>` + fleetOf(s).map((f) => `<tr><td>${esc(f.name)}<br><small>hull ${Math.round(f.hp)}/${f.maxHp}</small></td><td class=n><button class=small data-a=fsell-${f.id}>Sell ${sellValue(f)}g</button></td></tr>`).join('') + '</table>';
+        if (fleetOf(s).length) h += `<p><b class=gold>Your fleet</b> (${fleetOf(s).length}/${MAX_FLEET}, ${FLEET_UPKEEP}g upkeep each a pay day) · order: <b>${orderOf(s)}</b><br><small>${esc(ORDER_TEXT[orderOf(s)])}. Press T at sea to change it.</small></p><table>` + fleetOf(s).map((f) => `<tr><td>${esc(f.name)}<br><small>hull ${Math.round(f.hp)}/${f.maxHp}</small></td><td class=n>${f.merc ? '<small>hired</small>' : `<button class=small data-a=fsell-${f.id}>Sell ${sellValue(f)}g</button>`}</td></tr>`).join('') + '</table>';
         if (!s.ship) h += '<p class=hint>Afterwards, walk to the end of the dock and press F to board.</p>';
         else { h += `<p><b class=gold>Fittings</b>${near ? '' : ' <small>(bring her to the dock to fit parts)</small>'}</p><table>` + PART_ORDER.map((id) => { const P = PARTS[id], lv = plevel(s, id); return `<tr><td>${P.name} ${lv}/${P.max}<br><small>${P.blurb}</small></td><td class=n>${lv >= P.max ? 'fitted' : `<button class=small data-a=part-${id} ${!near || s.gold < partPrice(s, id) ? 'disabled' : ''}>${partPrice(s, id)}g</button>`}</td></tr>`; }).join('') + '</table>'; h += `<p><b class=gold>Special shot</b> (keys 1-3 at sea)</p><table>` + ['chain', 'fire'].map((id) => `<tr><td>${AMMO[id].name} (${ammoOf(s)[id]})<br><small>${AMMO[id].blurb}</small></td><td class=n><button class=small data-a=ammo-${id} ${s.gold < AMMO[id].price * 10 ? 'disabled' : ''}>+10 · ${AMMO[id].price * 10}g</button></td></tr>`).join('') + '</table>'; }
       } else {
@@ -344,7 +361,7 @@ export function createUI() {
   ui.questLog = (s, onClose) => {
     const el = $('panel');
     const cur = trackedQuest(s)?.id, track = (id) => `<button class=small data-tr="${id}" ${id === cur ? 'disabled' : ''}>${id === cur ? '✔ Tracking' : 'Track'}</button>`;
-    el.innerHTML = `<div class=box><h2>Quest log</h2>${QUESTS.map((q, i) => `<p style="opacity:${i > s.quest ? 0.4 : 1}"><b class="${i < s.quest ? '' : 'gold'}">${i < s.quest ? '✔ ' : i === s.quest ? '➤ ' : ''}${esc(q.title)}</b><br><small>${i <= s.quest ? esc(questText(s, q)) : '???'}</small>${i === s.quest ? '<br>' + track('main') : ''}</p>`).join('')}${contractList(s).length ? '<p><b class=gold>Contracts</b></p>' + contractList(s).map((c) => `<p><small>${esc(contractText(s, c))}</small><br>${track(c.id)}</p>`).join('') : ''}${s.comp ? `<p>With you: <b class=gold>${esc(s.comp.name)}</b></p>` : ''}${sideOf(s).length ? '<p><b class=gold>Stories</b></p>' + sideOf(s).map((v) => `<p><b>${esc(titleOf(v))}</b><br><small>${esc(goalOf(s, v))}</small><br>${v.realm === (s.realm || 'terra') ? track(v.id) : ''} <button class=small data-ab="${v.id}">Give up</button></p>`).join('') : ''}<button id=qC>Close</button></div>`;
+    el.innerHTML = `<div class=box><h2>Quest log</h2>${QUESTS.map((q, i) => `<p style="opacity:${i > s.quest ? 0.4 : 1}"><b class="${i < s.quest ? '' : 'gold'}">${i < s.quest ? '✔ ' : i === s.quest ? '➤ ' : ''}${esc(q.title)}</b><br><small>${i <= s.quest ? esc(questText(s, q)) : '???'}</small>${i === s.quest ? '<br>' + track('main') : ''}</p>`).join('')}${contractList(s).length ? '<p><b class=gold>Contracts</b></p>' + contractList(s).map((c) => `<p><small>${esc(contractText(s, c))}</small><br>${track(c.id)}</p>`).join('') : ''}${mercOf(s)?.job ? `<p><b class=gold>Company job</b></p><p><small>${esc(jobText(s))}</small><br>${track('merc')}</p>` : ''}${s.comp ? `<p>With you: <b class=gold>${esc(s.comp.name)}</b></p>` : ''}${sideOf(s).length ? '<p><b class=gold>Stories</b></p>' + sideOf(s).map((v) => `<p><b>${esc(titleOf(v))}</b><br><small>${esc(goalOf(s, v))}</small><br>${v.realm === (s.realm || 'terra') ? track(v.id) : ''} <button class=small data-ab="${v.id}">Give up</button></p>`).join('') : ''}<button id=qC>Close</button></div>`;
     $('qC').onclick = () => { on('panel', false); onClose?.(); }; on('panel', true);
     el.querySelectorAll('[data-tr]').forEach((b) => (b.onclick = () => { s.tracked = b.dataset.tr; $('qC').click(); }));
     el.querySelectorAll('[data-ab]').forEach((b) => (b.onclick = () => { dropSide(s, b.dataset.ab); ui.questLog(s, onClose); }));
