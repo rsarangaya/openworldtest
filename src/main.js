@@ -171,9 +171,11 @@ function bowSplash(id, x, z, yaw, L, B, speed, t, rough, sound) {
     bb(sprites.fx('splash'), px, wave(px, pz, t) + 1.2 + (6 + (i % 3) * 3.5) * w.k * age * (1 - age) * 2.2, pz, (0.34 + 0.3 * w.k + (i % 3) * 0.08) * (1 - age * 0.55) * Math.max(1, L / 9));
   }
 }
+// [haze, deep sea, shallows] per world with its own sea: Atlantis warm turquoise under a sea-green haze; Olympus a deep sunny blue under a clear, bright sky
+const WORLD_SEA = { atlantis: [[0.7, 0.9, 0.9], [0.01, 0.3, 0.36], [0.16, 0.74, 0.68]], olympus: [[0.68, 0.82, 0.96], [0.01, 0.16, 0.42], [0.1, 0.48, 0.72]] };
 function render(t) {
   updateCalm(t); sweepWakes(); if (sprites && s) sprites.setTheme(s.realm || 'terra');
-  const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = s && s.realm === 'asgard' ? 0.85 : s?.realm === 'atlantis' ? 0 : Math.max(0, Math.min(1, (zone - 0.5) / 0.4)) * (1 - Math.max(0, Math.min(1, (zone - 1) * WALL_R / 700))), R = opts.distance; // past the Wall the sky turns warm
+  const zone = Math.hypot(cam.x, cam.z) / WALL_R, cold = s && s.realm === 'asgard' ? 0.85 : s?.realm === 'atlantis' || s?.realm === 'olympus' ? 0 : Math.max(0, Math.min(1, (zone - 0.5) / 0.4)) * (1 - Math.max(0, Math.min(1, (zone - 1) * WALL_R / 700))), R = opts.distance; // past the Wall the sky turns warm
   sprites?.frame(); const objects = []; BB.n = 0; const sea = s ? roughOf(weatherNow(s)) : 1;
   const halfView = Math.atan(Math.tan(0.525) * (innerWidth / innerHeight)) + 0.12; // half the horizontal field of view, plus a margin
   for (const sec of sectors.values()) if (Math.max(Math.abs(sec.sx - sectorOf(cam.x)), Math.abs(sec.sz - sectorOf(cam.z))) <= R && sectorSeen(sec, halfView)) objects.push(...sec.objs);
@@ -249,7 +251,7 @@ function render(t) {
       for (const p of props) { const dx = p.x - cam.x, dz = p.z - cam.z; if (dx * dx + dz * dz < 36000 && (p.k !== 'tuft' && p.k !== 'flower' || dx * dx + dz * dz < 6400)) { const sp = sprites.prop(p, isl.biome); bb(sp, p.x, p.y, p.z, -1); if (!FIXED[p.k] && p.k !== 'tuft' && p.k !== 'flower') bb(sp, p.x, p.y, p.z, -1000); } }
     }
   }
-  const far = R * SECTOR * 1.5 + 600, atl = s?.realm === 'atlantis', mix = (a, b, w) => (atl && w ? w : a.map((v, i) => lerp(v, b[i], cold))); // Atlantis: a warm turquoise sea and a pale sea-green haze
+  const far = R * SECTOR * 1.5 + 600, wp = WORLD_SEA[s?.realm], mix = (a, b, k) => (wp ? wp[k] : a.map((v, i) => lerp(v, b[i], cold))); // Atlantis and Olympus have their own sea and haze
   // the weather greys the sky and the light, thickens the haze and raises the swell
   const wx = s ? weatherNow(s) : null, over = wx ? Math.min(1, Math.max(wx.cloud * 0.75 + wx.storm * 0.25, wx.fog)) : 0, rough = wx ? roughOf(wx) : 1, haze = wx ? 1 + 8 * wx.fog * wx.fog + 0.6 * wx.rain + 0.5 * wx.snow + 0.5 * wx.storm : 1;
   const grey = wx && wx.fog > 0.5 ? [0.7, 0.74, 0.78] : [0.42, 0.47, 0.55], dull = (c) => c.map((v, i) => lerp(v, grey[i] * (wx && wx.storm > 0.5 ? 0.82 : 1), over * 0.8)), shade = (c) => c.map((v) => v * (1 - 0.32 * over));
@@ -258,7 +260,7 @@ function render(t) {
   const dark = (c) => c.map((v, i) => lerp(v, [0.05, 0.07, 0.16][i], night * 0.85));
   renderer.draw({ sun: L.sun, night, dusk: L.dusk,
     cam: { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch, fov: 1.05 }, t, far, extent: R * SECTOR * 1.3 + 200, objects, bb: BB, calm: calmZ,
-    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dark(dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96], [0.7, 0.9, 0.9]))), deep: dark(shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27], [0.01, 0.3, 0.36]))), shal: dark(shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72], [0.16, 0.74, 0.68]))), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
+    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dark(dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96], 0))), deep: dark(shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27], 1))), shal: dark(shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72], 2))), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
   });
 }
 // pixel-art look: the world is drawn at a small internal height (opts.pixels, default 270) and the browser scales it up with hard edges
@@ -446,7 +448,7 @@ function loop(now) {
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
     ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)), night: lastNight }); showAfk();
-    audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : s.realm === 'atlantis' ? 0 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
+    audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : s.realm === 'atlantis' || s.realm === 'olympus' ? 0 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
   const p2 = performance.now(), M = (window.__ms ||= { step: 0, draw: 0 }); M.step += (p1 - p0 - M.step) * 0.05; M.draw += (p2 - p1 - M.draw) * 0.05; // smoothed CPU milliseconds a frame
   fpsN++; fpsT += dt; if (fpsT > 1) { window.__fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }

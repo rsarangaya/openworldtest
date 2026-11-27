@@ -81,3 +81,20 @@ const PILLARS = [
 ];
 export const pillarLine = (isl) => PILLARS[(hash(isl.seed >>> 0, 9, 43) >>> 0) % PILLARS.length];
 export const PILLAR_COUNT = PILLARS.length;
+// Olympus's marble statues: one on each Olympus island, read with F. Their dedications speak of a proud old people and the mountain they serve.
+const STATUES = [
+  'Raised by the city to its founder, who rowed here with nine ships and a sack of olive stones, and planted every one before he built a wall.',
+  'To the runner who carried the news of the fleet across the island in a single morning, and fell at the gate, and would not let them help him up.',
+  'The mountain gave us stone, the sea gave us roads, and the gods gave us pride. We have kept all three. Strangers: mind your manners here.',
+  'Here the assembly first voted, with pebbles, black and white. The black ones are still kept in the jar beneath this statue. Do not ask how many.',
+  'To the shipwright who built a hull so light it was said to fly. She is shown holding the adze. The ship is not shown: it never came home.',
+  'Every fourth summer the islands send their best to the games at the foot of the mountain. This one won the boat race seven times, and said so often.',
+  'The eagle on the shield belongs to the mountain. It is said the birds that circle these cliffs carry word of every ship that passes up to the summit.',
+  'A northern longship came through a veil of green light in the time of the archon Kleon. Its crew wanted mead. We gave them wine, and they stayed a year.',
+  'Given by grateful merchants to the harbour master, who once turned back a fleet of pirates with nothing but a bell, a fog, and a very loud voice.',
+  'To those who climbed the high path to the summit and did not come down. The mountain keeps them. The city keeps their names.',
+  'Speak truth at this statue, or keep quiet. The poet who stands here lied to a king once, and the king made him stand here for good.',
+  'From these cliffs the old lighthouse-keepers watched for the drowned kingdom in the far west. Some nights they still swear they see its towers burn.',
+];
+export const statueLine = (isl) => STATUES[(hash(isl.seed >>> 0, 11, 47) >>> 0) % STATUES.length];
+export const STATUE_COUNT = STATUES.length;

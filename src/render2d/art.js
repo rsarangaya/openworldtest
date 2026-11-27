@@ -80,7 +80,7 @@ export const STALL_BOX = { x0: -2.1, x1: 2.1, y0: -3.6, y1: 0.4 };
 // the realm whose look the baked sprites follow (set from sprites.js)
 export let THEME = 'terra'; export const setArtTheme = (t) => { THEME = t || 'terra'; };
 export function paintStall(g, v) {
-  const vk = THEME === 'asgard', c = vk ? [[0.42, 0.3, 0.2], [0.5, 0.38, 0.26], [0.4, 0.38, 0.36], [0.5, 0.24, 0.2]][v % 4] : THEME === 'atlantis' ? [[0.2, 0.6, 0.62], [0.86, 0.68, 0.26], [0.36, 0.56, 0.78], [0.3, 0.7, 0.6]][v % 4] : [[0.88, 0.32, 0.28], [0.28, 0.52, 0.85], [0.95, 0.78, 0.28], [0.3, 0.68, 0.45]][v % 4];
+  const vk = THEME === 'asgard', c = vk ? [[0.42, 0.3, 0.2], [0.5, 0.38, 0.26], [0.4, 0.38, 0.36], [0.5, 0.24, 0.2]][v % 4] : THEME === 'atlantis' ? [[0.2, 0.6, 0.62], [0.86, 0.68, 0.26], [0.36, 0.56, 0.78], [0.3, 0.7, 0.6]][v % 4] : THEME === 'olympus' ? [[0.94, 0.92, 0.86], [0.72, 0.3, 0.22], [0.3, 0.4, 0.62], [0.9, 0.72, 0.28]][v % 4] : [[0.88, 0.32, 0.28], [0.28, 0.52, 0.85], [0.95, 0.78, 0.28], [0.3, 0.68, 0.45]][v % 4];
   for (const s of [-1, 1]) cel(g, rr(s * 1.7 - 0.07, -3, 0.14, 3, 0.03), [0.5, 0.34, 0.2]);
   cel(g, rr(-1.8, -1.1, 3.6, 1.1, 0.08), [0.7, 0.5, 0.3]);
   for (let i = -3; i <= 2; i++) fillPath(g, vk ? ell(i * 0.5 + 0.25, -1.28, 0.26, 0.14) : ell(i * 0.5 + 0.25, -1.3, 0.2, 0.2), rgb((vk ? [[0.62, 0.66, 0.72], [0.5, 0.36, 0.24], [0.8, 0.78, 0.7]] : [[0.9, 0.3, 0.25], [0.95, 0.8, 0.25], [0.4, 0.7, 0.3]])[(i + 3) % 3])); // Asgard stalls sell fish, furs and cheese
@@ -179,6 +179,16 @@ export function paintPillar(g) { // an Atlantis crystal pillar: a fluted white m
   for (const y of [-2.4, -1.5]) { g.beginPath(); g.moveTo(-0.45, y); for (let k = 0; k < 3; k++) g.quadraticCurveTo(-0.3 + k * 0.3, y - 0.18, -0.15 + k * 0.3, y); g.lineWidth = 0.07; g.strokeStyle = '#2f8a86'; g.stroke(); }
   cel(g, rr(-0.62, -3.35, 1.24, 0.3, 0.06), [0.96, 0.78, 0.3], { lw: 0.08 });
   cel(g, poly(-0.42, -3.35, -0.3, -4.1, 0, -4.5, 0.3, -4.1, 0.42, -3.35), [0.45, 0.88, 0.85], { lw: 0.08 }); fillPath(g, poly(-0.1, -3.5, 0, -4.3, 0.12, -3.6), 'rgba(235,255,252,0.8)');
+}
+export const STATUE_BOX = { x0: -1.0, x1: 1.0, y0: -5.4, y1: 0.3 };
+export function paintStatue(g) { // an Olympus marble statue: a robed figure on a plinth with a laurel wreath and a gold-tipped spear
+  cel(g, rr(-0.85, -1.25, 1.7, 1.25, 0.05), [0.8, 0.78, 0.72], { lw: 0.08 }); line(g, -0.7, -0.62, 0.7, -0.62, 0.05, 'rgba(110,105,95,0.6)');
+  cel(g, poly(-0.5, -1.25, -0.36, -3.35, 0.36, -3.35, 0.5, -1.25), [0.94, 0.92, 0.86], { lw: 0.08 });
+  for (const x of [-0.2, 0.05, 0.28]) line(g, x, -3.1, x * 1.25, -1.4, 0.04, 'rgba(120,115,105,0.5)'); // folds of the robe
+  line(g, 0.58, -5.1, 0.58, -1.3, 0.09, '#6e5a3a'); cel(g, poly(0.47, -5.0, 0.58, -5.35, 0.69, -5.0), [0.96, 0.78, 0.3], { lw: 0.05 });
+  cel(g, poly(0.3, -3.2, 0.6, -3.5, 0.66, -3.3, 0.36, -2.9), [0.94, 0.92, 0.86], { lw: 0.06 }); // the arm holding the spear
+  cel(g, ell(0, -3.72, 0.3, 0.33), [0.95, 0.93, 0.88], { lw: 0.08 });
+  for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) fillPath(g, ell(sx * (0.24 - k * 0.04), -3.82 - k * 0.1, 0.09, 0.05, sx * 0.6), '#5d8a3a'); // laurel wreath
 }
 export const BOARD_BOX = { x0: -2.3, x1: 2.3, y0: -4.4, y1: 0.3 };
 export function paintBoard(g) {
@@ -307,11 +317,13 @@ const CLOTH = { smith: [[0.34, 0.3, 0.28], [0.3, 0.27, 0.3]], guard: [[0.22, 0.3
 // Asgardians: fair or red hair, thick beards, braids, fur collars, round shields, iron helmets for fighters
 const V_SKIN = [[0.95, 0.82, 0.72], [0.9, 0.74, 0.62], [0.84, 0.66, 0.52]], V_HAIR = [[0.82, 0.66, 0.34], [0.7, 0.5, 0.22], [0.62, 0.22, 0.1], [0.3, 0.2, 0.12], [0.88, 0.78, 0.5], [0.2, 0.16, 0.12]];
 const V_CLOTH = [[0.5, 0.18, 0.15], [0.2, 0.32, 0.5], [0.36, 0.3, 0.2], [0.3, 0.4, 0.28], [0.5, 0.4, 0.22], [0.28, 0.24, 0.3]], V_SHIELD = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.86, 0.84, 0.78], [0.15, 0.4, 0.25]];
+const O_CLOTH = [[0.95, 0.93, 0.86], [0.92, 0.88, 0.78], [0.7, 0.28, 0.22], [0.3, 0.38, 0.6]], O_TRIM = ['#b83a2a', '#d8b040', '#2f4f8a'];
 const A_CLOTH = [[0.94, 0.93, 0.88], [0.3, 0.62, 0.6], [0.36, 0.56, 0.78], [0.92, 0.88, 0.76]];
 export function personSpec(kind, seed, theme = 'terra') {
   const r = rngFor(seed, kind.length * 17 + 3), P = { kind, skin: pick(r, SKIN), hair: pick(r, HAIRC), eye: [0.14, 0.12, 0.12], style: (r() * 4) | 0, cloth: pick(r, CLOTH[kind] || CLOTH.villager), pants: pick(r, [[0.26, 0.26, 0.3], [0.34, 0.28, 0.2], [0.24, 0.3, 0.32]]), extra: (r() * 4) | 0 };
   if (theme === 'asgard' && kind !== 'player') { const q = rngFor(seed, kind.length * 29 + 11); P.vik = true; P.skin = pick(q, V_SKIN); P.hair = pick(q, V_HAIR); P.cloth = kind === 'guard' || kind === 'warden' ? P.cloth : pick(q, V_CLOTH); P.extra = q() < 0.78 ? 0 : 3; P.shield = pick(q, V_SHIELD); P.hasShield = kind === 'guard' || kind === 'warden' || q() < 0.3; P.helm = kind === 'guard' || kind === 'warden' || (kind === 'villager' && q() < 0.15); P.horns = kind === 'guard' || (P.helm && q() < 0.35); P.braids = q() < 0.6; }
   if (theme === 'atlantis' && kind !== 'player') { const q = rngFor(seed, kind.length * 31 + 5); P.atl = true; P.skin = SKIN[(q() * 3) | 0]; P.hair = HAIRC[[0, 1, 4][(q() * 3) | 0]]; if (kind !== 'guard' && kind !== 'warden') P.cloth = pick(q, A_CLOTH); P.pants = [0.86, 0.84, 0.78]; } // Atlanteans: white, sea-green and sky-blue robes, a gold circlet and belt
+  if (theme === 'olympus' && kind !== 'player') { const q = rngFor(seed, kind.length * 37 + 9); P.oly = true; P.skin = SKIN[1 + ((q() * 2) | 0)]; P.hair = HAIRC[[0, 1, 2][(q() * 3) | 0]]; if (kind !== 'guard' && kind !== 'warden') P.cloth = pick(q, O_CLOTH); P.trim = pick(q, O_TRIM); P.pants = P.cloth; P.laurel = kind !== 'guard' && q() < 0.4; } // Olympians: a chiton with a coloured hem, sandals, some with a laurel wreath
   if (kind === 'child') { P.hair = P.vik ? V_HAIR[seed % 3] : HAIRC[1 + (seed % 2)]; P.extra = 3; P.helm = P.horns = P.hasShield = false; }
   if (kind === 'player') { P.skin = SKIN[1]; P.hair = HAIRC[1]; P.style = 0; P.extra = 3; P.pants = [0.22, 0.24, 0.3]; }
   return P;
@@ -372,6 +384,7 @@ export function paintPerson(g, P, dir, fr) {
   else if (K === 'player') cel(g, rr(-0.38, hy - 0.46, 0.76, 0.26, 0.1), dark(cl, 0.2), { lw: 0.07 });
   else if (P.extra === 0) cel(g, (p) => { p.moveTo(-0.45, hy + 0.2); p.bezierCurveTo(-0.55, hy - 0.7, 0.55, hy - 0.7, 0.45, hy + 0.2); p.lineTo(0.3, hy + 0.05); p.bezierCurveTo(0.3, hy - 0.3, -0.3, hy - 0.3, -0.3, hy + 0.05); p.closePath(); }, dark(cl, 0.1), { lw: 0.07 }); // hood
   if (P.atl) { const wd = front || back ? 0.5 : 0.38; line(g, -wd, -1.2, wd, -1.2, 0.1, '#d8b040'); if (K !== 'guard') { line(g, -0.36, hy - 0.2, 0.36, hy - 0.2, 0.08, '#d8b040'); if (front) fillPath(g, ell(0, hy - 0.22, 0.07, 0.07), '#7fe3d8'); } } // gold belt, a gold circlet with a sea-glass bead
+  if (P.oly) { const wd = front || back ? 0.52 : 0.4; line(g, -wd, -0.55, wd, -0.55, 0.12, P.trim); line(g, -wd * 0.8, -1.25, wd * 0.8, -1.25, 0.07, '#d8b040'); if (P.laurel) for (const sx of [-1, 1]) fillPath(g, ell(sx * 0.3, hy - 0.2, 0.12, 0.06, sx * 0.5), '#5d8a3a'); } // the chiton's hem, a gold girdle, a laurel wreath
   if (P.vik) { // Asgardian gear over the shared body: fur collar, braids, helmet with horns, a round shield on the left arm
     cel(g, ell(0, -1.98, 0.7, 0.26), [0.62, 0.52, 0.4], { lw: 0.07 }); for (let k = -3; k <= 3; k++) line(g, k * 0.2, -2.1, k * 0.2 + 0.03, -1.9, 0.07, rgb([0.78, 0.7, 0.58]));
     if (P.braids && !back) for (const s of [-1, 1]) { const bx = front ? s * 0.36 : 0.14; for (let k = 0; k < 4; k++) fillPath(g, ell(bx - (front ? 0 : 0.05 * k), hy + 0.35 + k * 0.17, 0.07, 0.09), rgb(hair)); }

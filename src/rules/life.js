@@ -1,6 +1,6 @@
 // Ambient sea life and birds (not interactable). Pure and stateless: every animal is a function of (realm, seed, cell, time), so nothing is stored or saved and the cost is a
 // handful of trig calls per frame. The sea is cut into cells; each cell may hold one group that swims a slow loop that stays clear of land. Birds circle islands and the open sea.
-// Each realm has its own table: Terra is warm and sunny; Asgard has cold-water animals and its own birds; Atlantis has dolphins, mantas and turtles (more worlds add a table).
+// Each realm has its own table: Terra is warm and sunny; Asgard has cold-water animals and its own birds; Atlantis has dolphins, mantas and turtles; Olympus has dolphins under its cliffs and eagles circling the peaks (more worlds add a table).
 import { sectorIslands, SECTOR, WALL_R } from '../gen/world.js';
 import { hash } from '../gen/rng.js';
 
@@ -9,6 +9,7 @@ export const CELL = 210, RANGE = 2, MAX_SHOWN = 70, SHOW_R = 320;
 export const TABLES = {
   terra: { sea: [['dolphin', 4], ['flyfish', 3], ['whale', 2], ['turtle', 2], ['fin', 1], ['school', 3]], outer: [['whale', 4], ['dolphin', 3], ['flyfish', 3], ['fin', 1], ['school', 2]], coast: 'gull', open: 'albatross', openP: 0.1 },
   atlantis: { sea: [['dolphin', 5], ['ray', 3], ['turtle', 3], ['flyfish', 2], ['school', 3], ['whale', 1]], outer: [['whale', 3], ['dolphin', 3], ['ray', 2], ['flyfish', 2]], coast: 'gull', open: 'albatross', openP: 0.1 },
+  olympus: { sea: [['dolphin', 5], ['flyfish', 3], ['turtle', 2], ['school', 3], ['whale', 1], ['fin', 1]], outer: [['whale', 3], ['dolphin', 3], ['flyfish', 2], ['fin', 1]], coast: 'eagle', open: 'gull', openP: 0.15 },
   asgard: { sea: [['narwhal', 3], ['seal', 3], ['orca', 2], ['icewhale', 2], ['school', 2]], outer: [['icewhale', 3], ['orca', 2], ['narwhal', 2], ['school', 1]], coast: 'raven', open: 'eagle', openP: 0.12 },
 };
 export const tableOf = (realm) => TABLES[realm] || TABLES.terra;

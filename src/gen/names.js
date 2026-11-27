@@ -23,14 +23,21 @@ const A_FIRST = ['Ione', 'Doros', 'Thalia', 'Kyros', 'Nerissa', 'Alkis', 'Melia'
 const A_HOUSE = ['Pelagos', 'Thalassios', 'Kymatos', 'Nerides', 'Aktaios', 'Halion', 'Glaukos', 'Tritonis'];
 const A_SHIP = ['Sea Pearl', 'Coral Crown', 'Trident', 'Tide Singer', 'Glass Dolphin', 'Orichalc', 'Moon Shell', 'Wave Daughter', 'Blue Lantern', 'Foam Rider', 'Deep Gleam', 'Salt Harp'];
 const atl = (r) => pick(r, A_PRE) + pick(r, A_SUF);
+// Olympus: old Greek-sounding islands and cities ("-opolis"), proud ships, a name and where they hail from
+const O_PRE = ['Ker', 'Myr', 'Lak', 'Ath', 'Nax', 'Mel', 'Pyr', 'Xan', 'Dor', 'Akr', 'Hel', 'Kyth', 'Phal', 'Sel', 'Zak', 'Thas'];
+const O_SUF = ['os', 'ene', 'ikos', 'ira', 'aia', 'ymna', 'esos', 'athos', 'ion', 'ope'];
+const O_FIRST = ['Nikandros', 'Kleon', 'Agathe', 'Demetra', 'Xenia', 'Philon', 'Lysandra', 'Timon', 'Aristos', 'Thaleia', 'Stavros', 'Ianthe', 'Melanthios', 'Kore'];
+const O_SHIP = ['Bronze Eagle', 'Laurel Crown', 'Swift Owl', 'Sun Chariot', 'Thunderbolt', 'Golden Ram', 'Wine-Dark', 'Marble Wave', 'Winged Sandal', 'Olive Branch', 'Spear of Dawn', 'Silver Lyre'];
+const oly = (r) => pick(r, O_PRE) + pick(r, O_SUF);
 export const islandName = (r, th) => {
   if (th === 'asgard') return norse(r);
   if (th === 'atlantis') return atl(r);
+  if (th === 'olympus') return oly(r);
   const k = r();
   if (k < 0.4) return `${pick(r, ADJ)} ${pick(r, NOUN)} ${pick(r, PLACE)}`;
   if (k < 0.8) return `${pick(r, POSS)} ${pick(r, PLACE)}`;
   return `${pick(r, NOUN)} ${pick(r, PLACE)}`;
 };
-export const portName = (r, th) => (th === 'asgard' ? norse(r) : th === 'atlantis' ? `${atl(r)} Harbour` : r() < 0.5 ? `${pick(r, TOWN)} ${pick(r, ADJ)}` : `${pick(r, ADJ)} ${pick(r, TOWN)}`);
-export const shipName = (r, th) => (th === 'asgard' ? pick(r, N_SHIP) : th === 'atlantis' ? `The ${pick(r, A_SHIP)}` : `The ${pick(r, ADJ)} ${pick(r, NOUN)}`);
-export const captainName = (r, th) => (th === 'asgard' ? `${pick(r, N_FIRST)} ${pick(r, N_PAT)}${r() < 0.5 ? 'son' : 'dottir'}` : th === 'atlantis' ? `${pick(r, A_FIRST)} ${pick(r, A_HOUSE)}` : `${pick(r, FIRST)} ${pick(r, LAST)}`);
+export const portName = (r, th) => (th === 'asgard' ? norse(r) : th === 'atlantis' ? `${atl(r)} Harbour` : th === 'olympus' ? `${pick(r, O_PRE)}opolis` : r() < 0.5 ? `${pick(r, TOWN)} ${pick(r, ADJ)}` : `${pick(r, ADJ)} ${pick(r, TOWN)}`);
+export const shipName = (r, th) => (th === 'asgard' ? pick(r, N_SHIP) : th === 'atlantis' ? `The ${pick(r, A_SHIP)}` : th === 'olympus' ? `The ${pick(r, O_SHIP)}` : `The ${pick(r, ADJ)} ${pick(r, NOUN)}`);
+export const captainName = (r, th) => (th === 'asgard' ? `${pick(r, N_FIRST)} ${pick(r, N_PAT)}${r() < 0.5 ? 'son' : 'dottir'}` : th === 'atlantis' ? `${pick(r, A_FIRST)} ${pick(r, A_HOUSE)}` : th === 'olympus' ? `${pick(r, O_FIRST)} of ${oly(r)}` : `${pick(r, FIRST)} ${pick(r, LAST)}`);

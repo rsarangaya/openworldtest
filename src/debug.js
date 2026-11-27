@@ -31,6 +31,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: Outer Sea edge', (s) => { s.flags.crossed = true; const th = REALMS.find((r) => r.id === 'asgard').grand.ang; sail(s, Math.cos(th) * (OUTER_EDGE - 120), Math.sin(th) * (OUTER_EDGE - 120), th); }],
     ['World: Asgard', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('asgard'); }],
     ['World: Atlantis', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('atlantis'); }],
+    ['World: Olympus', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('olympus'); }],
     ['Go: nearest town plaza', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot, cx = sectorOf(p.x), cz = sectorOf(p.z); let best = null;
       for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const isl of sectorIslands(s.seed, cx + i, cz + j)) if (isl.port && (!best || Math.hypot(isl.x - p.x, isl.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z))) best = isl;
       if (!best) { say(s, 'No town near'); return; } const pz = islandTown(best).plaza; needShip(s); Object.assign(s.ship, { x: best.port.x, z: best.port.z, speed: 0 }); s.mode = 'foot'; s.foot = { x: pz.x + 3, z: pz.z + 3, y: groundAt(s, pz.x + 3, pz.z + 3), yaw: 0, vy: 0 }; teleport(); }],

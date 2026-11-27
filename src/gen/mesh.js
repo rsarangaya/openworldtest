@@ -54,12 +54,13 @@ const PAL = {
   sandbar: { low: [0.92, 0.86, 0.64], mid: [0.9, 0.84, 0.62], high: [0.9, 0.84, 0.62] },
   frozen: { low: [0.82, 0.88, 0.92], mid: [0.9, 0.94, 0.98], high: [0.96, 0.98, 1] },
 };
+const OL_PAL = { rocky: { low: [0.82, 0.76, 0.6], mid: [0.6, 0.6, 0.5], high: [0.88, 0.86, 0.8] }, temperate: { low: [0.84, 0.78, 0.58], mid: [0.44, 0.52, 0.28], high: [0.86, 0.84, 0.78] } }; // Olympus: pale limestone peaks, dry olive-green slopes
 function terrainColor(isl, y, steep) {
-  const p = PAL[isl.biome];
+  const p = (isl.theme === 'olympus' && OL_PAL[isl.biome]) || PAL[isl.biome];
   if (y < 1.2) return lerp3(isl.biome === 'frozen' ? [0.7, 0.78, 0.84] : [0.58, 0.52, 0.38], p.low, clamp((y + 2) / 3, 0, 1));
   const t = clamp((y - 1.2) / (isl.h * 0.8), 0, 1);
   const c = t < 0.55 ? lerp3(p.low, p.mid, clamp(t * 4, 0, 1)) : lerp3(p.mid, p.high, (t - 0.55) / 0.45);
-  return steep > 0.4 ? lerp3(c, [0.4, 0.37, 0.34], Math.min(0.75, (steep - 0.4) * 3)) : c;
+  return steep > 0.4 ? lerp3(c, isl.theme === 'olympus' ? [0.7, 0.68, 0.62] : [0.4, 0.37, 0.34], Math.min(0.75, (steep - 0.4) * 3)) : c;
 }
 
 // ---------------------------------------------------------------- vegetation + rocks
@@ -95,6 +96,7 @@ const WOOD = [0.5, 0.36, 0.22], DARKWOOD = [0.33, 0.22, 0.13], STONE = [0.5, 0.4
 
 // Asgard's longhouses: dark timber walls with plank lines, steep turf or thatch roofs with an overhang, a carved dragon head at each end of the ridge, round shields along the walls, a smoke hole instead of a chimney
 const AT_WALL = [[0.95, 0.94, 0.9], [0.9, 0.91, 0.88], [0.96, 0.92, 0.84]], AT_ROOF = [[0.98, 0.8, 0.3], [0.2, 0.6, 0.62], [0.96, 0.74, 0.26]]; // Atlantis: white walls, gold and sea-green roofs
+const OL_WALL = [[0.93, 0.9, 0.82], [0.9, 0.86, 0.78], [0.95, 0.93, 0.87]], OL_ROOF = [[0.78, 0.4, 0.24], [0.96, 0.76, 0.28], [0.72, 0.36, 0.22]]; // Olympus: warm marble walls, terracotta and gold roofs
 const VK_WALL = [[0.4, 0.27, 0.17], [0.33, 0.23, 0.15], [0.45, 0.31, 0.2]], VK_ROOF = [[0.36, 0.42, 0.26], [0.52, 0.44, 0.28], [0.3, 0.36, 0.3]], VK_SHIELD = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.88, 0.86, 0.8], [0.15, 0.4, 0.25]];
 function vikingTrim(m, b, y0, y1, ry, alongX) {
   const hw = b.w / 2, hd = b.d / 2, dk = [0.2, 0.13, 0.08], gold = [0.85, 0.7, 0.3];
@@ -183,7 +185,7 @@ function landmark(m, k, x, y, z, w, d, seed) {
   }
 }
 function building(m, isl, b) {
-  const vik = isl.theme === 'asgard', at = isl.theme === 'atlantis', sl = STYLE_LOOK[isl.style], wall = vik ? VK_WALL[b.roof % 3] : at ? AT_WALL[b.roof % 3] : sl ? sl.wall[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : at ? AT_ROOF[b.roof % 3] : sl ? sl.roof[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
+  const vik = isl.theme === 'asgard', at = isl.theme === 'atlantis' ? [AT_WALL, AT_ROOF] : isl.theme === 'olympus' ? [OL_WALL, OL_ROOF] : null, sl = STYLE_LOOK[isl.style], wall = vik ? VK_WALL[b.roof % 3] : at ? at[0][b.roof % 3] : sl ? sl.wall[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : at ? at[1][b.roof % 3] : sl ? sl.roof[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
   m.box(b.x, y0 - 1.4, b.z, b.w + 0.4, 2.8, b.d + 0.4, [0.44, 0.42, 0.4]); // foundation reaches below the terrain on any slope
   if (!b.door) m.box(b.x, y0 + 0.3, b.z, b.w + 0.25, 0.6, b.d + 0.25, STONE, 0.15); // stone plinth (houses only: shops are hollow)
   if (b.door) {

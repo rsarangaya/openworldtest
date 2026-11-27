@@ -15,8 +15,8 @@ export const gatePos = (seed) => { const a = gateAngle(seed); return { x: Math.c
 const frostSpot = (seed) => { const g = gatePos(seed); return { x: Math.cos(g.angle) * (WALL_R - 300), z: Math.sin(g.angle) * (WALL_R - 300) }; };
 
 // ---------------------------------------------------------------- islands
-const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'], north: ['frozen', 'frozen', 'frozen', 'frozen', 'rocky'], atlantis: ['tropical', 'tropical', 'tropical', 'sandbar', 'temperate'] };
-const cache = new Map(), tags = new Map();
+const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'], north: ['frozen', 'frozen', 'frozen', 'frozen', 'rocky'], atlantis: ['tropical', 'tropical', 'tropical', 'sandbar', 'temperate'], olympus: ['rocky', 'rocky', 'temperate', 'temperate', 'temperate'] };
+const cache = new Map(), tags = new Map(), WARM = { atlantis: 1, olympus: 1 }; // worlds with no ice rock
 // which look a seed has: the seed of a realm is registered when you enter it (see rules/realm.js), Terra is the default
 const THEMES = new Map();
 export const setSeedTheme = (seed, th) => THEMES.set(seed, th);
@@ -26,7 +26,7 @@ export const clearWorldCaches = () => { folkCache.clear(); townCache.clear(); };
 function gen(seed, sx, sz) {
   const r = rngFor(seed, sx, sz, 1), out = [];
   if (Math.hypot((sx + 0.5) * SECTOR, (sz + 0.5) * SECTOR) > WALL_R + SECTOR) return out;
-  const fw = frostSpot(seed), frostHere = themeOf(seed) !== 'atlantis' && sectorOf(fw.x) === sx && sectorOf(fw.z) === sz, homeHere = sx === 0 && sz === 0; // no ice rock in warm Atlantis
+  const fw = frostSpot(seed), frostHere = !WARM[themeOf(seed)] && sectorOf(fw.x) === sx && sectorOf(fw.z) === sz, homeHere = sx === 0 && sz === 0; // no ice rock in warm Atlantis or sunny Olympus
   const want = homeHere ? 3 : (r() < 0.18 ? 0 : 1 + ((r() * 3) | 0));
   for (let tries = 0; (out.length < want || (frostHere && !out.some((o) => o.special))) && tries < 60; tries++) {
     const home = homeHere && out.length === 0, frost = frostHere && !out.some((o) => o.special) && (tries > 20 || out.length >= want);
@@ -38,9 +38,9 @@ function gen(seed, sx, sz) {
     if (out.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + rad + 40)) continue;
     if (!frost && Math.hypot(x - fw.x, z - fw.z) < rad + 120) continue;
     const d = Math.hypot(x, z) / WALL_R;
-    const th = themeOf(seed), biome = th === 'asgard' ? pick(r, BIOMES.north) : th === 'atlantis' ? pick(r, BIOMES.atlantis) : home ? 'tropical' : frost ? 'frozen' : pick(r, d < 0.35 ? BIOMES.warm : d < 0.72 ? BIOMES.mild : BIOMES.cold);
+    const th = themeOf(seed), biome = th === 'asgard' ? pick(r, BIOMES.north) : WARM[th] ? pick(r, BIOMES[th]) : home ? 'tropical' : frost ? 'frozen' : pick(r, d < 0.35 ? BIOMES.warm : d < 0.72 ? BIOMES.mild : BIOMES.cold);
     const base = biome === 'sandbar' ? 3 : biome === 'volcanic' ? range(r, 22, 34) : biome === 'rocky' ? range(r, 14, 24) : range(r, 9, 16);
-    const hgt = biome === 'sandbar' ? 3 : base * clamp(0.7 + rad / 100, 0.7, 1.5);
+    const hgt = biome === 'sandbar' ? 3 : base * clamp(0.7 + rad / 100, 0.7, 1.5) * (th === 'olympus' ? 1 + 0.5 * clamp((rad - 20) / 30, 0, 1) : 1); // Olympus: tall peaks on the bigger islands (islets stay walkable)
     const id = `${sx},${sz},${out.length}`, seedI = hash(seed, sx, sz, out.length + 11), nr = rngFor(seedI, 5);
     const isl = { id, seed: seedI, sx, sz, x, z, r: rad, h: hgt, biome, flat: home || (rad >= 30 && biome !== 'volcanic' && hash(seed, sx, sz, 700 + out.length) % 100 < 40), size: rad < 26 ? 'islet' : rad < 52 ? 'island' : 'large', tier: null, port: null, treasure: null, special: frost ? 'frost' : null, quest: null };
     isl.theme = themeOf(seed); isl.name = frost ? 'Frostwatch Rock' : islandName(nr, isl.theme);

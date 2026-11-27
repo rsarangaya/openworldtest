@@ -23,7 +23,7 @@ export const wrecksNear = (s, x, z, r) => live(s).filter((w) => Math.hypot(w.x -
 export function wreckRumour(s, x, z) {
   let best = null, bd = 1e9; for (const w of live(s)) { const d = Math.hypot(w.x - x, w.z - z); if (d < bd) { bd = d; best = w; } }
   if (!best) return null;
-  return `${realm(s) === 'asgard' ? 'A trader swears' : realm(s) === 'atlantis' ? 'A pearl diver swears' : 'An old diver swears'} the ${best.name.replace(/^The /, '')} went down ${bd > 2500 ? 'far out' : bd > 1200 ? 'a long sail' : 'not far'} to the ${compassWord(best.x - x, best.z - z)} with ${best.good} in her hold. Barrels still float over the spot. Heave to above her and send a diver down.`;
+  return `${realm(s) === 'asgard' ? 'A trader swears' : realm(s) === 'atlantis' ? 'A pearl diver swears' : realm(s) === 'olympus' ? 'A sponge diver swears' : 'An old diver swears'} the ${best.name.replace(/^The /, '')} went down ${bd > 2500 ? 'far out' : bd > 1200 ? 'a long sail' : 'not far'} to the ${compassWord(best.x - x, best.z - z)} with ${best.good} in her hold. Barrels still float over the spot. Heave to above her and send a diver down.`;
 }
 // F at sea over a wreck: send the diver down, or say why not. danger(s) is true while a foe is close.
 export function startDive(s, w, say, stormy, danger) {
