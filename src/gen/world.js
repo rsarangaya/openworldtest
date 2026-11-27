@@ -71,6 +71,7 @@ function gen(seed, sx, sz) {
       isl.port.cheap = pick(nr, GOODS); isl.port.dear = pick(nr, GOODS.filter((g) => g !== isl.port.cheap));
       isl.style = isl.port.style = home ? 'plain' : frost ? 'fortress' : styleOf(isl.tier, (hash(seed, sx, sz, 900 + out.length) >>> 0) % 1000 / 1000, (hash(seed, sx, sz, 950 + out.length) >>> 0) % 1000 / 1000);
       if (isl.style === 'mining') { isl.port.cheap = 'cannon'; if (isl.port.dear === 'cannon') isl.port.dear = 'rum'; } // the foundry by the mine casts guns
+      else if (isl.style === 'smuggler') { isl.port.cheap = 'rum'; if (isl.port.dear === 'rum') isl.port.dear = 'silk'; } // run in past the customs men
     } else if (rad >= 14 && r() < 0.6) {
       const ang = r() * TAU;
       isl.treasure = { x: x + Math.cos(ang) * rad * 0.62, z: z + Math.sin(ang) * rad * 0.62, gold: 150 + ((r() * 350) | 0) };
@@ -271,8 +272,8 @@ export function islandTown(isl) {
   }
   // the landmarks of this kind of town, on level open ground clear of every building and of each other
   const marks = [];
-  for (const [k, w, d] of LANDMARKS[isl.style] || []) for (let tries = 0; tries < 240; tries++) {
-    const an = r() * TAU, hill = k === 'mine', ring = 13 + r() * 8 + tries * (hill ? 0.1 : 0.14), x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false, hill ? 2 : 3.8, hill); // a mine may sit closer to the houses and up the hill, but not far out
+  for (const [k, w, d] of LANDMARKS[isl.style] || []) for (let tries = 0; tries < 330; tries++) {
+    const an = r() * TAU, hill = k === 'mine' || k === 'cave', last = tries >= 240, ring = last ? 10 + r() * 4 + (tries - 240) * 0.12 : 13 + r() * 8 + tries * (hill ? 0.1 : 0.14), x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false, last ? 1.2 : hill ? 2 : 3.8, hill); // a mine may sit closer to the houses and up the hill, but not far out; on a cramped island a last pass tries closer in
     if (!sp || marks.some((q) => Math.hypot(q.x - x, q.z - z) < (Math.max(q.w, q.d) + Math.max(w, d)) / 2 + 2.5) || buildings.some((b) => b.door && Math.abs(b.x - x) < (b.w + w) / 2 + 1 && z > b.z && z - b.z < (b.d + d) / 2 + 6)) continue;
     const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); break;
   }

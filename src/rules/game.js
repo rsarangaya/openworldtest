@@ -12,7 +12,7 @@ import { stepContracts, offers as contractOffers, accept as acceptContract, sett
 import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S, bearing, RUNE_GATE, RUNES_NEEDED, runeGateAngle } from './realm.js';
 import { REALMS } from './map.js';
 import { clearWorldCaches } from '../gen/world.js';
-import { extraGuards, STYLES } from '../gen/style.js';
+import { extraGuards, STYLES, bountyMul } from '../gen/style.js';
 import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
@@ -153,9 +153,9 @@ function placeAtPlaza(s, isl) {
   if (sp) s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: Math.atan2(pl.z - sp.z, pl.x - sp.x), vy: 0 };
   return false;
 }
-export function payBounty(s) {
-  const pay = Math.min(Math.floor(s.gold), Math.ceil(s.bountyGold || 0)); if (pay <= 0) return 0;
-  s.gold -= pay; s.bountyGold = Math.max(0, s.bountyGold - pay); if (s.bountyGold <= 0) { s.bountyGold = 0; s.bounty = 0; s.alert = {}; s.guards = []; } return pay;
+export function payBounty(s, port = null) { // port: a smugglers' cove's fence clears it for less (guards and fines take it in full)
+  const mul = bountyMul(port), pay = Math.min(Math.floor(s.gold), Math.ceil((s.bountyGold || 0) * mul)); if (pay <= 0) return 0;
+  s.gold -= pay; s.bountyGold = Math.max(0, s.bountyGold - pay / mul); if (s.bountyGold <= 0) { s.bountyGold = 0; s.bounty = 0; s.alert = {}; s.guards = []; } return pay;
 }
 function arrest(s, isl) {
   freePrisoner(s, 'The prisoner slips away while you are locked up.'); let jailed = false; const pay = payBounty(s); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false;

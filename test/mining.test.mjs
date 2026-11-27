@@ -14,7 +14,7 @@ const islands = (seed, n = 4) => { const out = []; for (let i = -n; i <= n; i++)
 test('mining towns: only from plain villages and towns, never cities; every other town keeps its old kind', () => {
   for (const tier of ['village', 'town', 'city']) for (let u = 0; u < 1; u += 0.01) for (const u2 of [0, 0.3, 0.64, 0.66, 0.99]) {
     const old = styleOf(tier, u), now = styleOf(tier, u, u2);
-    if (now !== old) { assert.equal(old, 'plain'); assert.equal(now, 'mining'); assert.notEqual(tier, 'city'); }
+    if (now !== old && now !== 'smuggler') { assert.equal(old, 'plain'); assert.equal(now, 'mining'); assert.notEqual(tier, 'city'); }
   }
   assert.ok(STYLES.mining.label && STYLES.mining.perk);
   let n = 0, withMine = 0;

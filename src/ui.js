@@ -12,7 +12,7 @@ import { GOODS } from './gen/world.js';
 import { WEAPONS, armoryOf, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
 import { buyWeapon, equip } from './rules/weapons.js';
-import { foodCost, weaponMul, repairCost } from './gen/style.js';
+import { foodCost, weaponMul, repairCost, bountyMul } from './gen/style.js';
 import { travelList, travelBlock, trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract } from './rules/game.js';
 import { active as contractList, describe as contractText, quote as quoteContract, MAX_ACTIVE } from './rules/contracts.js';
 import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
@@ -220,7 +220,7 @@ export function createUI() {
         h += '<table><tr><th>Goods</th><th class=n>Buy</th><th class=n>Sell</th><th class=n>Have</th><th></th></tr>';
         for (const g of GOODS) h += `<tr><td>${g}${g === port.cheap ? ' <span class=gold>cheap</span>' : g === port.dear ? ' <span class=bad>dear</span>' : ''}</td><td class=n>${buyPrice(s, port, g)}</td><td class=n>${sellPrice(s, port, g)}</td><td class=n>${s.cargo[g] || 0}</td><td class=n><button class=small data-a="b:${g}">Buy</button><button class=small data-a="s:${g}">Sell</button></td></tr>`;
         h += `</table><p class=hint>Hold: ${cargoCount(s)}/${s.hold}. Buy where a good is cheap, sell where it is dear.</p>`;
-        if (s.bountyGold > 0) h += `<button class=small data-a=bounty>Pay your bounty (${Math.round(s.bountyGold)}g)</button>`;
+        if (s.bountyGold > 0) h += bountyMul(port) < 1 ? `<button class=small data-a=fence>Have the fence clear your bounty (${Math.ceil(s.bountyGold * bountyMul(port))}g of ${Math.round(s.bountyGold)}g)</button>` : `<button class=small data-a=bounty>Pay your bounty (${Math.round(s.bountyGold)}g)</button>`;
         if (s.ship) h += `<button class=small data-a=rep>Repair hull (${repairCost(port)}g per point, ${Math.round(s.hull)}/${s.maxHull})</button>`;
       } else if (res.panel === 'arms') {
         h += `<p>You carry: <b>${WEAPONS[s.weapon || 'fists'].name}</b>. Keys 1-5 swap weapons you own; 4 again moves to your next axe.</p>`;
@@ -259,7 +259,7 @@ export function createUI() {
         const a = b.dataset.a;
         if (a === undefined) return;
         if (a === 'f1') buyFood(s, 1, port); else if (a === 'f5') buyFood(s, 5, port); else if (a === 'fm') buyFood(s, MAX_FOOD, port);
-        else if (a === 'rep') repair(s, port); else if (a === 'bounty') payBounty(s); else if (a === 'hand') handIn(s, ctx.island); else if (a.startsWith('w-')) buyWeapon(s, a.slice(2), buyMult(s, port.iid) * weaponMul(port)); else if (a.startsWith('eq-')) equip(s, a.slice(3));
+        else if (a === 'rep') repair(s, port); else if (a === 'bounty') payBounty(s); else if (a === 'fence') payBounty(s, port); else if (a === 'hand') handIn(s, ctx.island); else if (a.startsWith('w-')) buyWeapon(s, a.slice(2), buyMult(s, port.iid) * weaponMul(port)); else if (a.startsWith('eq-')) equip(s, a.slice(3));
         else if (a.startsWith('fsell-')) { const g = sellShip(s, a.slice(6)); if (g) ctx.say('You sell the ship for ' + g + ' gold.'); } else if (a.startsWith('hire-')) { const c = candidates(s, ctx.island).find((q) => q.id === a.slice(5)); if (c && hire(s, ctx.island, c)) ctx.say(c.name + ' signs on as your ' + c.role + '.'); } else if (a.startsWith('dis-')) dismiss(s, a.slice(4));
         else if (a.startsWith('part-')) { if (fitPart(s, a.slice(5))) ctx.say(PARTS[a.slice(5)].name + ' fitted.'); } else if (a.startsWith('ammo-')) buyAmmo(s, a.slice(5), 10);
         else if (a.startsWith('ship-')) { if (buyShip(s, ctx.island, a.slice(5))) ctx.say('The ' + SHIPS[a.slice(5)].name + ' is yours. Walk to the end of the dock to board.'); }

@@ -113,6 +113,7 @@ const STYLE_LOOK = {
   trade: { wall: [[0.96, 0.86, 0.6], [0.9, 0.6, 0.45], [0.72, 0.84, 0.94]], roof: [[0.76, 0.24, 0.16], [0.18, 0.4, 0.6], [0.7, 0.32, 0.14]] },
   fortress: { wall: [[0.56, 0.57, 0.62], [0.46, 0.46, 0.5], [0.64, 0.62, 0.6]], roof: [[0.22, 0.27, 0.36], [0.3, 0.3, 0.34], [0.2, 0.24, 0.3]] },
   mining: { wall: [[0.58, 0.44, 0.32], [0.64, 0.6, 0.54], [0.52, 0.44, 0.36]], roof: [[0.34, 0.32, 0.32], [0.44, 0.32, 0.24], [0.38, 0.38, 0.4]] }, // weathered timber and sooty slate
+  smuggler: { wall: [[0.5, 0.42, 0.34], [0.44, 0.48, 0.46], [0.56, 0.46, 0.36]], roof: [[0.42, 0.44, 0.3], [0.36, 0.36, 0.38], [0.5, 0.38, 0.28]] }, // tarred planks, mossy thatch and old sailcloth
 };
 function landmark(m, k, x, y, z, w, d, seed) {
   const wood = [0.42, 0.29, 0.18], dark = [0.24, 0.17, 0.11], stone = [0.55, 0.55, 0.6], cloth = [0.75, 0.18, 0.14];
@@ -139,12 +140,22 @@ function landmark(m, k, x, y, z, w, d, seed) {
     for (let i = 0; i < 3; i++) for (const s of [-1, 1]) { m.box(x - w / 2 + 0.5 + i * (w / 2 - 0.5), y + 11.4, z + s * (d / 2 - 0.3), 0.9, 1.2, 0.6, stone); m.box(x + s * (w / 2 - 0.3), y + 11.4, z - d / 2 + 0.5 + i * (d / 2 - 0.5), 0.6, 1.2, 0.9, stone); }
     m.box(x, y + 1.2, z + (d - 0.8) / 2 + 0.03, 1.2, 2.4, 0.08, dark); for (const h of [4.5, 7.5]) m.box(x, y + h, z + (d - 0.8) / 2 + 0.03, 0.3, 1, 0.08, [0.1, 0.1, 0.12]);
     m.box(x, y + 13.2, z, 0.16, 4.4, 0.16, wood); m.box(x + 0.85, y + 14.7, z, 1.6, 1.1, 0.08, cloth);
-  } else if (k === 'mine') { // a mine mouth cut into a heap of rock: timber frame, a black adit, rails running out, a lamp by the door
-    const rk = [0.56, 0.54, 0.5], fz = z + d / 2;
+  } else if (k === 'mine' || k === 'cave') { // a heap of rock with a black mouth: a mine (timber frame, rails) or a smugglers' cave (a ragged mouth, kegs and crates outside); a lamp by the door
+    const rk = [0.56, 0.54, 0.5], fz = z + d / 2, mine = k === 'mine';
     m.box(x, y + 1.3, z, w, 2.6, d, rk, 0.2); m.box(x - 0.4, y + 3.3, z - 0.3, w * 0.78, 1.4, d * 0.75, dim(rk, 0.9)); m.blob(x + 0.6, y + 4, z - 0.5, 2.2, dim(rk, 1.08), 0.6, 1.1, 0.8); for (const s of [-1, 1]) m.blob(x + s * (w / 2 - 0.5), y + 2.3, z + s * 0.4, 1.6, dim(rk, s > 0 ? 0.94 : 1.04), 0.75, 0.9, 1.1); // lumps that break up the box
-    m.box(x, y + 1.15, fz + 0.03, 1.9, 2.3, 0.06, [0.05, 0.04, 0.05]); for (const s of [-1, 1]) m.box(x + s * 1.1, y + 1.25, fz + 0.15, 0.3, 2.5, 0.3, wood); m.box(x, y + 2.55, fz + 0.15, 2.7, 0.32, 0.36, wood);
-    for (const s of [-0.45, 0.45]) m.box(x + s, y + 0.06, fz + 1.4, 0.1, 0.1, 2.8, [0.36, 0.34, 0.34]); for (let i = 0; i < 4; i++) m.box(x, y + 0.02, fz + 0.4 + i * 0.7, 1.2, 0.06, 0.2, dark);
+    m.box(x, y + 1.15, fz + 0.03, 1.9, 2.3, 0.06, [0.05, 0.04, 0.05]);
+    if (mine) { for (const s of [-1, 1]) m.box(x + s * 1.1, y + 1.25, fz + 0.15, 0.3, 2.5, 0.3, wood); m.box(x, y + 2.55, fz + 0.15, 2.7, 0.32, 0.36, wood);
+      for (const s of [-0.45, 0.45]) m.box(x + s, y + 0.06, fz + 1.4, 0.1, 0.1, 2.8, [0.36, 0.34, 0.34]); for (let i = 0; i < 4; i++) m.box(x, y + 0.02, fz + 0.4 + i * 0.7, 1.2, 0.06, 0.2, dark); }
+    else { m.box(x, y + 2.45, fz + 0.1, 1.3, 0.5, 0.2, dim(rk, 0.9)); for (const s of [-1, 1]) m.box(x + s * 1.05, y + 0.8, fz + 0.12, 0.5, 1.6, 0.24, dim(rk, 0.94)); // a ragged mouth
+      for (const [dx, dz] of [[-2.1, 0.9], [-1.6, 1.5]]) { m.box(x + dx, y + 0.45, fz + dz, 0.7, 0.9, 0.7, [0.46, 0.3, 0.18], 0.3); m.box(x + dx, y + 0.45, fz + dz, 0.74, 0.1, 0.74, [0.3, 0.3, 0.32]); } // rum kegs
+      m.box(x + 2.1, y + 0.4, fz + 1, 0.8, 0.8, 0.8, wood); m.box(x + 2.1, y + 1.05, fz + 1, 0.6, 0.5, 0.6, [0.56, 0.42, 0.26]); }
     m.box(x + 1.55, y + 1.9, fz + 0.2, 0.28, 0.36, 0.28, [1, 0.82, 0.36]);
+  } else if (k === 'stash') { // contraband under a tarred tarp on four poles: crates and kegs, a lantern hung from the ridge
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(x + sx * (w / 2 - 0.15), y + 0.9, z + sz * (d / 2 - 0.15), 0.14, 1.8, 0.14, wood);
+    m.box(x, y + 1.85, z, w + 0.3, 0.1, d + 0.3, [0.26, 0.28, 0.27]); m.box(x, y + 1.98, z, w + 0.1, 0.12, 0.3, [0.22, 0.24, 0.23]);
+    for (const [dx, dz, s] of [[-0.9, -0.3, 0.9], [0.1, -0.4, 0.8], [-0.9, 0.5, 0.7], [-0.95, -0.3, 0.6]]) m.box(x + dx, y + s / 2 + (s === 0.6 ? 0.9 : 0), z + dz, s, s, s, s === 0.8 ? [0.56, 0.42, 0.26] : wood);
+    for (const dz of [-0.4, 0.5]) { m.box(x + 1, y + 0.4, z + dz, 0.65, 0.8, 0.65, [0.46, 0.3, 0.18], 0.3); m.box(x + 1, y + 0.4, z + dz, 0.69, 0.1, 0.69, [0.3, 0.3, 0.32]); }
+    m.box(x + ((seed % 3) - 1) * 0.5, y + 1.6, z, 0.24, 0.3, 0.24, [1, 0.82, 0.36]);
   } else if (k === 'cart') { // an ore cart on a short run of rails, heaped with ore
     for (const s of [-0.45, 0.45]) m.box(x, y + 0.06, z + s, w, 0.1, 0.1, [0.36, 0.34, 0.34]); for (let i = 0; i < 6; i++) m.box(x - w / 2 + 0.3 + i * ((w - 0.6) / 5), y + 0.02, z, 0.2, 0.06, 1.3, dark);
     const cx = x + ((seed % 3) - 1) * 0.6; m.box(cx, y + 0.75, z, 1.6, 0.8, 1.1, [0.32, 0.3, 0.3], 0.15); for (const sx of [-0.5, 0.5]) for (const s of [-0.58, 0.58]) m.box(cx + sx, y + 0.25, z + s, 0.4, 0.4, 0.08, [0.14, 0.13, 0.14]);
