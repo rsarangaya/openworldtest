@@ -73,3 +73,13 @@ test('an Iron Tide member gets two of the company\'s sell-swords beside the guar
   const a = ashore(7), b = ashore(7); b.s.merc = { co: 'tide', jobs: 0, job: null };
   startRaid(a.s, a.isl); startRaid(b.s, b.isl); assert.equal(b.s.raid.defs.length, a.s.raid.defs.length + 2); assert.equal(b.s.raid.defs.filter((q) => q.merc).length, 2);
 });
+
+test('a raid lasts long enough to get there and join in, even in a city with a full watch', () => {
+  let n = 0;
+  for (let seed = 1; seed <= 6; seed++) for (const k of [0, 1]) {
+    const { s, isl } = ashore(seed, k); if (!isl || !startRaid(s, isl)) continue; n++; const t0 = s.t; let first = null;
+    run(s, RAID_S + 5, () => { s.hp = s.maxHp; if (first === null && s.raid.foes.some((o) => o.hp <= 0)) first = s.t - t0; return {}; });
+    assert.ok(s.t - t0 >= 18, `${isl.tier} raid over in ${(s.t - t0).toFixed(0)} s`); assert.ok(first === null || first >= 5, 'no raider falls in the first 5 s');
+  }
+  assert.ok(n >= 10);
+});

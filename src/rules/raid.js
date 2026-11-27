@@ -8,6 +8,7 @@ import { mercOf } from './mercs.js';
 import { addWorld, addLocal } from './rep.js';
 
 export const ON_YOU = 2, RAID_HP = 50, RAID_HIT = 6, RAID_SPEED = 3.3, DEF_HP = 80, DEF_HIT = 8, DEF_SPEED = 3.6, REACH = 1.9, RAID_S = 150, RAID_GAP = 900, RAID_ODDS = 6, RAID_PAY = 45;
+export const NPC_HIT = 0.5; // guards and raiders hit each other at half strength, so a fight lasts long enough (20-35 s) for you to get there and join in
 export const PARTY = { village: 3, town: 4, city: 5 }, WATCH = { village: 2, town: 3, city: 4 };
 export const raidOf = (s) => s.raid || null;
 const alive = (q) => q.filter((o) => o.hp > 0);
@@ -56,13 +57,13 @@ export function stepRaid(s, dt, here, H) {
     const dy = Math.hypot(f.x - o.x, f.z - o.z); if (!jailed && onYou < ON_YOU && (dy < 3.5 || s.t - (o.hitT ?? -99) < 8 || !tg) && dy <= td) { tg = f; td = dy; onYou++; }
     if (!tg) continue; o.cd = Math.max(0, o.cd - dt); o.face = Math.atan2(tg.z - o.z, tg.x - o.x);
     if (td > REACH) chase(s, o, tg, td, RAID_SPEED * dt, H);
-    else if (o.cd <= 0) { o.best = undefined; o.cd = 1.3; o.atk = s.t; if (tg === f) { s.hp -= RAID_HIT; s.hurtT = s.t; s.events?.push({ type: 'hit' }); if (s.hp <= 0) return endRaid(s, H, 'down'); } else { tg.hp -= RAID_HIT; tg.hitT = s.t; if (tg.hp <= 0) { fall(s, tg); H.say(s, tg.merc ? 'An Iron Tide sell-sword falls.' : 'A guard falls.'); } } }
+    else if (o.cd <= 0) { o.best = undefined; o.cd = 1.3; o.atk = s.t; if (tg === f) { s.hp -= RAID_HIT; s.hurtT = s.t; s.events?.push({ type: 'hit' }); if (s.hp <= 0) return endRaid(s, H, 'down'); } else { tg.hp -= RAID_HIT * NPC_HIT; tg.hitT = s.t; if (tg.hp <= 0) { fall(s, tg); H.say(s, tg.merc ? 'An Iron Tide sell-sword falls.' : 'A guard falls.'); } } }
   }
   for (const q of ds) { // a defender goes for the nearest raider
     let tg = null, td = 1e9; for (const o of fs) { if (o.hp <= 0) continue; const d = Math.hypot(o.x - q.x, o.z - q.z); if (d < td) { td = d; tg = o; } }
     if (!tg) break; q.cd = Math.max(0, q.cd - dt); q.face = Math.atan2(tg.z - q.z, tg.x - q.x);
     if (td > REACH) chase(s, q, tg, td, DEF_SPEED * dt, H);
-    else if (q.cd <= 0) { q.best = undefined; q.cd = 1.1; q.atk = s.t; tg.hp -= DEF_HIT; tg.hitT = s.t; if (tg.hp <= 0) fall(s, tg); }
+    else if (q.cd <= 0) { q.best = undefined; q.cd = 1.1; q.atk = s.t; tg.hp -= DEF_HIT * NPC_HIT; tg.hitT = s.t; if (tg.hp <= 0) fall(s, tg); }
   }
 }
 
