@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch. Every world now keeps its own chart map, with its wrecks and its gate. Wounded, the kraken dives for its den, and your diver finishes it with powder kegs. A hydra lives in Olympus: cut a head and two grow back, unless fire shot sears the stump.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 104, commit 19d719d). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch. Every world now keeps its own chart map, with its wrecks and its gate. Wounded, the kraken dives for its den, and your diver finishes it with powder kegs. A hydra lives in Olympus: cut a head and two grow back, unless fire shot sears the stump. Two mercenary companies keep agents in taverns: join one for its jobs, or hire one of its ships for your fleet.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 105, commit d815c6b). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 175 tests, all passing
-npm run build      # writes index.html (371.7 kB, 145.8 kB gzipped)
+npm test           # 179 tests, all passing
+npm run build      # writes index.html (377.4 kB, 148.0 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 104)
+## Where things stand (2026-11-27, after round 105)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -27,6 +27,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Town events: sixteen kinds, changing with the notice board.
 - Quest choice: follow the story, a side story or a contract from the quest log.
 - Navigation: compass strip with your ship's direction; zoomable chart map, earned from the cartographer's story or by breaking the Wall. Each world keeps its own chart (the first map tab is named after the world you are in): Asgard, Atlantis and Olympus chart the waters you sail, the ports you walk, the edge of the world as a dashed line and their gate's cliffs once seen.
+- Mercenary companies: the Iron Tide (hunts raiders, will not deal with a Distrusted name) and the Black Gull Company (pays for sunk merchantmen) in taverns. Join one for jobs and ranks, or hire a company ship into your fleet for 10 minutes (paid up front, no upkeep).
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Every port has a real building for each of its people, including a guard station with a cell.
@@ -55,7 +56,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis (round 92, kraken round 94, its den round 103) and Olympus (round 93) have their own look; underwater is only the dive window. Olympus has no gate of its own. The hydra is a first pass (no underwater phase, no harpies yet).
 - Night rules are a first pass (shops shut, a bed, a night watch): no night-only events or night thieves yet. Indoors at night is a dim grey.
-- Underwater is a first pass only (diving from the ship, with a small flat dive window but no underwater 3D; no underwater 3D). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
+- Underwater is a first pass only (diving from the ship, with a small flat dive window but no underwater 3D; no underwater 3D). No fleet trade routes or land battles yet; mercenary companies are a first pass (same two companies in every world).
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
 The round-by-round history follows (newest at the end).
@@ -924,3 +925,14 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance against round 103 (Node, same machine, 6000 steps at sea beside the hydra, firing): 63-75 µs a step either way (noise). Build 367.3 -> 371.7 kB (144.5 -> 145.8 kB gzipped). No new textures: the sprites are the serpent's, recoloured.
 - Not checked: sound by ear (it reuses the serpent's rise and the hit sounds), round-shot regrowth by eye (covered by the scripted captains).
 - Left on the machine: the Chrome test tab (127.0.0.1:8799) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 105 (2026-11-27): mercenary companies (pushed, commit d815c6b)
+- **What:** two mercenary companies keep an agent in taverns ("Mercenary companies" in the tavern keeper's menu). **The Iron Tide** hunts raiders; **the Black Gull Company** pays for sunk merchantmen. No Black Gulls in fortress towns, no Iron Tide in smugglers' coves. **Join** one (50 gold, one company at a time) and take its job: sink 2-3 of its prey within 15 minutes, then report to any of its agents (pays 140 a raider or 220 a merchantman, times your rank). Ranks: Recruit, Sergeant after 3 jobs (+15%), Captain after 6 (+30%). The job shows in the quest log and can be tracked (the arrow points to the nearest prey). **Hire** a company ship (a navy-built ship from the Iron Tide, 260 gold; a raider from the Black Gulls, 180 gold) into your fleet for 10 minutes: no spare hand needed to captain her, no upkeep on pay day, she follows the fleet order (T), cannot be sold, and sails home when the term is up. Members pay 70% for a hire, Captains half. She anchors in open water beside your ship, never on land.
+- **Reputation:** the Iron Tide will not deal with a Distrusted name (world standing -25 or worse), lifts your world standing by 2 for each job done and lowers it by 1 for a missed one, and strikes off a member the realm turns on (their hired Tide ships sail home). The Black Gulls deal with anyone; sinking merchantmen still costs your name and earns a bounty the usual way.
+- **Code:** `rules/mercs.js` (companies, join/leave, jobs, report, hire, step once a second); hooks in `game.js` (stepMercs; `anchorNear` now shared by docking and hiring), `crew.js` and `fleet.js` (hired ships cost no upkeep), `track.js` and `quests.js` (`nearestShip`), and the tavern page, the quest log entry and the "hired" tag at the shipyard in `ui.js`.
+- **Defaults chosen (no one to ask):** two companies rather than three (one lawful, one outlaw, so the choice ties to the life you pick); jobs reuse ship kills (`killsBy`) like the cull contracts, so no new spawns; hired terms are 10 minutes, paid up front, so an unpaid pay day never strands a hired ship; companies are the same in every world (names are not themed per world yet).
+- Tests: 179 pass (4 new, `test/mercs.test.mjs`): agents by town type and the Iron Tide refusing a Distrusted name; a scripted Iron Tide captain sails and fires broadsides at three jobs' worth of raiders, is refused pay in a cove, paid at an agent, made Sergeant, and the membership survives a save; a Black Gull captain is paid for sunk merchantmen, gets a bounty and a bad name, and the Iron Tide then refuses them, while a Tide member who turns to piracy is struck off and loses the hired Tide ship; a hired ship joins without a spare hand, engages a raider under the attack order, costs no upkeep on pay day, is saved, and leaves when her term ends.
+- Chrome (localhost, real build, new game, debug gold, galleon and "Go: mead hall", then real W presses to the keeper and a real F): the tavern menu showed "Mercenary companies"; the page listed both companies; real clicks joined the Iron Tide (1500 -> 1450 gold), took the job ("sink 2 raiders, 280g"), and hired "The Misty Otter" at the member price (182 gold; HUD "Fleet 1 · follow"). After a reload and Continue, the save held the membership, the job and the hire. At sea, T set the order to attack, and the quest log's Company job tracked to "Raider · 375 m". No console errors.
+- Performance against round 104 (Node, same machine, 6000 steps at sea with two fleet ships): 58-60 µs a step either way. Build 371.7 -> 377.4 kB (145.8 -> 148.0 kB gzipped), all text and rules; no new art.
+- Not checked: a full sea fight with a hired ship in Chrome (covered by the scripted test), the hired ship's look by eye (drawn like any fleet ship of its kind), sound by ear.
+- Left on the machine: two Chrome test tabs (127.0.0.1:8799) ask to confirm leaving, so they are still open; the server is stopped.
