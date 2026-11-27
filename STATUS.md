@@ -17,6 +17,11 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
+## Paused (2026-11-27)
+- The scheduled task `continue-openworld-plan` is turned off at the user's request, and its last run was stopped.
+- **Unfinished, local only (not committed or pushed): harpies in Olympus** (`src/rules/harpies.js`, `test/harpies.test.mjs`, hooks in other source files, a rebuilt `index.html`). On this working copy `npm test` passes 202 of 202. Not done or not confirmed: Chrome play, performance and size check, notes for the round. Finish these before pushing.
+- The pushed game is round 108; the test count and size above are for that round.
+
 ## Where things stand (2026-11-27, after round 108)
 
 **In the game**
