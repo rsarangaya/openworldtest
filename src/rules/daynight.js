@@ -1,4 +1,4 @@
-// Day and night: a pure clock from game time. Looks only (no rule reads it yet).
+// Day and night: a pure clock from game time, plus the few rules that read it (shops shut at night, a bed until dawn, a night watch).
 // One day lasts DAY seconds of play; daylight (06:00-18:00) takes 70% of it, so nights are short.
 // The clock moves in quarter-hour steps, so light and shadow change in small flat jumps, never a crawl.
 export const DAY = 1200, START = 8; // 20 minutes a day; a new game starts at 08:00
@@ -18,3 +18,15 @@ export function lightAt(h) {
   return { sun: [az * k * 0.85, up, 0.53 * k], night, dusk };
 }
 export const clockText = (h) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+// night rules: shops (market, shipyard, armoury) shut from 20:00 to 06:00; taverns stay open and rent a bed until dawn; towns keep a night watch (one more guard)
+export const SHUT_FROM = 20, OPEN_AT = 6, BED = 5;
+export const shopsShut = (h) => h >= SHUT_FROM || h < OPEN_AT;
+export const isNight = (h) => h >= 18 || h < OPEN_AT;
+export const nowHour = (s) => hourAt(s.t, s.dayOff);
+// sleep in a tavern bed: the clock jumps to 06:00 (game time itself does not move, so nothing else is skipped) and you wake whole
+export function sleepTillDawn(s) {
+  if (!isNight(nowHour(s))) return 'The beds are for the night. Come back after dark.';
+  if (s.gold < BED) return `A bed is ${BED} gold. You do not have it.`;
+  s.gold -= BED; s.dayOff = ((s.dayOff || 0) + OPEN_AT - nowHour(s) + 24) % 24; s.hp = s.maxHp;
+  return `You pay ${BED} gold for a cot upstairs and sleep like a stone. Dawn: 06:00, and the shops are opening.`;
+}

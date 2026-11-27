@@ -20,6 +20,7 @@ import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, S
 import { cargoCount } from './trade.js';
 import { shipOf } from './ships.js';
 import { advanceQuests, dialog, currentQuest } from './quests.js';
+import { shopsShut, isNight, nowHour } from './daynight.js';
 import { trackedQuest } from './track.js';
 import { hash, rngFor } from '../gen/rng.js';
 import { shipName, captainName } from '../gen/names.js';
@@ -127,7 +128,7 @@ function hurtNpc(s, id, kind, name, seed, dmg, isl, px = 0, pz = 0) {
 
 // ---------------------------------------------------------------- the law: a crime on a port island raises the alarm; guards (the island's wardens) hunt you on foot, a lost fight is an arrest.
 export const GUARD_HP = 60, GUARD_HIT = 6, GUARD_SPEED = 3.5, ALERT_S = 120, WANTED_AT = -25;
-const guardCount = (isl) => Math.max(1, (isl.tier === 'city' ? 4 : isl.tier === 'town' ? 3 : 2) + extraGuards(isl.style));
+const guardCount = (s, isl) => Math.max(1, (isl.tier === 'city' ? 4 : isl.tier === 'town' ? 3 : 2) + extraGuards(isl.style) + (isNight(nowHour(s)) ? 1 : 0)); // the night watch: one more guard after dark
 export function crime(s, isl, gold, serious) {
   if (!isl || !isl.port) return; s.bountyGold = (s.bountyGold || 0) + gold; if (serious) s.bounty = Math.max(s.bounty, 1);
   s.alert[isl.id] = s.t + ALERT_S; if (!s.alerted) { s.alerted = true; say(s, 'Guards! Guards!'); }
@@ -172,7 +173,7 @@ function stepGuards(s, dt) {
   s.guards = s.guards.filter((g) => g.isl === isl?.id && g.hp > 0);
   if (!isl || !wantedHere(s, isl)) { if (s.guards.length) s.guards = []; if (!isl) s.alerted = false; return; }
   const pl = stationOf(isl) || islandTown(isl).plaza, rad = stationOf(isl) ? 4.5 : 14;
-  if (s.guards.length < guardCount(isl) && s.t >= (s.guardT[isl.id] || 0)) {
+  if (s.guards.length < guardCount(s, isl) && s.t >= (s.guardT[isl.id] || 0)) {
     s.guardT[isl.id] = s.t + 4; for (let k = 0; k < 12; k++) { const a = hash(s.seed, isl.id, s.t | 0, k) % (stationOf(isl) ? 314 : 628) / 100, /* the station's own side only: guards come out of its front door, never from inside it */ x = pl.x + Math.cos(a) * rad, z = pl.z + Math.sin(a) * rad; if (Math.hypot(x - f.x, z - f.z) > (Math.hypot(pl.x - f.x, pl.z - f.z) < 7 ? 2.5 : 9) /* at their own door they may step out close by */ && canStand(s, x, z, groundAt(s, x, z))) { s.guards.push({ id: hash(s.seed, isl.id, s.t | 0, k), seed: hash(isl.id, k, 9), isl: isl.id, x, z, y: groundAt(s, x, z), hp: GUARD_HP, cd: 1 }); break; } }
   }
   for (const g of s.guards) {
@@ -781,7 +782,7 @@ export function interact(s) {
   }
   const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
   const qa = nearActor(s); if (qa) return useActor(s, qa, G);
-  const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; }
+  const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; if (n.kind !== 'tavern' && shopsShut(nowHour(s))) return { type: 'npc', npc: n, lines: ['We are shut for the night. Come back at dawn (06:00).', 'The tavern is still open, if you want a bed.'], panel: null }; }
   if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; const dl = dialog(s, n), tip = learn(s, n, isl); if (tip) dl.lines = [...dl.lines, tip]; return { type: 'npc', npc: n, island: isl, ...dl }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
   const rn = nearRune(s); if (rn) return readRune(s, rn);

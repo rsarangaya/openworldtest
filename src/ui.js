@@ -21,7 +21,7 @@ import { SHIPS, SHIP_ORDER, TRADE_IN } from './rules/ships.js';
 import { localRep, worldRep, tier, buyMult } from './rules/rep.js';
 import { drawTerra, drawWorld, makeView, zoomView, panView, centreView, where } from './mapview.js';
 import { createCompass } from './compass.js';
-import { hourAt, clockText } from './rules/daynight.js';
+import { hourAt, clockText, isNight, nowHour, sleepTillDawn, BED } from './rules/daynight.js';
 import { realmState, REALMS as WORLDS, HINTED } from './rules/map.js';
 import { ROLES, candidates, hire, dismiss, capacity, crewOf, aboard, wages, PAY_EVERY, FLEET_UPKEEP } from './rules/crew.js';
 import { fleetOf, sellShip, sellValue, orderOf, ORDER_TEXT, MAX_FLEET } from './rules/fleet.js';
@@ -196,7 +196,7 @@ export function createUI() {
     const tavern = () => {
       tavPage = null;
       const tip = res.lines.slice(3).map((l) => `<p><small>${esc(l)}</small></p>`).join(''); // e.g. a chart the keeper scrawls you the first time
-      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town'], ...(hall ? [['feast', feastReady(s) ? `Join the feast (${FEAST_PRICE}g)` : 'Join the feast (tables bare)'], ['song', 'Ask the skald for a song']] : [])];
+      const opts = [['rumour', 'Ask for a rumour'], ['help', 'Anyone need help?'], ...(currentQuest(s) ? [['next', 'What should I do next?']] : []), ['jobs', 'Take a job'], ['crew', 'Hire hands'], ['wanted', 'Who is wanted?'], ['town', 'About this town'], ...(isNight(nowHour(s)) ? [['sleep', `Rent a bed until dawn (${BED}g)`]] : []), ...(hall ? [['feast', feastReady(s) ? `Join the feast (${FEAST_PRICE}g)` : 'Join the feast (tables bare)'], ['song', 'Ask the skald for a song']] : [])];
       el.innerHTML = `<div class=box style="text-align:center">${head}${hall ? '<h2>Mead Hall</h2><p>Sit at the long table, by the fire. Mead, meat or a song?</p>' : '<p>Pull up a stool. What will it be?</p>'}${tip}${opts.map(([k, n]) => `<button data-t=${k}>${n}</button><br>`).join('')}<button id=pC>Leave</button></div>`;
       $('pC').onclick = close;
       el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => choose(b.dataset.t)));
@@ -205,6 +205,7 @@ export function createUI() {
       if (k === 'jobs' || k === 'crew') { tavPage = k; shop(); return; }
       if (k === 'help') { const st = storiesFor(s, ctx.island); page('Troubles', st.html); el.querySelectorAll('[data-q]').forEach((b) => (b.onclick = () => { takeSide(s, st.offs[+b.dataset.q]); ctx.onChange?.(); choose('help'); })); return; }
       if (k === 'feast') { const line = feast(s); ctx.audio?.coin(); ctx.onChange?.(); page('The Feast', `<p>${esc(line)}</p>`); return; }
+      if (k === 'sleep') { const line = sleepTillDawn(s); ctx.audio?.coin(); ctx.onChange?.(); page('A Bed for the Night', `<p>${esc(line)}</p>`); return; }
       if (k === 'song') { page('The Skald Sings', `<p><i>${esc(songFor(res.npc.seed, songs++))}</i></p>`, '<button id=pM>Another</button> '); $('pM').onclick = () => choose('song'); return; }
       if (k === 'rumour') {
         const issue = Math.floor(s.t / 300), n = rumours++, items = newsFor(s, ctx.island).items.filter((q) => q.tag !== 'Overheard' && q.tag !== 'Prices'), item = items[n % Math.max(1, items.length)];
