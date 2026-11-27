@@ -32,6 +32,7 @@ import { newGame, step, interact, prompt, standingOn, nearbyIslands, say, camBlo
 import { wave, setCalm } from './rules/sea.js';
 import { saveGame, loadGame, hasSave, loadOptions, saveOptions } from './rules/save.js';
 import { createUI } from './ui.js';
+import { createDiveView } from './diveview.js';
 import { hourAt, lightAt } from './rules/daynight.js';
 import { SOFT, MID } from './render/palette.js';
 import { createAudio } from './audio.js';
@@ -39,7 +40,7 @@ import { createAudio } from './audio.js';
 const BASE_SEED = 1717; // the world "Terra": same seed, same sea, every time
 let SEED = BASE_SEED; // the seed of the realm in play (a realm has its own)
 const $ = (id) => document.getElementById(id);
-const canvas = $('c'), ui = createUI(), audio = createAudio();
+const canvas = $('c'), ui = createUI(), audio = createAudio(), diveView = createDiveView();
 let opts = loadOptions(), renderer, s = null, phase = 'boot'; // boot | menu | intro | play | panel | paused | ending | over
 const keys = new Set(), view = { yaw: 0, pitch: 0 }, orbit = { yaw: 0, pitch: -0.22, idle: 0 };
 const cam = { x: 0, y: 5, z: 0, yaw: 0, pitch: 0, blend: 0 };
@@ -355,7 +356,7 @@ function onInteract() {
 const getOptions = () => opts;
 const setOptions = (o) => { opts = o; saveOptions(o); audio.setVolume(o.volume); resize(); };
 function showMenu() {
-  phase = 'menu'; s = null; ui.hud(false); ui.crosshair(false); ui.loading(false);
+  phase = 'menu'; s = null; diveView(null); ui.hud(false); ui.crosshair(false); ui.loading(false);
   ui.menu({ hasSave: hasSave(), getOptions, setOptions, onNew: newGameFlow, onContinue: continueFlow });
 }
 function startPlay(game, then) {
@@ -451,7 +452,7 @@ function loop(now) {
   if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
-    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)), night: lastNight }); showAfk();
+    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)), night: lastNight }); showAfk(); diveView(s, lastNight);
     audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : s.realm === 'atlantis' || s.realm === 'olympus' ? 0 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
   const p2 = performance.now(), M = (window.__ms ||= { step: 0, draw: 0 }); M.step += (p1 - p0 - M.step) * 0.05; M.draw += (p2 - p1 - M.draw) * 0.05; // smoothed CPU milliseconds a frame

@@ -9,7 +9,7 @@ export const WAKE_R = 200, LEAVE_R = 520, HIT_R = 8, BITE_R = 10, BITE = 14, HP 
 const cache = new Map();
 // monster spots in open water, one per ring [from, to] (fractions of WALL_R), each at least 120 units from any island; cached per seed and salt
 export function seaSpots(seed, rings, salt, pre) {
-  const key = seed + ':' + salt; if (cache.has(key)) return cache.get(key);
+  const key = seed + ':' + salt + pre; if (cache.has(key)) return cache.get(key);
   const out = [];
   rings.forEach(([a, b], i) => { const r = rngFor(seed, salt + i); for (let k = 0; k < 60; k++) { const ang = r() * TAU, d = WALL_R * (a + (b - a) * r()), x = Math.cos(ang) * d, z = Math.sin(ang) * d; if (!onLand(seed, x, z, 120)) { out.push({ id: pre + i, x, z }); break; } } });
   cache.set(key, out); return out;

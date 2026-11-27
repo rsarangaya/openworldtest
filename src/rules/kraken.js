@@ -8,7 +8,7 @@ import { seaSpots, compassWord } from './serpent.js';
 export const WAKE_R = 180, LEAVE_R = 480, HIT_R = 7, HP = 600, GOLD = 800, GRIP_S = 14, DOWN_S = 7, SQUEEZE = 8, SQUEEZE_CD = 4, DRAG = 1.6, HOLD_V = 1.5;
 const ARMS = [[-Math.PI / 2, 13], [Math.PI / 2, 13], [-0.75, 12], [0.75, 12]]; // [angle from the bow, distance]: abeam and on each bow, none astern by the camera
 const MUL = { fire: 1.5, chain: 0.6 };
-export const krakenLairs = (seed) => seaSpots(seed, [[0.45, 0.75]], 9100, 'kraken');
+export const krakenLairs = (seed) => seaSpots(seed, [[0.45, 0.75]], 9300, 'kraken');
 const live = (s) => s.realm === 'atlantis' ? krakenLairs(s.seed).filter((l) => !(s.slain || []).includes(l.id)) : [];
 export const nearKraken = (s, x, z) => live(s).some((l) => Math.hypot(l.x - x, l.z - z) < LEAVE_R);
 export function krakenRumour(s, x, z) {

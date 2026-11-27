@@ -45,6 +45,12 @@ export function startDive(s, w, say, stormy, danger, rough = 0) {
   const r = diveRisk(w, DIVES - divesLeft(s, w) + 1, rough), sw = rough > 0.15;
   say(s, `Your diver goes over the side and down to the ${w.name.replace(/^The /, '')}...${r <= 0 ? '' : w.deep && sw ? ' Deep water and a heavy swell: a risky dive.' : w.deep ? ' She lies deep: a risky dive.' : ' The swell makes it a risky dive.'}`); s.events.push({ type: 'splash' });
 }
+// what the dive view shows: the wreck, how far through the dive (k 0..1), the diver's depth (0 surface .. 1 at the wreck) and what they are doing
+export function diveStage(s) {
+  const d = s.dive, w = d && all(s).find((q) => q.id === d.id); if (!w) return null;
+  const k = Math.max(0, Math.min(1, (s.t - d.t0) / DIVE_S)), phase = k < 0.4 ? 'down' : k < 0.75 ? 'search' : 'up';
+  return { w, k, phase, depth: phase === 'down' ? k / 0.4 : phase === 'search' ? 1 : 1 - (k - 0.75) / 0.25, realm: realm(s), last: divesLeft(s, w) === 1 };
+}
 // a step at sea while a diver is down: hold the ship still, haul them up on trouble, pay out when they surface
 export function stepDive(s, dt, say, puff, danger, rough = 0) {
   const d = s.dive; if (!d) return; const p = s.ship, w = live(s).find((q) => q.id === d.id);
