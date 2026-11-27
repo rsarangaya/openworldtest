@@ -385,11 +385,11 @@ const LOOKS = {
   ghost: { hull: [0.5, 0.62, 0.7], sail: [0.75, 0.9, 0.95], accent: [0.4, 0.9, 1] },
 };
 // each enemy kind has its own silhouette: merchantmen are fat and round, navy cutters long and lean with a red belt, raiders low and black with triangular sails and a skull flag, ghost ships tall and tattered
-const SHAPES = { trader: { L: [7, 9], B: [3.7, 4.4], masts: [1, 2], guns: 2 }, navy: { L: [11, 13], B: [2.3, 2.7], masts: [2, 3], guns: 7 }, raider: { L: [9, 11], B: [2, 2.4], masts: [1, 2], guns: 3 }, ghost: { L: [11, 14], B: [2.6, 3.2], masts: [2, 3], guns: 5 } };
-const VK_LOOK = { trader: { hull: [0.46, 0.33, 0.2], sail: [0.86, 0.83, 0.72], accent: [0.6, 0.2, 0.16] }, raider: { hull: [0.13, 0.11, 0.11], sail: [0.6, 0.14, 0.12], accent: [0.1, 0.1, 0.1] }, navy: { hull: [0.32, 0.21, 0.14], sail: [0.88, 0.86, 0.8], accent: [0.7, 0.16, 0.14] }, ghost: { hull: [0.62, 0.68, 0.74], sail: [0.72, 0.78, 0.84], accent: [0.5, 0.6, 0.7] } };
+const SHAPES = { trader: { L: [7, 9], B: [3.7, 4.4], masts: [1, 2], guns: 2 }, navy: { L: [11, 13], B: [2.3, 2.7], masts: [2, 3], guns: 7 }, raider: { L: [9, 11], B: [2, 2.4], masts: [1, 2], guns: 3 }, ghost: { L: [11, 14], B: [2.6, 3.2], masts: [2, 3], guns: 5 }, draugr: { L: [11, 13], B: [2.6, 3], masts: [1, 1], guns: 4 } };
+const VK_LOOK = { trader: { hull: [0.46, 0.33, 0.2], sail: [0.86, 0.83, 0.72], accent: [0.6, 0.2, 0.16] }, raider: { hull: [0.13, 0.11, 0.11], sail: [0.6, 0.14, 0.12], accent: [0.1, 0.1, 0.1] }, navy: { hull: [0.32, 0.21, 0.14], sail: [0.88, 0.86, 0.8], accent: [0.7, 0.16, 0.14] }, ghost: { hull: [0.62, 0.68, 0.74], sail: [0.72, 0.78, 0.84], accent: [0.5, 0.6, 0.7] }, draugr: { hull: [0.24, 0.3, 0.27], sail: [0.55, 0.68, 0.58], accent: [0.4, 0.95, 0.55] } };
 // cls 'v' = the ship of Asgard (any non-player kind): a longship
 export function shipParams(seed, kind = 'trader', cls = '') {
-  if (cls === 'v' && kind !== 'player') { const p = shipParams0(seed, kind, ''), v = VK_LOOK[kind] || VK_LOOK.trader; return { ...p, ...v, viking: true, masts: 1, lateen: false, tri: false, jib: false, crates: false, tatter: kind === 'ghost', B: p.B * 0.85 }; }
+  if (cls === 'v' && kind !== 'player') { const p = shipParams0(seed, kind, ''), v = VK_LOOK[kind] || VK_LOOK.trader; return { ...p, ...v, viking: true, masts: 1, lateen: false, tri: false, jib: false, crates: false, tatter: kind === 'ghost' || kind === 'draugr', B: p.B * 0.85 }; }
   return shipParams0(seed, kind, cls === 'v' ? '' : cls);
 }
 function shipParams0(seed, kind = 'trader', cls = '') {

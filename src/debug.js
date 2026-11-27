@@ -8,6 +8,7 @@ import { MAX_FOOD } from './rules/trade.js';
 import { PARTS } from './rules/parts.js';
 import { weatherForce, KINDS_W } from './rules/weather.js';
 import { lairs } from './rules/serpent.js';
+import { barrows } from './rules/draugr.js';
 
 export const debugEnabled = () => /[?&]debug\b/.test(location.search);
 
@@ -28,6 +29,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['World: Asgard', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('asgard'); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
+    ['Go: draugr barrow', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const b = barrows(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('barrow')); s.draugr = null; sail(s, b.x - 260, b.z, 0); }],
     ['Spawn raider', (s) => spawn(s, 'raider')],
     ['Spawn navy', (s) => spawn(s, 'navy')],
     ['Clear enemies', (s) => { s.enemies.clear(); s.guards = []; s.foes = []; }],

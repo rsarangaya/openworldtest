@@ -7,13 +7,15 @@ import { rngFor, hash } from '../gen/rng.js';
 
 export const WAKE_R = 200, LEAVE_R = 520, HIT_R = 8, BITE_R = 10, BITE = 14, HP = 240, GOLD = 650, UP_S = 11, DOWN_S = 5, LUNGE_AT = 7.5;
 const cache = new Map();
-// the lairs of a world: [{ id, x, z }], deterministic per seed, each in open water at least 120 units from any island
-export function lairs(seed) {
-  if (cache.has(seed)) return cache.get(seed);
-  const out = [], rings = [[0.42, 0.62], [0.66, 0.86], [1.09, 1.3]];
-  rings.forEach(([a, b], i) => { const r = rngFor(seed, 8800 + i); for (let k = 0; k < 60; k++) { const ang = r() * TAU, d = WALL_R * (a + (b - a) * r()), x = Math.cos(ang) * d, z = Math.sin(ang) * d; if (!onLand(seed, x, z, 120)) { out.push({ id: 'lair' + i, x, z }); break; } } });
-  cache.set(seed, out); return out;
+// monster spots in open water, one per ring [from, to] (fractions of WALL_R), each at least 120 units from any island; cached per seed and salt
+export function seaSpots(seed, rings, salt, pre) {
+  const key = seed + ':' + salt; if (cache.has(key)) return cache.get(key);
+  const out = [];
+  rings.forEach(([a, b], i) => { const r = rngFor(seed, salt + i); for (let k = 0; k < 60; k++) { const ang = r() * TAU, d = WALL_R * (a + (b - a) * r()), x = Math.cos(ang) * d, z = Math.sin(ang) * d; if (!onLand(seed, x, z, 120)) { out.push({ id: pre + i, x, z }); break; } } });
+  cache.set(key, out); return out;
 }
+// the lairs of a world: [{ id, x, z }], deterministic per seed
+export const lairs = (seed) => seaSpots(seed, [[0.42, 0.62], [0.66, 0.86], [1.09, 1.3]], 8800, 'lair');
 const live = (s) => (s.realm || 'terra') === 'terra' ? lairs(s.baseSeed || s.seed).filter((l) => !(s.slain || []).includes(l.id)) : [];
 // ships give a living serpent's waters a wide berth (none are put there)
 export const nearLair = (s, x, z) => live(s).some((l) => Math.hypot(l.x - x, l.z - z) < LEAVE_R);

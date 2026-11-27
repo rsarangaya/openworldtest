@@ -27,6 +27,7 @@ import { islandProps } from '../gen/props.js';
 import { townsfolk, folkPos } from '../gen/world.js';
 import { eventFor } from './events.js';
 import { stepSerpent, shotSerpent, nearLair } from './serpent.js';
+import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
 import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
 
 export const DT = 1 / 60;
@@ -91,7 +92,7 @@ const blocked = (s, x, z) => {
   if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const m of islandTown(i).marks || []) for (const w of m.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true;
   for (const i of islandsAt(s, x, z)) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + PAD + 0.5 && Math.abs(b.z - z) < b.d / 2 + PAD + 0.5) { for (const w of b.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; if (b.bars) for (const w of b.bars) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; const gt = b.jail && s.jailUntil > s.t ? b.jail.gate : null; if (gt && x > gt[0] - PAD && x < gt[1] + PAD && z > gt[2] - PAD && z < gt[3] + PAD) return true; } return false; };
 // ships are long: test the bow, the stern and the beam against the land, not just the centre point (that let hulls and masts sit inside islands)
-const HULL = { trader: [8, 3.5], navy: [12, 2.5], raider: [10, 2.2], ghost: [12, 3] };
+const HULL = { trader: [8, 3.5], navy: [12, 2.5], raider: [10, 2.2], ghost: [12, 3], draugr: [12, 2.6] };
 export const hullHit = (s, x, z, yaw, L, B) => {
   const list = islandsAt(s, x, z); if (!list.length) return null; const c = Math.cos(yaw), sn = Math.sin(yaw);
   for (const [u, v] of [[0, 0], [1.1, 0], [0.6, 0], [-0.6, 0], [-1, 0], [0.1, 1], [0.1, -1], [-0.7, 1], [-0.7, -1]]) { const px = x + c * u * L - sn * v * B, pz = z + sn * u * L + c * v * B; for (const i of list) if (i.r * 1.5 > Math.hypot(i.x - px, i.z - pz) && islandHeight(i, px, pz) > -0.2) return i; }
@@ -298,7 +299,7 @@ function stepHunts(s, dt) {
 
 // ---------------------------------------------------------------- boarding: grapple a ship alongside, fight on her deck on foot, then loot, claim or scuttle her. A wanted captain can be subdued and bound like any outlaw.
 export const GRAPPLE_RANGE = 22, DECK_Y = 0.95, DEF_HP = 25, CAPTAIN_HP = 60;
-const NDEF = { trader: 2, raider: 4, navy: 5, ghost: 4 };
+const NDEF = { trader: 2, raider: 4, navy: 5, ghost: 4, draugr: 4 };
 const deckShip = (s) => (s.deck ? s.enemies.get(s.deck.id) : null);
 const dims = (e) => { const p = shipParams(e.seed, e.kind); return { L: p.L, B: p.B }; };
 const toLocal = (e, x, z) => { const c = Math.cos(e.yaw), sn = Math.sin(e.yaw), dx = x - e.x, dz = z - e.z; return [dx * c + dz * sn, -dx * sn + dz * c]; };
@@ -310,6 +311,7 @@ const nearestShip = (s) => { let best = null, bd = GRAPPLE_RANGE; if (!s.ship) r
 export function grapple(s) {
   if (s.mode !== 'ship' || !s.ship || s.deck || s.sunkT !== undefined) return { type: 'none' };
   const e = nearestShip(s); if (!e) { say(s, 'No ship close enough to grapple. Come alongside (within ' + GRAPPLE_RANGE + ').'); return { type: 'none' }; }
+  if (e.kind === 'draugr') { say(s, 'Your boarders will not go near her: the dead crew stand at the rail and stare. Burn her instead.'); return { type: 'none' }; }
   const k = KINDS[e.kind], lawful = isHostile(s, e), { L, B } = dims(e), c = shipOf(s), p = s.ship;
   if (!lawful) { s.bounty = Math.max(s.bounty, 1); s.bountyGold = (s.bountyGold || 0) + 150; deed(s, 'piracy'); say(s, 'Piracy! Boarding a peaceful ship is a crime.'); } else deed(s, 'boardHostile');
   const [, pv] = toLocal(e, p.x, p.z), side = pv < 0 ? -1 : 1, off = 0.6 * B + c.B + 1.6, [wx, wz] = toWorld(e, 0, side * off);
@@ -484,7 +486,7 @@ function manageEnemies(s) {
   ensureRaiders(s); manageHunters(s);
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const e of sectorEnemies(s.seed, cx + i, cz + j)) {
     want.add(e.id);
-    if (!s.enemies.has(e.id) && !s.dead.has(e.id) && !nearLair(s, e.x, e.z)) s.enemies.set(e.id, { ...e, gen: true, speed: 0, hp: KINDS[e.kind].hp, maxHp: KINDS[e.kind].hp, cd: [1, 1] });
+    if (!s.enemies.has(e.id) && !s.dead.has(e.id) && !nearLair(s, e.x, e.z) && !nearBarrow(s, e.x, e.z)) s.enemies.set(e.id, { ...e, gen: true, speed: 0, hp: KINDS[e.kind].hp, maxHp: KINDS[e.kind].hp, cd: [1, 1] });
   }
   for (const [id, e] of s.enemies) if (e.gen && !want.has(id)) s.enemies.delete(id);
   for (const [id, e] of s.enemies) if (!e.gen && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) > 1200) s.enemies.delete(id); // story-spawned ships do not pile up behind you
@@ -607,14 +609,14 @@ function stepShip(s, inp, dt) {
   manageEnemies(s);
   let near = null, nd = 1e9;
   for (const e of s.enemies.values()) { const dd = Math.hypot(e.x - p.x, e.z - p.z); if (dd < nd) { nd = dd; near = e; } }
-  const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; // the guns lay for the serpent when it is the nearest thing up
+  stepDraugr(s, dt, say, puff); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; // the guns lay for the serpent when it is the nearest thing up
   for (const [side, key, i] of [[-1, 'fireL', 0], [1, 'fireR', 1]]) if (inp[key] && p.cd[i] <= 0) { const sh = shotNow(s); if (sh !== 'round') { ammoOf(s)[sh]--; if (!ammoOf(s)[sh]) say(s, AMMO[sh].name + ' is spent: back to round shot.'); } fire(s, 'player', p, side, near || { x: p.x, z: p.z }, cls.dmg * gunMul(s) * AMMO[sh].dmg, sh); p.cd[i] = CANNON_CD * cls.cd * reloadMul(s); }
   for (const e of s.enemies.values()) {
     const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < (e.hunter ? HUNT_RANGE : 240);
-    const want = chase ? Math.atan2(dz, dx) + (dist < 60 ? Math.PI / 2 : 0) : e.yaw + Math.sin(s.t * 0.1 + e.seed) * 0.05;
+    const want = chase ? Math.atan2(dz, dx) + (dist < 60 && e.kind !== 'draugr' ? Math.PI / 2 : 0) : e.yaw + Math.sin(s.t * 0.1 + e.seed) * 0.05;
     const dodging = e.avoid > s.t; turnTo(e, dodging ? e.away : want, dodging ? 1.2 : 0.6, dt);
     const tgt = (chase ? kind.speed : kind.speed * 0.55) * Math.max(0.35, sailEfficiency(e.yaw, s.wind)) * (e.slow > s.t ? 0.4 : 1);
-    if (e.burn > s.t) { e.hp -= 3 * dt; if (Math.floor(s.t * 4) !== Math.floor((s.t - dt) * 4)) { puff(s, 'flash', e.x + (hash(e.seed, Math.floor(s.t * 4)) % 5) - 2, 4, e.z, 0.3, { sc: 1.4 }); puff(s, 'smoke', e.x, 4.5, e.z, 1.2, { vy: 2, sc: 1.6 }); } }
+    if (e.burn > s.t) { e.hp -= (e.kind === 'draugr' ? 4.5 : 3) * dt; if (Math.floor(s.t * 4) !== Math.floor((s.t - dt) * 4)) { puff(s, 'flash', e.x + (hash(e.seed, Math.floor(s.t * 4)) % 5) - 2, 4, e.z, 0.3, { sc: 1.4 }); puff(s, 'smoke', e.x, 4.5, e.z, 1.2, { vy: 2, sc: 1.6 }); } }
     e.speed += (tgt - e.speed) * Math.min(1, dt * 0.5);
     const ex = e.x, ez = e.z; e.x += Math.cos(e.yaw) * e.speed * dt; e.z += Math.sin(e.yaw) * e.speed * dt;
     keepOffLand(s, e, ex, ez, HULL[e.kind] || HULL.trader, dt);
@@ -630,7 +632,7 @@ function stepShip(s, inp, dt) {
     if (b.owner === 'player') {
       if (b.life > 0 && shotSerpent(s, b)) { b.life = 0; b.hit = true; puff(s, 'flash', b.x, 2.5, b.z, 0.25, { sc: 2 }); puff(s, 'splash', b.x, 0.6, b.z, 0.7, { sc: 1.6 }); continue; }
       if (s.bombard && b.life > 0) { const th = townHit(s, b.x, b.z); if (th) { b.life = 0; b.hit = true; bombardTown(s, th.isl, th.b, b.dmg, b.x, b.z); continue; } }
-      for (const e of s.enemies.values()) if (Math.hypot(e.x - b.x, e.z - b.z) < 6 && b.life > 0) { b.life = 0; b.hit = true; e.hp -= b.dmg; e.hitT = s.t; if (b.kind === 'chain') { e.slow = s.t + 8; puff(s, 'splash', b.x, 3, b.z, 0.5, { sc: 1 }); } if (b.kind === 'fire') e.burn = s.t + 6; puff(s, 'flash', b.x, 3.5, b.z, 0.25, { sc: 2 }); puff(s, 'smoke', b.x, 3.5, b.z, 1.4, { vy: 2, sc: 1.6 }); puff(s, 'splash', b.x, 0.4, b.z, 0.7, { sc: 1.4 }); if (!isHostile(s, e) && KINDS[e.kind].dmg > 0) s.bounty = Math.max(s.bounty, 1); }
+      for (const e of s.enemies.values()) if (Math.hypot(e.x - b.x, e.z - b.z) < 6 && b.life > 0) { b.life = 0; b.hit = true; e.hp -= b.dmg * shotMul(e, b.kind); e.hitT = s.t; if (b.kind === 'chain') { e.slow = s.t + 8; puff(s, 'splash', b.x, 3, b.z, 0.5, { sc: 1 }); } if (b.kind === 'fire') e.burn = s.t + 6; puff(s, 'flash', b.x, 3.5, b.z, 0.25, { sc: 2 }); puff(s, 'smoke', b.x, 3.5, b.z, 1.4, { vy: 2, sc: 1.6 }); puff(s, 'splash', b.x, 0.4, b.z, 0.7, { sc: 1.4 }); if (!isHostile(s, e) && KINDS[e.kind].dmg > 0) s.bounty = Math.max(s.bounty, 1); }
     } else if (Math.hypot(p.x - b.x, p.z - b.z) < 4.5 && b.life > 0) { b.life = 0; b.hit = true; s.hull -= b.dmg; s.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); say(s, 'We are hit!'); s.events.push({ type: 'hit' }); }
   }
   for (const b of s.shots) if (b.life <= 0 && !b.hit) puff(s, 'splash', b.x, 0.3, b.z, 0.6, { sc: 1.1 }); // a miss throws up a splash
@@ -640,7 +642,7 @@ function stepShip(s, inp, dt) {
     s.sinking.push({ id: e.id, kind: e.kind, seed: e.seed, x: e.x, z: e.z, yaw: e.yaw, speed: e.speed || 0, t0: s.t }); puff(s, 'flash', e.x, 4, e.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', e.x + q * 2 - 2, 4, e.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 });
     s.enemies.delete(e.id); s.dead.add(e.id); sideShip(s, e, false, G); for (const t of board(s)) if (t.kind === 'ship' && t.enemyId === e.id) claimKill(s, t, null); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1;
     if (!k.hostile) { s.bounty++; s.bountyGold += 150; deed(s, 'sunkPeaceful'); } else deed(s, 'sunkHostile');
-    const gold = k.gold[0] + (e.seed % (k.gold[1] - k.gold[0])), room = Math.max(0, s.hold - cargoCount(s)), n = Math.min(room, 3), g = ['rum', 'sugar', 'timber', 'cannon', 'spice', 'silk'][e.seed % 6];
+    const gold = k.gold[0] + (e.seed % (k.gold[1] - k.gold[0])), room = Math.max(0, s.hold - cargoCount(s)), n = e.kind === 'draugr' ? 0 : Math.min(room, 3), g = ['rum', 'sugar', 'timber', 'cannon', 'spice', 'silk'][e.seed % 6];
     s.gold += gold; s.cargo[g] = (s.cargo[g] || 0) + n; s.score += gold; say(s, `Sank ${e.name}! +${gold} gold${n ? `, ${n} ${g}` : ''}.`);
     s.events.push({ type: 'sunk' });
   }

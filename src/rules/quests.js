@@ -3,6 +3,7 @@
 import { deed } from './rep.js';
 import { hash } from '../gen/rng.js';
 import { asgardLine } from './lore.js';
+import { draugrRumour } from './draugr.js';
 import { learnQuest } from './map.js';
 import { cargoCount } from './trade.js';
 import { sectorOf, sectorIslands } from '../gen/world.js';
@@ -69,7 +70,7 @@ export function dialog(s, npc) {
     case 'shipwright':
       return { lines: s.ship ? ['A fine boat you have there. Mind the rocks.'] : ['Looking for a ship? I have a few ships on the slip, from a handy sailboat to a galleon. They all float, most days.', 'The sailboat is three hundred gold and she is yours.'], panel: 'shipyard' };
     case 'merchant': return { lines: ['Provisions, powder, rum. Whatever your hold can carry.'], panel: 'market' };
-    case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', asgardLine(s, npc.seed, Math.floor(s.t / 300)), s.ship ? 'Some hands in the corner are looking for a berth, if you need a crew.' : 'Get yourself a ship first, then come and talk about hands.'], panel: 'tavern' };
+    case 'tavern': return { lines: [q ? `Rumour has it: ${q.hint}` : 'Another round for the crew!', (s.realm === 'asgard' && draugrRumour(s, npc.x, npc.z)) || asgardLine(s, npc.seed, Math.floor(s.t / 300)), s.ship ? 'Some hands in the corner are looking for a berth, if you need a crew.' : 'Get yourself a ship first, then come and talk about hands.'], panel: 'tavern' };
     case 'sailor':
       s.flags.sailor = true;
       return { lines: ['You are asking about the Wall? I have seen it. A cliff of ice taller than any mast, all the way round the world.', 'There is one weak spot in it, pale and cracked, but still sealed. The Warden at Frostwatch, out on the rim, knows how to break it.', 'The land past the ice? Asgard, the old ones call it. I will not say more than that, not until you have seen the Warden.', 'Keep a hand on your guns. The black sails have been busy.'], panel: null };
