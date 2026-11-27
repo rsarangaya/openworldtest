@@ -44,12 +44,21 @@ function gen(seed, sx, sz) {
     const id = `${sx},${sz},${out.length}`, seedI = hash(seed, sx, sz, out.length + 11), nr = rngFor(seedI, 5);
     const isl = { id, seed: seedI, sx, sz, x, z, r: rad, h: hgt, biome, flat: home || (rad >= 30 && biome !== 'volcanic' && hash(seed, sx, sz, 700 + out.length) % 100 < 40), size: rad < 26 ? 'islet' : rad < 52 ? 'island' : 'large', tier: null, port: null, treasure: null, special: frost ? 'frost' : null, quest: null };
     isl.theme = themeOf(seed); isl.name = frost ? 'Frostwatch Rock' : islandName(nr, isl.theme);
+    if (isl.theme === 'asgard' && rad >= 20 && !frost) { // Asgard coasts: one to three long narrow inlets cut into the land (own rng stream, so nothing else moves)
+      const fr = rngFor(seedI, 13); isl.fjords = [];
+      for (let k = 0, n = 1 + ((fr() * 2.6) | 0); k < n; k++) { const a = fr() * TAU; if (isl.fjords.every((f) => Math.abs(Math.atan2(Math.sin(a - f.a), Math.cos(a - f.a))) > 1.1)) isl.fjords.push({ a, c: Math.cos(a), s: Math.sin(a), t0: rad * (rad < 40 ? range(fr, 0.65, 0.85) : range(fr, 0.35, 0.6)), w: range(fr, 5, 7), bend: fr() * TAU }); }
+    }
     if (home || frost || (rad >= 26 && biome !== 'volcanic' && biome !== 'sandbar' && r() < 0.65)) {
       isl.tier = rad < 36 ? 'village' : rad < 56 ? 'town' : 'city';
       if (home) isl.tier = 'city';
       const ang = home ? 1.2 : frost ? gatePos(seed).angle + Math.PI : r() * TAU, ca = Math.cos(ang), sa = Math.sin(ang);
       let shore = 0.5 * rad; // distance from the centre to the beach along the port direction
-      for (let dd = rad * 1.5; dd > 0; dd -= 0.5) if (baseHeight(isl, x + ca * dd, z + sa * dd) > 0.6) { shore = dd; break; }
+      const findShore = () => { for (let dd = rad * 1.5; dd > 0; dd -= 0.5) if (baseHeight(isl, x + ca * dd, z + sa * dd) > 0.6) return dd; return 0.5 * rad; };
+      if (isl.fjords) { // the port stands at the head of a wide, straight fjord along the port bearing (villages: on the open coast, too cramped for one); other inlets keep clear of it
+        isl.fjords = isl.fjords.filter((f) => Math.abs(Math.atan2(Math.sin(ang - f.a), Math.cos(ang - f.a))) > 1.1);
+        if (rad >= 40) { shore = findShore(); isl.fjords.unshift({ a: ang, c: ca, s: sa, t0: shore - clamp(rad * 0.38, 12, 32), w: 13, port: true }); }
+      }
+      shore = findShore();
       // hilly islands get level ground where the town stands (small ones almost all over, big ones keep hills beyond it), so every building finds room
       if (!isl.flat) { const back = shore - Math.max(10, rad * 0.3); isl.shelf = { x: x + ca * back, z: z + sa * back, r: { village: 30, town: 40, city: 56 }[isl.tier] }; }
       // a 22-unit dock runs out from the beach; the boat is moored ALONGSIDE it (berth), never on top of it
@@ -120,6 +129,11 @@ function baseHeight(isl, x, z) {
     let k = 1;
     if (!isl.flat) { const q = (x - sh.x) ** 2 + (z - sh.z) ** 2; k = q <= sh.r * sh.r ? 1 : q >= (sh.r + 14) ** 2 ? 0 : 1 - sstep(sh.r, sh.r + 14, Math.sqrt(q)); }
     if (k > 0) y = mix(y, 3.4 * (1 - Math.exp(-y / 3)), k); // flat-topped plateau islands (and the ground under a town) instead of hills
+  }
+  if (isl.fjords && y > -3.2) for (const f of isl.fjords) { // fjords: along the inlet's bearing (t) and across it (q), sea is carved in from the head outward
+    const dx = x - isl.x, dz = z - isl.z, t = dx * f.c + dz * f.s; if (t < f.t0 - 3) continue;
+    const w = f.port ? f.w + (t - f.t0) * 0.15 : f.w * (0.45 + 0.55 * sstep(f.t0, f.t0 + f.w * 3, t)), q = Math.abs(dz * f.c - dx * f.s + (f.port ? 0 : Math.sin(t * 0.06 + f.bend) * f.w * 0.8));
+    if (q < w) y = Math.min(y, mix(y, -3.2, (1 - sstep(w * 0.6, w, q)) * sstep(f.t0 - 3, f.t0 + 2, t)));
   }
   return y;
 }

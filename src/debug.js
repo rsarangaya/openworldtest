@@ -28,6 +28,9 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: weak spot', (s) => { const g = gatePos(s.baseSeed || s.seed); sail(s, g.x * (1 - 60 / WALL_R), g.z * (1 - 60 / WALL_R), g.angle); }],
     ['Go: Outer Sea edge', (s) => { s.flags.crossed = true; const th = REALMS.find((r) => r.id === 'asgard').grand.ang; sail(s, Math.cos(th) * (OUTER_EDGE - 120), Math.sin(th) * (OUTER_EDGE - 120), th); }],
     ['World: Asgard', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('asgard'); }],
+    ['Go: fjord mouth', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const p = s.mode === 'ship' && s.ship ? s.ship : s.foot, cx = sectorOf(p.x), cz = sectorOf(p.z); let best = null;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const isl of sectorIslands(s.seed, cx + i, cz + j)) if (isl.fjords?.[0]?.port && (!best || Math.hypot(isl.x - p.x, isl.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z))) best = isl;
+      if (!best) { say(s, 'No fjord port near'); return; } const a = best.port.angle, d = best.r * 1.7; sail(s, best.x + Math.cos(a) * d, best.z + Math.sin(a) * d, a + Math.PI); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
     ['Go: draugr barrow', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const b = barrows(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('barrow')); s.draugr = null; sail(s, b.x - 260, b.z, 0); }],
