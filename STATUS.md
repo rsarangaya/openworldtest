@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 100, commit c49a8bb). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 101, commit 9ad0e40). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 165 tests, all passing
-npm run build      # writes index.html (363.4 kB, 142.9 kB gzipped)
+npm test           # 167 tests, all passing
+npm run build      # writes index.html (364.2 kB, 143.3 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 100)
+## Where things stand (2026-11-27, after round 101)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -31,6 +31,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town, mining town, smugglers' cove, temple town (own colours, landmarks, perk; miners, smugglers and priests in their towns) plus the plain look; tavern keeper menu. An offering at a temple heals you and mends your name there.
+- Night rules: the market, shipyard and armoury shut from 20:00 to 06:00 (the keeper says to come back at dawn); taverns and mead halls stay open and rent a bed until dawn (5 gold, the clock jumps to 06:00, you wake healed); the guard tells you the night watch is out, and a crime after dark brings one more guard.
 - Day and night: a 20-minute day with short nights; dusk light, a blue night with stars and a moon, lit windows, lamps and ship lights; a clock beside the compass.
 - World life: weather (Olympus sunnier, cold places snowy), sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
@@ -53,7 +54,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater yet. Olympus has no gate of its own.
-- Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
+- Night rules are a first pass (shops shut, a bed, a night watch): no night-only events or night thieves yet. Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, with a small flat dive window but no underwater 3D; only Terra's wrecks are on the chart map, since the other worlds have no local chart yet). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
@@ -882,3 +883,13 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance against round 99 (Chrome, same machine): CPU about 0.83-0.87 ms a frame, diving or not (noise). Build 360.5 -> 363.4 kB (141.5 -> 142.9 kB gzipped).
 - Not checked: the Atlantis, Asgard and Olympus colours by eye (covered by the test only), night, soft and mid looks, sound by ear.
 - Left on the machine: the Chrome test tab (127.0.0.1:8137) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 101 (2026-11-27): night rules (pushed, commit 9ad0e40)
+- **What:** the first rules that read the clock. The market, shipyard and armoury shut from 20:00 to 06:00: the keeper says "We are shut for the night. Come back at dawn (06:00)." and points you to the tavern. Taverns (and mead halls) stay open and, after dark (18:00-06:00), offer "Rent a bed until dawn (5g)": the clock jumps to 06:00, you wake at full health, and the shops open. The guard says the night watch is out after dark, and a crime at night brings one more guard than by day.
+- **Code:** `SHUT_FROM`, `OPEN_AT`, `BED`, `shopsShut`, `isNight`, `nowHour` and `sleepTillDawn` in `rules/daynight.js`; one check in `interact` and `guardCount(s, isl)` in `game.js`; the guard's night line in `quests.js`; the bed option in the tavern menu in `ui.js`. Sleeping moves only the clock offset (`s.dayOff`, already saved), not game time, so no other timer is skipped.
+- **Defaults chosen (no one to ask):** shops shut at 20:00 (not dusk at 18:00), so evenings still allow trade; a bed costs 5 gold; the tavern, guard station, warden, temple and notice boards never close; the night watch is one extra guard. Night passes quickly (about 6 real minutes), so a closed shop is a short wait, not a block on the story.
+- Tests: 167 pass (2 new in `test/night.test.mjs`: a scripted player walks into the market by the game's collision at noon (open) and at 21:00 (shut), finds the smith and shipwright shut too, walks to the tavern keeper (open), sleeps (06:00, -5 gold, healed; no bed by day; too poor refused; survives a save), and finds the market open again; a crime at 23:00 brings one guard more than at noon).
+- Chrome (localhost, real build, new game, clock set to 21:00 by the debug offset, real F presses and clicks): the merchant said the shop was shut and pointed to the tavern; the tavern menu showed "Rent a bed until dawn (5g)"; clicking it paid 5 gold, healed to 100, the compass read "06:00" and the light turned to dawn; the merchant then talked as normal. No console errors; 120 fps, draw 0.77 ms.
+- Performance against round 100 (Node, same machine, 3000 steps on foot in a port): 0.019 vs 0.021 ms a step (noise). Build 363.4 -> 364.2 kB (142.9 -> 143.3 kB gzipped). Drawing unchanged.
+- Not checked: the night watch's extra guard in Chrome (covered by the scripted test), sound by ear.
+- Left on the machine: the Chrome test tab (127.0.0.1:8794) asks to confirm leaving, so it is still open; the server is stopped.
