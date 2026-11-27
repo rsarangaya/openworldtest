@@ -34,22 +34,28 @@ export function wreckRumour(s, x, z) {
 // the wrecks of the world you are in, for its chart map: the ones you have heard of (dives 0) or dived on, with how many dives they have had
 export const chartWrecks = (s) => all(s).flatMap((w) => { const n = (s.salvage || {})[keyOf(s, w)]; return n === undefined ? [] : [{ ...w, dives: n, stripped: n >= DIVES }]; });
 // F at sea over a wreck: send the diver down, or say why not. danger(s) is true while a foe is close.
+// says why a diver cannot go down right now and returns true, or returns false when they can
+export function diveBlocked(s, say, stormy, danger) {
+  if (s.dive) return true;
+  if (s.t < (s.diveRest || 0)) { say(s, `Your diver is still getting over the last dive: ${Math.ceil(s.diveRest - s.t)} s more.`); return true; }
+  if (stormy) { say(s, 'Too rough to dive: wait for the storm to pass.'); return true; }
+  if (danger(s, SAFE_R)) { say(s, 'Not with enemies about. Deal with them first.'); return true; }
+  if (Math.abs(s.ship.speed) > STILL) { say(s, 'Heave to first: take in the sail (S) until she barely drifts.'); return true; }
+  return false;
+}
 export function startDive(s, w, say, stormy, danger, rough = 0) {
   const p = s.ship;
-  if (s.dive) return;
-  if (s.t < (s.diveRest || 0)) { say(s, `Your diver is still getting over the last dive: ${Math.ceil(s.diveRest - s.t)} s more.`); return; }
-  if (stormy) { say(s, 'Too rough to dive: wait for the storm to pass.'); return; }
-  if (danger(s, SAFE_R)) { say(s, 'Not with enemies about. Deal with them first.'); return; }
-  if (Math.abs(p.speed) > STILL) { say(s, 'Heave to first: take in the sail (S) until she barely drifts.'); return; }
+  if (diveBlocked(s, say, stormy, danger)) return;
   s.dive = { id: w.id, t0: s.t }; s.auto = false; s.row = false; p.sail = 0;
   const r = diveRisk(w, DIVES - divesLeft(s, w) + 1, rough), sw = rough > 0.15;
   say(s, `Your diver goes over the side and down to the ${w.name.replace(/^The /, '')}...${r <= 0 ? '' : w.deep && sw ? ' Deep water and a heavy swell: a risky dive.' : w.deep ? ' She lies deep: a risky dive.' : ' The swell makes it a risky dive.'}`); s.events.push({ type: 'splash' });
 }
-// what the dive view shows: the wreck, how far through the dive (k 0..1), the diver's depth (0 surface .. 1 at the wreck) and what they are doing
+const DEN = { name: "The kraken's den", deep: true }; // a diver sent down to the kraken's den (kraken.js) is drawn like any other dive
+// what the dive view shows: the wreck (or the den), how far through the dive (k 0..1), the diver's depth (0 surface .. 1 at the bottom) and what they are doing
 export function diveStage(s) {
-  const d = s.dive, w = d && all(s).find((q) => q.id === d.id); if (!w) return null;
+  const d = s.dive, w = d && (d.den ? DEN : all(s).find((q) => q.id === d.id)); if (!w) return null;
   const k = Math.max(0, Math.min(1, (s.t - d.t0) / DIVE_S)), phase = k < 0.4 ? 'down' : k < 0.75 ? 'search' : 'up';
-  return { w, k, phase, depth: phase === 'down' ? k / 0.4 : phase === 'search' ? 1 : 1 - (k - 0.75) / 0.25, realm: realm(s), last: divesLeft(s, w) === 1 };
+  return { w, k, phase, depth: phase === 'down' ? k / 0.4 : phase === 'search' ? 1 : 1 - (k - 0.75) / 0.25, realm: realm(s), last: !d.den && divesLeft(s, w) === 1, den: !!d.den };
 }
 // a step at sea while a diver is down: hold the ship still, haul them up on trouble, pay out when they surface
 export function stepDive(s, dt, say, puff, danger, rough = 0) {
