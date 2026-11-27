@@ -9,7 +9,7 @@ import { asgardLine } from './rules/lore.js';
 import { isHall, feast, feastReady, songFor, FEAST_PRICE } from './rules/meadhall.js';
 import { STYLES } from './gen/style.js';
 import { GOODS } from './gen/world.js';
-import { WEAPONS, WEAPON_ORDER, owns } from './rules/weapons.js';
+import { WEAPONS, armoryOf, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
 import { buyWeapon, equip } from './rules/weapons.js';
 import { foodCost, weaponMul } from './gen/style.js';
@@ -122,6 +122,8 @@ export function createUI() {
     const dg = blade([157, -6, 167, -30, 177, -6, 177, 120, 157, 120], [167, -30, 177, -6, 177, 120, 167, 120], '#dfe5f1', '#a9b4c9') + gold(142, 118, 50, 12) + grip(126, 205);
     const sp = sil([[Rc(161, -40, 12, 360, 3), '#7d5532'], [Pg(167, -135, 186, -38, 167, -48, 148, -38), '#cdd4e2'], [Rc(156, -46, 22, 10, 2), '#c2402f']], 6) + Pg(167, -135, 186, -38, 167, -48) + " fill='#9ba6bc'/>";
     const ax = sil([[Rc(160, -30, 14, 300, 3), '#7d5532'], [Pg(160, -28, 104, -56, 92, 36, 160, 26), '#b6bed0'], [Rc(154, -34, 26, 14, 3), '#4a4f5e']], 6) + Pg(104, -56, 92, 36, 114, 30) + " fill='#eef2fa'/>";
+    const ba = sil([[Rc(160, -30, 14, 300, 3), '#6b4326'], [Pg(160, -26, 122, -40, 98, -30, 102, 14, 126, 74, 142, 72, 146, 30, 160, 22), '#a9b4c9'], [Rc(154, -34, 26, 12, 3), '#4a4f5e'], [Rc(157, 40, 20, 10, 2), '#c2402f']], 6) + Pg(122, -40, 98, -30, 102, 14, 126, 74, 116, 66, 110, 12, 112, -30) + " fill='#eef2fa'/>"; // bearded axe: the edge runs down into a long hook
+    const da = sil([[Rc(161, -60, 12, 370, 3), '#7d5532'], [Pg(160, -54, 116, -92, 84, -40, 88, 22, 116, 66, 160, 4), '#b6bed0'], [Rc(155, -64, 24, 14, 3), '#4a4f5e'], [Rc(156, 120, 22, 8, 2), '#e3b73e']], 6) + Pg(116, -92, 84, -40, 88, 22, 116, 66, 104, 22, 100, -40) + " fill='#eef2fa'/>"; // Dane axe: a wide crescent on a long haft
     const pi = sil([[Path('M152 44 L184 44 L188 176 L156 178 Z'), '#555c6e'], [Rc(147, 32, 42, 18, 4), '#2a2e38'], [Path('M158 120 L190 112 L196 150 L180 160 Z'), '#e3b73e'], [Path('M158 172 L188 170 L206 236 L174 246 Z'), '#6b4326']], 7) + Path('M172 46 L184 44 L188 176 L176 176 Z') + " fill='#3a3f4c'/>"; // a flintlock aimed at the crosshair
     // every grip is the SAME hand as the bare fist: weapon first, then the hand over it so the fingers wrap the handle. side -1 mirrors it into a left hand.
     const grab = (x, y, side = 1, ang = -32, k = 0.74) => `<g transform='translate(${x} ${y}) scale(${side} 1) rotate(${ang + 36}) scale(${k})'><g transform='translate(34 46)'>${hand}</g></g>`;
@@ -133,6 +135,8 @@ export function createUI() {
       dagger: held(dg, 165, 246, 192, -38) + grab(246, 192),
       spear: held(sp, 190, 252, 200, -50) + grab(...on(252, 200, -50, -120), -1, -28, 0.64) + grab(252, 200),
       axe: held(ax, 205, 240, 172, -45) + grab(...on(240, 172, -45, 86), -1, -30, 0.68) + grab(240, 172),
+      bearded: held(ba, 200, 238, 176, -42) + grab(...on(238, 176, -42, 84), -1, -30, 0.68) + grab(238, 176),
+      daneaxe: held(da, 150, 246, 184, -40) + grab(...on(246, 184, -40, 112), -1, -30, 0.66) + grab(246, 184),
       pistol: held(pi, 205, 240, 190, -40) + grab(240, 190), fists: '' };
   })();
   let wShown = null; // the weapon held in front of you: a flat sprite that swings, thrusts or recoils when you attack
@@ -219,8 +223,8 @@ export function createUI() {
         if (s.bountyGold > 0) h += `<button class=small data-a=bounty>Pay your bounty (${Math.round(s.bountyGold)}g)</button>`;
         if (s.ship) h += `<button class=small data-a=rep>Repair hull (2g per point, ${Math.round(s.hull)}/${s.maxHull})</button>`;
       } else if (res.panel === 'arms') {
-        h += `<p>You carry: <b>${WEAPONS[s.weapon || 'fists'].name}</b>. Keys 1-5 swap weapons you own.</p>`;
-        h += '<table>' + WEAPON_ORDER.map((id) => { const w = WEAPONS[id], have = owns(s, id), pr = Math.round(w.price * buyMult(s, port.iid) * weaponMul(port)); return `<tr><td>${w.n}. ${w.name}</td><td><small>${w.blurb} Dmg ${w.dmg}${w.ranged ? ', ranged' : ', reach ' + w.reach}</small></td><td class=n>${have ? (s.weapon === id ? 'equipped' : `<button class=small data-a=eq-${id}>Equip</button>`) : `<button class=small data-a=w-${id} ${s.gold < pr ? 'disabled' : ''}>${pr}g</button>`}</td></tr>`; }).join('') + '</table>';
+        h += `<p>You carry: <b>${WEAPONS[s.weapon || 'fists'].name}</b>. Keys 1-5 swap weapons you own; 4 again moves to your next axe.</p>`;
+        h += (ctx.island?.theme === 'asgard' ? '<p class=hint>Asgard smiths forge Norse axes nobody else knows how to make.</p>' : '') + '<table>' + armoryOf(ctx.island).map((id) => { const w = WEAPONS[id], have = owns(s, id), pr = Math.round(w.price * buyMult(s, port.iid) * weaponMul(port)); return `<tr><td>${w.n}. ${w.name}${w.norse ? ' <span class=gold>Norse</span>' : ''}</td><td><small>${w.blurb} Dmg ${w.dmg}${w.ranged ? ', ranged' : ', reach ' + w.reach}</small></td><td class=n>${have ? (s.weapon === id ? 'equipped' : `<button class=small data-a=eq-${id}>Equip</button>`) : `<button class=small data-a=w-${id} ${s.gold < pr ? 'disabled' : ''}>${pr}g</button>`}</td></tr>`; }).join('') + '</table>';
       } else if (res.panel === 'tavern') {
         if (tavPage !== 'jobs') {
         const crew = crewOf(s), cap = capacity(s), nab = aboard(s).length;

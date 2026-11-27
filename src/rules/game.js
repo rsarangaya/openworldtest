@@ -3,7 +3,7 @@
 import { GOODS, SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS } from '../gen/world.js';
 import { sailEfficiency, windAt, windAngle, polar, pointOfSail, setRough, calm } from './sea.js';
 import { weatherAt, isCold, roughOf, windMul, gust } from './weather.js';
-import { weaponOf, equip, WEAPON_ORDER } from './weapons.js';
+import { weaponOf, equip, keyWeapon } from './weapons.js';
 import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } from './rep.js';
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
 import { shipParams } from '../gen/mesh.js';
@@ -440,7 +440,7 @@ function unfreeze(s, f) {
 function stepFoot(s, inp, dt) {
   const f = s.foot;
   if (inp.yaw !== undefined) f.yaw = inp.yaw;
-  if (inp.wsel) equip(s, WEAPON_ORDER[inp.wsel - 1]);
+  if (inp.wsel) equip(s, keyWeapon(s, inp.wsel));
   f.cd = Math.max(0, (f.cd || 0) - dt); if (inp.attack && f.cd <= 0) { f.cd = weaponOf(s).cd; swing(s); }
   const sp = (inp.run ? 7.5 : 4) * dt, fx = Math.cos(f.yaw), fz = Math.sin(f.yaw);
   if (!s.deck && blocked(s, f.x, f.z)) unfreeze(s, f);
