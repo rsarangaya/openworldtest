@@ -7,8 +7,8 @@ Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 99 tests, all passing
-npm run build      # writes index.html (289.8 kB, 114.5 kB gzipped)
+npm test           # 103 tests, all passing
+npm run build      # writes index.html (295.2 kB, 116.3 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -24,7 +24,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Story: 8 quests to the Wall (after the supply cache a pop-up says you can head straight for the rim or explore first); one weak spot, broken with the ram in a breakthrough scene; the breach stays open.
 - Open world after: Outer Sea, edge of the world picks the next world by bearing, fast travel to visited ports.
 - Side stories: layered, with choices and fights (up to 3 at once); three companions who join for a while.
-- Town events: nine kinds, changing with the notice board.
+- Town events: eleven kinds, changing with the notice board.
 - Quest choice: follow the story, a side story or a contract from the quest log.
 - Navigation: compass strip with your ship's direction; zoomable chart map, earned from the cartographer's story or by breaking the Wall.
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
@@ -579,3 +579,21 @@ No image, font or model files. Sprites are baked once into cached offscreen canv
 ## Round 76 (2026-11-26): your call after the cache (pushed)
 
 Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explore this world and its towns and cities first. 99 tests pass; seen in Chrome. 289.8 kB.
+
+## Round 77 (2026-11-26): ships, deadlines and escorts in stories (pushed)
+- New story step kinds: `board` (a named ship waits near the place; take her by boarding; sinking her ends the story unpaid), a deadline (`secs`, time left shown after the goal, `late` branch) and `lead` (the person you are bringing home walks behind you ashore).
+- New stories: A Cargo That Isn't (timed delivery, then take the money or call the guards), A Ghost on the Lanes (wreck, ghost ship, a locket to deliver). New events: A Child Missing, Smugglers Sighted. The missing brother can now be walked home.
+- Stories that need a ship are offered only when you own one. Towns will show a different mix of events and stories than before.
+- 102 tests pass (3 new). Build 289.8 -> 295.2 kB (116.3 kB gzipped). A game step with three stories running: about 21 us (Node).
+- Seen in Chrome: the follower ashore, the ghost ship at sea with its health bar and the quest text; no console errors after load at sea. NOT seen: boarding a story ship by hand, the deadline countdown, the new child look (changed after the Chrome check, to stop the child having a beard).
+- Differs from the plan: no navy stop at sea in the cargo story.
+- Still open from the living-towns step 4: public trial, wedding, press gang, storm damage, stranger events; more companions; rival-crew races at sea; Asgard versions.
+
+## Round 77b (2026-11-26): played as a player, pier fixes (pushed)
+- **Found and fixed (older than round 77):** in 2 of 118 sampled ports (one is Golden Town on the main world) the town square could not be reached from the pier: the town's levelled ground stood over the deck as a wall. Elsewhere pier edges had lips just too high to step. Ground now slopes down to the deck, and dry ground beside it ramps up. New test walks every port from pier to square.
+- **Found and fixed:** the ghost story said her captain spoke even when you had killed him.
+- Scripted player (five seeds, about 700 stories, random choices, saves mid-story, no money, drops, missed deadlines): no crashes or soft locks left that are the game's.
+- By hand in Chrome: new game, welcome, tutorial, notice board, quest log, tavern menus, jobs, countdown, delivery choice, grappling the story ship, losing the deck fight, winning it (god mode), the outcome panel and the next step. No page errors.
+- Performance against the pushed round 76: ground building per port island 4.3 -> 4.4 ms, game step unchanged (about 19 us ashore, 49 us at sea), build 289.8 -> 295.2 kB. Graphics-card time not measured (drawing unchanged apart from one sprite).
+- Not covered: real mouse look and walking by hand, sound.
+- Noticed, left: a small old terrace edge in one town you have to step round; the ship's stats stay on screen ashore; a hostile story ship fires at once after throwing you off her deck.

@@ -280,6 +280,7 @@ const V_CLOTH = [[0.5, 0.18, 0.15], [0.2, 0.32, 0.5], [0.36, 0.3, 0.2], [0.3, 0.
 export function personSpec(kind, seed, theme = 'terra') {
   const r = rngFor(seed, kind.length * 17 + 3), P = { kind, skin: pick(r, SKIN), hair: pick(r, HAIRC), eye: [0.14, 0.12, 0.12], style: (r() * 4) | 0, cloth: pick(r, CLOTH[kind] || CLOTH.villager), pants: pick(r, [[0.26, 0.26, 0.3], [0.34, 0.28, 0.2], [0.24, 0.3, 0.32]]), extra: (r() * 4) | 0 };
   if (theme === 'asgard' && kind !== 'player') { const q = rngFor(seed, kind.length * 29 + 11); P.vik = true; P.skin = pick(q, V_SKIN); P.hair = pick(q, V_HAIR); P.cloth = kind === 'guard' || kind === 'warden' ? P.cloth : pick(q, V_CLOTH); P.extra = q() < 0.78 ? 0 : 3; P.shield = pick(q, V_SHIELD); P.hasShield = kind === 'guard' || kind === 'warden' || q() < 0.3; P.helm = kind === 'guard' || kind === 'warden' || (kind === 'villager' && q() < 0.15); P.horns = kind === 'guard' || (P.helm && q() < 0.35); P.braids = q() < 0.6; }
+  if (kind === 'child') { P.hair = P.vik ? V_HAIR[seed % 3] : HAIRC[1 + (seed % 2)]; P.extra = 3; P.helm = P.horns = P.hasShield = false; }
   if (kind === 'player') { P.skin = SKIN[1]; P.hair = HAIRC[1]; P.style = 0; P.extra = 3; P.pants = [0.22, 0.24, 0.3]; }
   return P;
 }

@@ -135,7 +135,7 @@ export function islandHeight(isl, x, z) {
     const d = Math.max(Math.abs(x - b.x) - b.w / 2 - 1.2, Math.abs(z - b.z) - b.d / 2 - 1.2);
     if (d < 4) y = mix(y, b.pad, 1 - sstep(0, 4, d));
   }
-  return y;
+  return y > DOCK_Y ? Math.min(y, DOCK_Y + Math.max(0, dockDist(isl, x, z) - 1.6) * 0.9) : y; // the ground slopes down to the pier: a terrace never stands over the deck as a wall
 }
 const segDist = (px, pz, d) => { const bx = d.x1 - d.x0, bz = d.z1 - d.z0, h = clamp(((px - d.x0) * bx + (pz - d.z0) * bz) / (bx * bx + bz * bz || 1), 0, 1); return Math.hypot(px - d.x0 - bx * h, pz - d.z0 - bz * h); };
 export const dockDist = (isl, x, z) => (isl.port ? segDist(x, z, isl.port.dock) : 1e9);
@@ -174,7 +174,8 @@ export function townsfolk(isl) {
 }
 // where you can stand: terrain, plus the dock planks (a little above the water)
 export const DOCK_Y = 2.9; // pier deck height: above the highest wave crest
-export const walkHeight = (isl, x, z) => { const h = islandHeight(isl, x, z); return isl.port && dockDist(isl, x, z) < 1.6 ? Math.max(h, DOCK_Y) : h; };
+// beside the deck the dry ground ramps up to meet it, so there is never a lip too high to step (water beside the pier stays water)
+export const walkHeight = (isl, x, z) => { const h = islandHeight(isl, x, z); if (!isl.port) return h; const d = dockDist(isl, x, z) - 1.6; return d < 0 ? Math.max(h, DOCK_Y) : h < -0.4 ? h : Math.max(h, DOCK_Y - d * 1.2); }; // -0.4: the tideline too, or a hairline of it fences the deck off from the sand
 
 // ---------------------------------------------------------------- towns (size of the landmass decides the size of the town)
 // Every NPC works inside their own shop: a hollow building with a doorway facing the plaza, a floor and a counter.

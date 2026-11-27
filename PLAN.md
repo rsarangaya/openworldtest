@@ -8,6 +8,15 @@ Applies to every item in this plan, before it counts as done.
 - **Optimize first:** measure CPU time, graphics-card time and build size against the last pushed version, and fix what got worse before pushing. Cache, and build in small per-frame budgets.
 - **Always moving forward:** ship each step playable and take the next item. Do not stall on polish or rework; note what is left in STATUS.md and carry on.
 
+## Workflow for every step (set 2026-11-26)
+1. Build the next step from "Where the plan stands".
+2. Test as a player: a scripted player that makes real choices through the game rules, then real play in Chrome. Unit tests alone are not enough.
+3. Performance check, on every build: CPU time (ground building, game step) and build size against the last pushed version; graphics-card time too when drawing changes. Keep it lean.
+4. If all is good, commit and push.
+5. Update STATUS.md and this plan, then clear the session and start the next step.
+
+No stopping to ask: pick the sensible default and note it in STATUS.md. If a usage limit is hit, pause and carry on after it resets.
+
 ## The two concepts
 
 **A. Free-roam sea world.** Endless procedural seas of islands and landmasses. Sail between them, then dock and walk on foot. Ports, trade, ship fights, buried treasure. (Chosen. The player is an ordinary person, not a pirate.)
@@ -207,13 +216,13 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 - **The Wall** is a continuous ice cliff, same height all round, banded deep blue to white with a snow lip, icicles and rubble. One stretch (the weak spot, seeded; `gateAngle` in code) is paler and cracked. It needs the ram at speed above 3.2. When broken it **stays open** (ragged edges, ice rubble) and you can sail back through. More weak spots in other directions come with more worlds (one per world, on that world's bearing).
 - **Asgard must look and feel different from Terra:** Vikings, not villagers (fur, braids and beards, horned and plain helmets, round shields, axes), timber long-halls with carved dragon-head gables and turf or shingle roofs, stave halls, rune stones, drying racks, smoke holes, fjord cliffs and pines, snow, longships (square striped sail, dragon prow, shields along the rail) for local and enemy ships, a cold palette, aurora. Asgardian sea life and birds are different from Terra's (ice whales and narwhals, seals, orca, ravens and white eagles, no tropical fish). Each world gets its own people, building, ship and creature set.
 
-## Where the plan stands (2026-11-26)
+## Where the plan stands (2026-11-26, after round 77)
 **Done:** contracts and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, side stories, town events, companions, compass and chart map, one hand for all weapons, welcome and tutorial, choosing the quest to follow, buildings and a jail in every town, the graphics speed-up, the rim-or-explore message after the supply cache. All pushed (round 76).
 
 **Open, in a suggested order**
 1. Gather player feedback, and check by eye and ear what has only been tested (story fights, event crowds, jail, map, sounds; soft and mid looks, storms, Asgard and a weak graphics card since the speed-up).
 2. (Done, round 74) Every town gets real buildings, including a guard station with a jail.
-3. Rest of the town stories (see "Living towns" below).
+3. Rest of the town stories (see "Living towns" below). Part done in round 77: board, deadline and escort steps, two stories, two events. Open: the other events and companions, rival-crew races, Asgard versions.
 4. First monster (see below; waiting for the user's choice).
 5. Asgard second pass: rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.
 6. More town types: mining, smugglers, temple; layouts and clothing per type.

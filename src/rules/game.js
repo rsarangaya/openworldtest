@@ -26,7 +26,7 @@ import { shipName, captainName } from '../gen/names.js';
 import { islandProps } from '../gen/props.js';
 import { townsfolk, folkPos } from '../gen/world.js';
 import { eventFor } from './events.js';
-import { stepSide, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
+import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -402,9 +402,11 @@ export function prizeInfo(s) {
 }
 export function finishBoarding(s, how) {
   const e = deckShip(s), P = prizeInfo(s); if (!e || !P || !s.deck.won) return false;
+  if (how === 'keep' && !canKeep(s)) return false;
+  sideShip(s, e, true, G);
   const gold = how === 'claim' ? P.claim : how === 'scuttle' ? P.scuttle : P.gold; s.gold += gold; s.score += gold;
   if (how !== 'scuttle' && P.n) s.cargo[P.good] = (s.cargo[P.good] || 0) + P.n;
-  if (how === 'keep') { if (!canKeep(s)) return false; addPrize(s, e); s.gold -= gold; s.score -= gold; if (!P.lawful) { s.bountyGold = (s.bountyGold || 0) + 300; s.bounty = Math.max(s.bounty, 1); } s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1; if (P.lawful) deed(s, 'sunkHostile'); s.dead.add(e.id); s.enemies.delete(e.id); say(s, `${e.name} joins your fleet under ${s.crew.find((c) => c.captain)?.name || 'a new captain'}. Press T to give the fleet orders.`); leaveDeck(s); s.events.push({ type: 'coin' }); return true; }
+  if (how === 'keep') { addPrize(s, e); s.gold -= gold; s.score -= gold; if (!P.lawful) { s.bountyGold = (s.bountyGold || 0) + 300; s.bounty = Math.max(s.bounty, 1); } s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1; if (P.lawful) deed(s, 'sunkHostile'); s.dead.add(e.id); s.enemies.delete(e.id); say(s, `${e.name} joins your fleet under ${s.crew.find((c) => c.captain)?.name || 'a new captain'}. Press T to give the fleet orders.`); leaveDeck(s); s.events.push({ type: 'coin' }); return true; }
   if (how === 'claim' && !P.lawful) { s.bountyGold = (s.bountyGold || 0) + 300; s.bounty = Math.max(s.bounty, 1); }
   if (how === 'scuttle') s.sinking.push({ id: e.id, kind: e.kind, seed: e.seed, x: e.x, z: e.z, yaw: e.yaw, speed: 0, t0: s.t });
   s.enemies.delete(e.id); s.dead.add(e.id); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1; if (P.lawful) deed(s, 'sunkHostile');
@@ -633,7 +635,7 @@ function stepShip(s, inp, dt) {
   for (const e of [...s.enemies.values()]) if (e.hp <= 0) {
     const k = KINDS[e.kind];
     s.sinking.push({ id: e.id, kind: e.kind, seed: e.seed, x: e.x, z: e.z, yaw: e.yaw, speed: e.speed || 0, t0: s.t }); puff(s, 'flash', e.x, 4, e.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', e.x + q * 2 - 2, 4, e.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 });
-    s.enemies.delete(e.id); s.dead.add(e.id); for (const t of board(s)) if (t.kind === 'ship' && t.enemyId === e.id) claimKill(s, t, null); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1;
+    s.enemies.delete(e.id); s.dead.add(e.id); sideShip(s, e, false, G); for (const t of board(s)) if (t.kind === 'ship' && t.enemyId === e.id) claimKill(s, t, null); s.kills++; s.killsBy[e.kind] = (s.killsBy[e.kind] || 0) + 1;
     if (!k.hostile) { s.bounty++; s.bountyGold += 150; deed(s, 'sunkPeaceful'); } else deed(s, 'sunkHostile');
     const gold = k.gold[0] + (e.seed % (k.gold[1] - k.gold[0])), room = Math.max(0, s.hold - cargoCount(s)), n = Math.min(room, 3), g = ['rum', 'sugar', 'timber', 'cannon', 'spice', 'silk'][e.seed % 6];
     s.gold += gold; s.cargo[g] = (s.cargo[g] || 0) + n; s.score += gold; say(s, `Sank ${e.name}! +${gold} gold${n ? `, ${n} ${g}` : ''}.`);
@@ -642,7 +644,13 @@ function stepShip(s, inp, dt) {
 }
 
 // side stories, town events and companions get the ground helpers they need
-const G = { islandsAt: (s, x, z) => islandsAt(s, x, z), nearby: (s, x, z, r) => nearbyIslands(s, x, z, r), walk: (s, e, x, z, d) => walkToward(s, e, x, z, d), ground: (s, x, z) => groundAt(s, x, z), say, spray,
+const G = { ship: (s, q, kind, name, at) => { // a story ship, put in open water near its place
+    const r = rngFor(q.seed, 31), id = 's' + q.id;
+    for (let k = 0; k < 80; k++) { const a = r() * TAU, d = 120 + k * 5, x = at.x + Math.cos(a) * d, z = at.z + Math.sin(a) * d;
+      if (hitIsland(s, x, z) || hullHit(s, x, z, a, 10, 4) || (realmOf(s) === 'terra' && Math.abs(Math.hypot(x, z) - WALL_R) < 150)) continue;
+      s.enemies.set(id, { id, quest: q.id, seed: hash(q.seed, 41), kind, x, z, yaw: a, name, captain: captainName(r, realmOf(s)), gen: false, speed: 0, hp: KINDS[kind].hp, maxHp: KINDS[kind].hp, cd: [1, 1] }); return;
+    }
+  }, islandsAt: (s, x, z) => islandsAt(s, x, z), nearby: (s, x, z, r) => nearbyIslands(s, x, z, r), walk: (s, e, x, z, d) => walkToward(s, e, x, z, d), ground: (s, x, z) => groundAt(s, x, z), say, spray,
   near: (s, x, z, r) => { const y0 = groundAt(s, x, z); for (let d = r; d < r + 8; d += 0.6) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, y = groundAt(s, px, pz); if (y >= 0.8 && Math.abs(y - y0) < 1.6 && roomy(s, px, pz)) return { x: px, z: pz, y }; } return null; }, // dry land beside a point
   spot: (s, isl, seed) => { const pl = isl.port ? islandTown(isl).plaza : isl.landing || isl, r = rngFor(seed, 77); for (let k = 0; k < 120; k++) { const a = r() * TAU, d = (isl.port ? 8 : 4) + r() * (isl.port ? 12 : 10), x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, y = groundAt(s, x, z); if (y >= 0.8 && roomy(s, x, z)) return { x, z, y }; } const p = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 3, 26); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; } };
 export const sideOffersFor = (s, isl) => sideOffers(s, isl, G);

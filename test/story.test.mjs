@@ -1,7 +1,7 @@
 import { islandProps } from '../src/gen/props.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract } from '../src/rules/game.js';
+import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding } from '../src/rules/game.js';
 import { trackable, trackedQuest } from '../src/rules/track.js';
 import { stepOf, placeOf, sideTarget, COMPANIONS } from '../src/rules/sidequests.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
@@ -15,12 +15,20 @@ const idle = {};
 const run = (s, secs) => { for (let i = 0; i < secs * 60; i++) step(s, idle); };
 const ports = (s) => nearbyIslands(s, 0, 0, 4).filter((i) => i.port);
 const stand = (s, x, z) => { s.mode = 'foot'; s.foot = { x, z, y: groundAt(s, x, z), yaw: 0, vy: 0 }; };
+const aShip = (s) => { s.ship = { x: 0, z: 0, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; };
+// sail to a story's place; its ship should be waiting there
+const seek = (s, id) => { const p = placeOf(s, s.side.find((v) => v.id === id)); s.mode = 'ship'; s.ship.x = p.x; s.ship.z = p.z; s.ship.speed = 0; run(s, 1.1); return s.enemies.get('s' + id); };
 
 // walk one accepted story to its end, always taking option `pick`
 function play(s, id, pick = 0) {
   for (let n = 0; n < 12; n++) {
     const q = s.side.find((v) => v.id === id); if (!q) return n;
     const st = stepOf(s, q), p = placeOf(s, q);
+    if (st.kind === 'board') {
+      const e = seek(s, id); assert.ok(e, q.tpl + ': no ship to board'); s.ship.x = e.x + 8; s.ship.z = e.z;
+      assert.equal(grapple(s).type, 'deck'); for (const d of s.deck.defs) d.st = 'dead'; s.deck.won = true; assert.ok(finishBoarding(s, 'loot'));
+      continue;
+    }
     stand(s, p.x, p.z); s.qa = null; run(s, 0.1);
     const mine = (s.qa || []).filter((a) => a.q === id);
     assert.ok(mine.length, `${q.tpl}/${q.step}: nobody and nothing appeared at ${p.name}`);
@@ -42,11 +50,11 @@ function play(s, id, pick = 0) {
 }
 
 test('every side story can be taken in some town and played to the end', () => {
-  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade'];
+  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child'];
   const base = newGame();
-  for (let issue = 0; issue < 40 && seen.size < want.length; issue++) {
+  for (let issue = 0; issue < 80 && seen.size < want.length; issue++) {
     for (const isl of ports(base)) {
-      const s = newGame(); s.t = issue * ISSUE_LEN + 1; s.weapon = 'sword'; s.weapons = { sword: true };
+      const s = newGame(); s.t = issue * ISSUE_LEN + 1; s.weapon = 'sword'; s.weapons = { sword: true }; aShip(s);
       stand(s, isl.x, isl.z);
       for (const offer of sideOffersFor(s, isl)) {
         if (seen.has(offer.q.tpl)) continue;
@@ -183,4 +191,52 @@ test('a save that leaves you inside a building loads you onto free ground nearby
   stand(s, b.x, b.z); const back = deserialize(serialize(s)), f = back.foot;
   assert.ok(canStand(back, f.x, f.z, groundAt(back, f.x, f.z)), 'still inside something');
   assert.ok(Math.hypot(f.x - b.x, f.z - b.z) < 31);
+});
+
+// the first town and issue that offers a story
+function offerOf(tpl) {
+  for (let n = 0; n < 80; n++) { const s = newGame(); s.t = n * ISSUE_LEN + 1; aShip(s); for (const isl of ports(s)) { const o = sideOffersFor(s, isl).find((v) => v.q.tpl === tpl); if (o) { stand(s, isl.x, isl.z); takeSide(s, o); return { s, id: o.q.id }; } } }
+  assert.fail(tpl + ' never offered');
+}
+
+test('a story with a deadline moves on when it runs out, and the clock survives saving', () => {
+  const { s, id } = offerOf('cargo'), q = s.side[0];
+  assert.ok(q.due > s.t + 200); assert.match(sideTarget(s, id).goal, /\(\d+:\d\d left\)/);
+  assert.equal(deserialize(serialize(s)).side[0].due, q.due);
+  q.due = s.t + 1; run(s, 2.5);
+  assert.equal(s.side[0].step, 'late'); assert.equal(s.side[0].due, undefined);
+});
+
+test('a story ship is not offered without a boat, and sinking it ends the story unpaid', () => {
+  for (let n = 0; n < 20; n++) { const s = newGame(); s.t = n * ISSUE_LEN + 1; for (const isl of ports(s)) assert.ok(!sideOffersFor(s, isl).some((o) => ['ghost', 'smugglers'].includes(o.q.tpl))); }
+  const { s, id } = offerOf('smugglers'), e = seek(s, id); assert.ok(e); assert.equal(sideTarget(s, id).x, e.x);
+  e.hp = 0; run(s, 0.1); assert.equal(s.side.length, 0); assert.ok(s.sdone[id]);
+  const two = offerOf('ghost'); two.s.side[0].step = 'hunt'; const g = seek(two.s, two.id); assert.ok(g); dropSide(two.s, two.id); assert.ok(!two.s.enemies.has(g.id), 'the ship of a dropped story stays behind');
+});
+
+test('someone you are bringing home walks behind you, and goes when the story ends', () => {
+  const { s, id } = offerOf('child'); s.side[0].step = 'back';
+  const p = placeOf(s, s.side[0]); stand(s, p.x, p.z); run(s, 0.5);
+  assert.ok(s.ward && s.ward.small); assert.ok(Math.hypot(s.ward.x - s.foot.x, s.ward.z - s.foot.z) < 12);
+  assert.equal(deserialize(serialize(s)).ward, null);
+  dropSide(s, id); run(s, 0.1); assert.equal(s.ward, null);
+});
+
+test('every port can be walked from its pier to its square, with no step too high to take (regression: terraces walled piers off)', () => {
+  // the player's own rules in small steps, so a hairline lip cannot be jumped over
+  for (const seed of [1717, 7]) {
+    const s = newGame(seed); s.mode = 'foot';
+    for (const isl of nearbyIslands(s, 0, 0, 4).filter((i) => i.port)) {
+      const d = isl.port.dock, to = islandTown(isl).plaza, C = 0.3, x0 = (d.x0 + d.x1) / 2, z0 = (d.z0 + d.z1) / 2;
+      const h = (i, j) => Math.hypot(x0 + i * C - to.x, z0 + j * C - to.z), seen = new Set(['0,0']), open = [[0, 0, groundAt(s, x0, z0)]]; let ok = false;
+      while (open.length && !ok && seen.size < 60000) {
+        const [i, j, y] = open.pop();
+        for (const [a, b] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]].sort((p, q) => h(...q) - h(...p))) {
+          const k = a + ',' + b, x = x0 + a * C, z = z0 + b * C; if (seen.has(k) || !canStand(s, x, z, y)) continue;
+          seen.add(k); open.push([a, b, groundAt(s, x, z)]); if (h(a, b) < 5) ok = true;
+        }
+      }
+      assert.ok(ok, `${seed} ${isl.port.name}: the square cannot be reached from the pier`);
+    }
+  }
 });
