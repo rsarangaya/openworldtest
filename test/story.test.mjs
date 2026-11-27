@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding } from '../src/rules/game.js';
 import { trackable, trackedQuest } from '../src/rules/track.js';
-import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes } from '../src/rules/sidequests.js';
+import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD } from '../src/rules/sidequests.js';
+import { enterRealm } from '../src/rules/realm.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
 import { mapAvailable } from '../src/rules/map.js';
@@ -87,7 +88,7 @@ test('town events: stable per issue, about half the ports, and they move prices 
   const s = newGame(), list = ports(s), keys = new Set(); let on = 0, total = 0;
   for (let issue = 0; issue < 30; issue++) { s.t = issue * ISSUE_LEN + 1; for (const isl of list) { const e = eventFor(s, isl); total++; if (e) { on++; keys.add(e.key); assert.equal(eventFor(s, isl).key, e.key); } } }
   assert.ok(on / total > 0.35 && on / total < 0.75, 'share ' + on / total);
-  assert.equal(keys.size, Object.keys(EVENTS).length);
+  assert.equal(keys.size, Object.keys(EVENTS).filter((k) => !EVENTS[k].world).length); assert.ok(!keys.has('shield'), 'an Asgard event in Terra');
   const isl = sectorIslands(s.seed, 0, 0)[0], port = isl.port;
   for (const key of Object.keys(EVENTS)) { s.ev = { iid: port.iid, key }; for (const g of ['rum', port.cheap, port.dear]) assert.ok(sellPrice(s, port, g) < buyPrice(s, port, g)); assert.ok(foodPrice(s, port) >= 1); }
   for (const c of Object.values(COMPANIONS)) assert.ok(c.town.length && c.fight.length && c.won.length);
@@ -194,8 +195,8 @@ test('a save that leaves you inside a building loads you onto free ground nearby
 });
 
 // the first town and issue that offers a story
-function offerOf(tpl) {
-  for (let n = 0; n < 80; n++) { const s = newGame(); s.t = n * ISSUE_LEN + 1; aShip(s); for (const isl of ports(s)) { const o = sideOffersFor(s, isl).find((v) => v.q.tpl === tpl); if (o) { stand(s, isl.x, isl.z); takeSide(s, o); return { s, id: o.q.id }; } } }
+function offerOf(tpl, world) {
+  for (let n = 0; n < 80; n++) { const s = newGame(); if (world) { s.flags.crossed = true; enterRealm(s, world); } s.t = n * ISSUE_LEN + 1; aShip(s); for (const isl of ports(s)) { const o = sideOffersFor(s, isl).find((v) => v.q.tpl === tpl); if (o) { stand(s, isl.x, isl.z); takeSide(s, o); return { s, id: o.q.id }; } } }
   assert.fail(tpl + ' never offered');
 }
 
@@ -284,4 +285,20 @@ test('a badly hurt companion falls back behind you, and the gang turns on you in
   s.comp.hp = 20; const hp = s.hp; run(s, 4);
   assert.ok(s.comp, 'the companion died anyway'); assert.ok(s.comp.back, 'the companion did not fall back');
   assert.ok(s.comp.hp > 20, 'no breath got back'); assert.ok(s.hp < hp, 'the gang did not turn on the player');
+});
+
+test('the shieldmaiden: only in Asgard, a holmgang or a debt paid, the raiders, and a shield that takes a quarter off your wounds', () => {
+  const { s, id } = offerOf('shieldmaiden', 'asgard'); s.weapon = 'sword'; s.weapons = { sword: true }; s.gold = 300;
+  assert.equal(s.comp.key, 'shieldmaiden'); assert.match(s.comp.name, /^(Sigrid|Freya|Astrid|Ingrid|Thora|Ragna|Svea|Gudrun) [A-Za-z]+dottir$/, 'not a Norse woman: ' + s.comp.name);
+  // a gang fight beside her: every blow on you is cut by the shield
+  s.side[0].step = 'raiders'; const p = placeOf(s, s.side[0]); stand(s, p.x, p.z); run(s, 0.2);
+  const foe = s.qa.find((a) => a.q === id && a.kind === 'foe'); stand(s, foe.x + 1, foe.z); s.calm = 0; s.comp.x = foe.x + 30; s.comp.z = foe.z; s.comp.hp = 100;
+  run(s, 0.02); assert.equal(shieldOf(s), SHIELD); const hp = s.hp; s.qa.filter((a) => a.q === id).forEach((a) => { a.cd = 0; a.x = s.foot.x - 1; a.z = s.foot.z; }); run(s, 0.02);
+  const lost = hp - s.hp; assert.ok(lost > 0 && Math.abs(lost / SHIELD - Math.round(lost / SHIELD)) < 1e-6 && lost < 4 * 3, 'the blows were not cut: ' + lost);
+  s.side[0].step = 'start'; s.qa = null; const gold = s.gold; play(s, id, 1); // the holmgang path, then parting
+  assert.equal(s.side.length, 0); assert.equal(s.comp, null); assert.ok(!s.crew.some((c) => c.comp === 'shieldmaiden')); assert.ok(s.gold >= gold + 170 - 1, 'the holmgang costs nothing');
+  const two = offerOf('shieldmaiden', 'asgard'); two.s.weapon = 'sword'; two.s.weapons = { sword: true }; two.s.gold = 300; play(two.s, two.id, 0); // the debt paid, then she signs on
+  const hand = two.s.crew.find((c) => c.comp === 'shieldmaiden'); assert.ok(hand, 'she did not sign on'); assert.equal(hand.role, 'gunner'); assert.ok(two.s.gold >= 300 + 100 * 2 - 80 + 170 - 1);
+  assert.equal(shieldOf(two.s), 1, 'no shield ashore once she is in the crew'); assert.equal(shieldOf(two.s, true), SHIELD, 'no shield on a boarded deck'); assert.equal(shieldOf(s, true), 1);
+  for (let n = 0; n < 12; n++) { const t = newGame(); t.t = n * ISSUE_LEN + 1; aShip(t); for (const isl of ports(t)) assert.ok(!sideOffersFor(t, isl).some((o) => o.q.tpl === 'shieldmaiden'), 'offered outside Asgard'); }
 });

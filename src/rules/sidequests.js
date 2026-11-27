@@ -4,7 +4,7 @@
 // at: 'home' (the giver's town) | 'a' (a wild island) | 'b' (another port). The people on the ground (s.qa, s.ward), story ships and a companion's position are runtime only.
 // game.js passes `g` = { islandsAt, nearby, spot, walk, ground, ship, say, spray } so this file needs no imports from it.
 import { rngFor, pick, hash } from '../gen/rng.js';
-import { captainName } from '../gen/names.js';
+import { captainName, maidName } from '../gen/names.js';
 import { rivalCrews, issueOf } from './news.js';
 import { eventFor } from './events.js';
 import { addLocal, addWorld, shunned } from './rep.js';
@@ -17,6 +17,7 @@ export const COMPANIONS = {
   cartographer: { title: 'Old cartographer', kind: 'merchant', hp: 45, dmg: 3, role: 'navigator', town: ['This coast is drawn wrong on every chart I own.', 'Slow down. My knees are older than this town.'], fight: ['I draw maps, I do not do this!'], won: ['Is it over? Good. Where was I?'] },
   singer: { title: 'Tavern singer', kind: 'tavern', hp: 50, dmg: 4, role: 'sailor', town: ['I have sung in this square. They paid in turnips.', 'Hush a moment. That is a good story, I will have it.'], fight: ['Not the throat! Anywhere but the throat!'], won: ['There is a verse in that. You come off rather well.'] },
   deserter: { title: 'Navy deserter', kind: 'sailor', hp: 70, dmg: 7, role: 'navigator', town: ['Keep your hat low. Mine, I mean.', 'That officer by the well. I served under him. Walk on.'], fight: ['Marines fight in pairs. Split them!', 'I was trained for this. Sadly.'], won: ['The navy taught me that. It is the only thing I thank them for.'] },
+  shieldmaiden: { title: 'Shieldmaiden', kind: 'sailor', hp: 100, dmg: 8, role: 'gunner', town: ['Mead first, then the next fight. That is the order of things.', 'I will know the men who burned the hall. I will know them by their boots.'], fight: ['Behind my shield!', 'Close up! Shields!'], won: ['The skalds will want that one. Tell it well.'] },
   brother: { title: 'The missing brother', kind: 'sailor', hp: 60, dmg: 6, role: 'sailor', town: ['Feels strange, walking a street again.'], fight: ['I know how they fight. Watch the feint.'], won: ['I used to eat with some of those men.'] },
 };
 
@@ -92,6 +93,14 @@ const T = {
       after: { kind: 'talk', at: 'a', who: c.third, goal: 'Speak with the deserter.', lines: ['A new name, at last. I know every patrol lane in these waters. That is worth something to a captain with a record.'],
         opts: [{ t: 'Sail with me as navigator', hire: 'deserter', gold: c.pay, say: '"The navy will have to look twice as hard for you now."' }, { t: 'Part here', gold: c.pay, rep: 4, say: 'They press a purse on you and are gone by the next tide.' }] },
     }) },
+  shieldmaiden: { title: 'The Broken Shield', need: 'ab', pay: 170, join: 'shieldmaiden', hero: 'maid', ask: (c) => `${c.maid}, a shieldmaiden, lost her place in the shield wall when raiders burned her jarl's hall. ${c.other} in ${c.b} holds her shield against her brother's debt. She will walk with you.`,
+    steps: (c) => ({
+      start: { kind: 'talk', at: 'b', who: c.other, goal: `Win back the shield from ${c.other} in ${c.b}.`, lines: ['Her shield pays a dead man\'s debt. Eighty gold, or meet me in the holmgang ring.'], opts: [{ t: 'Pay the 80 gold', cost: 80, to: 'raiders' }, { t: 'Step into the ring', to: 'holmgang' }] },
+      holmgang: { kind: 'fight', at: 'b', n: 1, boss: true, goal: `Beat ${c.other} in the holmgang.`, say: 'Your foe yields in the ring. By the old law the shield is hers, and nobody calls it theft.', rep: 3, to: 'raiders' },
+      raiders: { kind: 'fight', at: 'a', n: 3, goal: `The raiders who burned the hall camp on ${c.a}. Break them.`, say: 'The last raider runs into the sea. The hall is avenged.', world: 2, to: 'after' },
+      after: { kind: 'talk', at: 'a', who: c.maid, goal: 'Speak with the shieldmaiden.', lines: ['A shield on my arm and a debt paid in blood. I owe you a place in my wall, ashore or on a deck.'],
+        opts: [{ t: 'Sail with me', hire: 'shieldmaiden', gold: c.pay, say: '"Stand behind me when the axes fly."' }, { t: 'Part here', gold: c.pay, rep: 4, say: 'She raises the shield to you and walks off to find a new hall.' }] },
+    }) },
   // a rival crew's wager (PLAN item 3): their ship against yours to another port. The clock is how long she takes; dock and find the harbour judge first.
   race: { title: 'The Race', need: 'b', ship: true, stake: RACE_STAKE, pay: 2 * RACE_STAKE + 90, ask: (c) => `Captain ${c.rival} of ${c.crew} bets ${RACE_STAKE} gold a side that ${c.rship} reaches ${c.b} before you. The harbour judge there keeps the purse.`,
     steps: (c) => ({
@@ -130,8 +139,8 @@ const place = (i) => ({ id: i.id, name: nameOf(i), x: i.x, z: i.z });
 
 // the words and places of one quest
 function ctxOf(s, q) {
-  const r = rngFor(q.seed, 11), crews = rivalCrews(s.seed), giver = captainName(r), other = captainName(r), third = captainName(r), cr = pick(r, crews), d = q.b ? Math.hypot(q.b.x - q.from.x, q.b.z - q.from.z) : 0;
-  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, twist: r() < 0.5, pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), home: q.from.name, a: q.a?.name, b: q.b?.name };
+  const r = rngFor(q.seed, 11), w = q.realm || realm(s), crews = rivalCrews(s.seed), giver = captainName(r, w), other = captainName(r, w), third = captainName(r, w), cr = pick(r, crews), d = q.b ? Math.hypot(q.b.x - q.from.x, q.b.z - q.from.z) : 0;
+  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, twist: r() < 0.5, maid: maidName(r), pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), home: q.from.name, a: q.a?.name, b: q.b?.name };
 }
 export const stepOf = (s, q) => T[q.tpl].steps(ctxOf(s, q))[q.step];
 export const titleOf = (q) => T[q.tpl].title;
@@ -164,7 +173,7 @@ export function acceptSide(s, offer, g) {
   if (j && s.comp) { g.say(s, 'You already have company.'); return false; }
   if (stake) { if (s.gold < stake) { g.say(s, `The wager is ${stake} gold a side.`); return false; } s.gold -= stake; }
   const q = { ...offer.q }; clock(s, q); sideOf(s).push(q); s.tracked = q.id; s.qa = null; g.say(s, `New story: ${offer.title}. ${goalOf(s, q)}`);
-  if (j) join(s, j, ctxOf(s, offer.q).third, offer.q, g);
+  if (j) join(s, j, ctxOf(s, offer.q)[T[offer.q.tpl].hero || 'third'], offer.q, g);
   return true;
 }
 function join(s, key, name, q, g) {
@@ -173,6 +182,9 @@ function join(s, key, name, q, g) {
 }
 // a navy deserter at your side or in your crew knows the patrol lanes: one hunter fewer (never none), and half as quick to find you
 export const knowsLanes = (s) => s.comp?.key === 'deserter' || crewOf(s).some((c) => c.comp === 'deserter');
+// a shieldmaiden at your side ashore (not while she falls back), or in your crew when you board, takes a quarter off every blow aimed at you
+export const SHIELD = 0.75;
+export const shieldOf = (s, deck) => ((deck ? crewOf(s).some((c) => c.comp === 'shieldmaiden') : s.comp?.key === 'shieldmaiden' && s.comp.x !== undefined && !s.comp.back) ? SHIELD : 1);
 export const compLine = (s, when, g) => { const c = s.comp, l = c && COMPANIONS[c.key][when]; if (l) g.say(s, `${c.name}: "${l[hash(c.seed, Math.floor(s.t)) % l.length]}"`); };
 
 // take a story off the list, with its ship if it has one at sea
@@ -195,7 +207,7 @@ export function chooseSide(s, id, i, g) {
   if (o.cost) { if (s.gold < o.cost) { g.say(s, `You do not have ${o.cost} gold.`); return false; } s.gold -= o.cost; }
   const berth = !!s.ship && aboard(s).length < capacity(s);
   if (o.say && (!o.hire || berth)) g.say(s, o.say); // the yes-line only when there is a berth for them
-  if (o.join) join(s, o.join, ctxOf(s, q).third, q, g);
+  if (o.join) join(s, o.join, ctxOf(s, q)[T[q.tpl].hero || 'third'], q, g);
   if (o.hire) { const C = COMPANIONS[o.hire]; if (berth) { crewOf(s).push({ id: 'comp-' + q.id, comp: o.hire, name: s.comp?.name || C.title, role: C.role, wage: ROLES[C.role].wage, morale: 90, seed: s.comp?.seed || q.seed }); g.say(s, `A new ${C.role} joins your crew.`); } else g.say(s, 'There is no berth free, so you part for now.'); }
   advance(s, q, o, o.to, g); return true;
 }
@@ -254,7 +266,7 @@ export function stepSide(s, dt, g) {
     if (s.jailUntil > s.t || (!a.awake && (s.calm > s.t || Math.hypot(f.x - a.x, f.z - a.z) > 14))) continue;
     if (!a.awake) { for (const b of foes) if (b.q === a.q) b.awake = true; compLine(s, 'fight', g); }
     if (d > 1.9) g.walk(s, a, tx, tz, 3.1 * dt);
-    else if (a.cd <= 0) { a.cd = 1.3; a.atk = s.t; const dm = a.boss ? 8 : 4; if (tc) { c.hp -= dm; c.hitT = s.t; } else { s.hp -= dm; s.hurtT = s.t; s.events.push({ type: 'hit' }); } }
+    else if (a.cd <= 0) { a.cd = 1.3; a.atk = s.t; const dm = (a.boss ? 8 : 4) * (tc ? 1 : shieldOf(s)); if (tc) { c.hp -= dm; c.hitT = s.t; } else { s.hp -= dm; s.hurtT = s.t; s.events.push({ type: 'hit' }); } }
   }
   if (c) stepComp(s, dt, g, foes);
   if (s.hp <= 0) { s.qa = null; s.calm = s.t + 25; } // knocked out: the gang goes back to its place and leaves you be long enough to get clear (hitting one wakes them)

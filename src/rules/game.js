@@ -39,7 +39,7 @@ import { stepHydra, shotHydra, nearHydra } from './hydra.js';
 import { stepHarpies, shotHarpy, nearHarpies, swivelHarpy } from './harpies.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine, pillarLine, statueLine } from './lore.js';
-import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes } from './sidequests.js';
+import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -228,7 +228,7 @@ function spawnFoe(s, id, kind, name, seed, isl, x, z, pre) {
 function stepFoes(s, dt) {
   const f = s.foot; if (s.mode !== 'foot') { for (const o of s.foes) { const q = s.npcs[o.id]; if (q) q.away = false; } s.foes = []; return; }
   s.foes = s.foes.filter((o) => { const q = s.npcs[o.id]; if (!q || q.dead || Math.hypot(o.x - f.x, o.z - f.z) > 70) { if (q) q.away = false; return false; } return true; });
-  for (const o of s.foes) { const q = s.npcs[o.id], d = Math.hypot(f.x - o.x, f.z - o.z); o.face = Math.atan2(f.z - o.z, f.x - o.x); o.cd = Math.max(0, o.cd - dt); if (s.jailUntil > s.t) continue; if (d > 1.9) walkToward(s, o, f.x, f.z, FOE_SPEED * dt); else if (o.cd <= 0) { o.cd = 1.2; o.atk = s.t; s.hp -= FOE_HIT; s.hurtT = s.t; s.events.push({ type: 'hit' }); } void q; }
+  for (const o of s.foes) { const q = s.npcs[o.id], d = Math.hypot(f.x - o.x, f.z - o.z); o.face = Math.atan2(f.z - o.z, f.x - o.x); o.cd = Math.max(0, o.cd - dt); if (s.jailUntil > s.t) continue; if (d > 1.9) walkToward(s, o, f.x, f.z, FOE_SPEED * dt); else if (o.cd <= 0) { o.cd = 1.2; o.atk = s.t; s.hp -= FOE_HIT * shieldOf(s); s.hurtT = s.t; s.events.push({ type: 'hit' }); } void q; }
   if ((s.gold >= 1500 || s.bountyGold > 0) && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2) && s.t - (s.foeT || -99) > 20) { // the rich and the wanted attract it
     for (const isl of islandsAt(s, f.x, f.z)) if (isl.port) for (const v of townsfolk(isl)) { const id = `v${isl.id}:${v.seed}`, p = folkPos(v, s.t); if (npcAlive(s, id) && fighterOf(s.seed, id, 'villager') && Math.hypot(p.x - f.x, p.z - f.z) < 6) { s.foeT = s.t; spawnFoe(s, id, 'villager', 'a villager', v.seed, isl, p.x, p.z, true); return; } }
   }
@@ -359,7 +359,7 @@ function stepDeck(s, dt) {
       const du = tg.u - d.u, dv = tg.v - d.v, dist = Math.hypot(du, dv) || 1, others = live.filter((q) => q !== d && !q.captain).length;
       if (!d.captain || d.aggro || dist < 6 || others === 0) {
         if (dist > 1.7) { let nu = d.u + (du / dist) * 3 * dt, nv = d.v + (dv / dist) * 3 * dt; for (const q of live) if (q !== d && Math.hypot(q.u - nu, q.v - nv) < 0.8) { nu = d.u; nv = d.v; break; } if (inDeck(e, nu, nv, 0.3)) { d.u = nu; d.v = nv; } d.walk = (d.walk || 0) + 3 * dt; }
-        else if (d.cd <= 0) { d.cd = 1.2; d.atk = s.t; const dm = e.kind === 'navy' || d.captain ? 6 : 5; if (tg.a) { tg.a.hp -= dm; tg.a.hitT = s.t; if (tg.a.hp <= 0) { tg.a.st = 'dead'; lose(s, tg.a.cid, say); } } else { s.hp -= dm; s.hurtT = s.t; s.events.push({ type: 'hit' }); } }
+        else if (d.cd <= 0) { d.cd = 1.2; d.atk = s.t; const dm = e.kind === 'navy' || d.captain ? 6 : 5; if (tg.a) { tg.a.hp -= dm; tg.a.hitT = s.t; if (tg.a.hp <= 0) { tg.a.st = 'dead'; lose(s, tg.a.cid, say); } } else { s.hp -= dm * shieldOf(s, true); s.hurtT = s.t; s.events.push({ type: 'hit' }); } }
       }
       d.face = Math.atan2(f.z - d.z, f.x - d.x);
     }

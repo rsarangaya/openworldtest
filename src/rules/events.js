@@ -22,14 +22,15 @@ export const EVENTS = {
   swords: { name: 'A Stranger with a Sword', line: 'A disgraced swordswoman has been drinking alone and asking after one man.', hook: 'swordswoman' },
   charts: { name: 'A Stranger with Charts', line: 'An old cartographer is looking for someone with young legs and a sharp blade.', hook: 'cartographer' },
   deserter: { name: 'A Deserter in Hiding', line: 'Marines are searching the lanes for a runaway sailor. One cellar door in town has stayed bolted all week.', hook: 'deserter' },
+  shield: { name: 'A Shield without a Wall', line: 'A shieldmaiden sits by the mead-hall fire with an empty arm. Raiders burned her jarl\'s hall, and her shield was taken for a debt.', hook: 'shieldmaiden', world: 'asgard' }, // Asgard only
   cutpurses: { name: 'Cutpurses Abroad', line: 'A ring of cutpurses works the lanes after dark. Keep a hand on your purse: the watch pays 30 gold for each one brought down.', night: true, thief: true }, // night only
 };
-const KEYS = Object.keys(EVENTS).filter((k) => !EVENTS[k].night);
+const keysOf = (w) => Object.keys(EVENTS).filter((k) => !EVENTS[k].night && (!EVENTS[k].world || EVENTS[k].world === w)), KEYS = {};
 
 export function eventFor(s, isl) {
   if (!isl?.port) return null;
   if (isNight(nowHour(s)) && rngFor(isl.seed, 9900 + issueOf(s))() < 0.3) return { key: 'cutpurses', ...EVENTS.cutpurses }; // some nights belong to the cutpurses
   const r = rngFor(isl.seed, 9700 + issueOf(s));
   if (r() < 0.45) return null;
-  const key = pick(r, KEYS); return { key, ...EVENTS[key] };
+  const w = s.realm || 'terra', key = pick(r, (KEYS[w] ||= keysOf(w))); return { key, ...EVENTS[key] };
 }

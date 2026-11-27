@@ -14,6 +14,9 @@ const N_PRE = ['Raven', 'Storm', 'Frost', 'Iron', 'Wolf', 'Thor', 'Bear', 'Eagle
 const N_SUF = ['vik', 'holm', 'fjord', 'ness', 'heim', 'garth', 'strand', 'by', 'stead', 'dal'];
 const N_FIRST = ['Bjorn', 'Eirik', 'Ragnar', 'Sigrid', 'Freya', 'Astrid', 'Ulf', 'Gunnar', 'Ingrid', 'Leif', 'Thora', 'Hakon', 'Ragna', 'Olaf', 'Svea', 'Harald', 'Gudrun', 'Torvald'];
 const N_PAT = ['Eriks', 'Olafs', 'Hrolfs', 'Svens', 'Thors', 'Gunnars', 'Ivars', 'Halvards'];
+const N_FEM = ['Sigrid', 'Freya', 'Astrid', 'Ingrid', 'Thora', 'Ragna', 'Svea', 'Gudrun'];
+const norseName = (f, r) => `${f} ${pick(r, N_PAT)}${(r(), N_FEM.includes(f)) ? 'dottir' : 'son'}`; // the old coin toss is kept so the rest of the names stay the same
+export const maidName = (r) => norseName(pick(r, N_FEM), r);
 const N_SHIP = ['Sea Wolf', 'Raven-Wing', 'Iron Serpent', 'Storm-Rider', 'Fjord Dragon', "Odin's Eye", 'Thunderprow', 'Frostbite', 'Whale-Road', 'Long Serpent', 'Wave-Steed', 'Bloodsail'];
 const norse = (r) => { const p = pick(r, N_PRE), s = pick(r, N_SUF); return p + s; };
 // Atlantis: soft sea-Greek sounding places, ships named for the sea, a name and a house
@@ -40,4 +43,4 @@ export const islandName = (r, th) => {
 };
 export const portName = (r, th) => (th === 'asgard' ? norse(r) : th === 'atlantis' ? `${atl(r)} Harbour` : th === 'olympus' ? `${pick(r, O_PRE)}opolis` : r() < 0.5 ? `${pick(r, TOWN)} ${pick(r, ADJ)}` : `${pick(r, ADJ)} ${pick(r, TOWN)}`);
 export const shipName = (r, th) => (th === 'asgard' ? pick(r, N_SHIP) : th === 'atlantis' ? `The ${pick(r, A_SHIP)}` : th === 'olympus' ? `The ${pick(r, O_SHIP)}` : `The ${pick(r, ADJ)} ${pick(r, NOUN)}`);
-export const captainName = (r, th) => (th === 'asgard' ? `${pick(r, N_FIRST)} ${pick(r, N_PAT)}${r() < 0.5 ? 'son' : 'dottir'}` : th === 'atlantis' ? `${pick(r, A_FIRST)} ${pick(r, A_HOUSE)}` : th === 'olympus' ? `${pick(r, O_FIRST)} of ${oly(r)}` : `${pick(r, FIRST)} ${pick(r, LAST)}`);
+export const captainName = (r, th) => (th === 'asgard' ? norseName(pick(r, N_FIRST), r) : th === 'atlantis' ? `${pick(r, A_FIRST)} ${pick(r, A_HOUSE)}` : th === 'olympus' ? `${pick(r, O_FIRST)} of ${oly(r)}` : `${pick(r, FIRST)} ${pick(r, LAST)}`);
