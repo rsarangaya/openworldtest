@@ -18,6 +18,7 @@ export const COMPANIONS = {
   singer: { title: 'Tavern singer', kind: 'tavern', hp: 50, dmg: 4, role: 'sailor', town: ['I have sung in this square. They paid in turnips.', 'Hush a moment. That is a good story, I will have it.'], fight: ['Not the throat! Anywhere but the throat!'], won: ['There is a verse in that. You come off rather well.'] },
   deserter: { title: 'Navy deserter', kind: 'sailor', hp: 70, dmg: 7, role: 'navigator', town: ['Keep your hat low. Mine, I mean.', 'That officer by the well. I served under him. Walk on.'], fight: ['Marines fight in pairs. Split them!', 'I was trained for this. Sadly.'], won: ['The navy taught me that. It is the only thing I thank them for.'] },
   shieldmaiden: { title: 'Shieldmaiden', kind: 'sailor', hp: 100, dmg: 8, role: 'gunner', town: ['Mead first, then the next fight. That is the order of things.', 'I will know the men who burned the hall. I will know them by their boots.'], fight: ['Behind my shield!', 'Close up! Shields!'], won: ['The skalds will want that one. Tell it well.'] },
+  runereader: { title: 'Rune-reader', kind: 'merchant', hp: 55, dmg: 4, role: 'navigator', town: ['The stones here are young. Two hundred winters, no more.', 'Do not step on that shadow. Humour an old woman.'], fight: ['The stones did not warn me of you!', 'Fire and iron, child. Fire and iron!'], won: ['It is written now. Somewhere, it is always written.'] },
   brother: { title: 'The missing brother', kind: 'sailor', hp: 60, dmg: 6, role: 'sailor', town: ['Feels strange, walking a street again.'], fight: ['I know how they fight. Watch the feint.'], won: ['I used to eat with some of those men.'] },
 };
 
@@ -101,6 +102,13 @@ const T = {
       after: { kind: 'talk', at: 'a', who: c.maid, goal: 'Speak with the shieldmaiden.', lines: ['A shield on my arm and a debt paid in blood. I owe you a place in my wall, ashore or on a deck.'],
         opts: [{ t: 'Sail with me', hire: 'shieldmaiden', gold: c.pay, say: '"Stand behind me when the axes fly."' }, { t: 'Part here', gold: c.pay, rep: 4, say: 'She raises the shield to you and walks off to find a new hall.' }] },
     }) },
+  runereader: { title: 'The Stone That Lies', need: 'a', pay: 180, join: 'runereader', hero: 'maid', ask: (c) => `${c.maid}, a rune-reader, says someone has cut false runes over the old stone on ${c.a}, and the dead there will not rest for it. She will walk with you.`,
+    steps: (c) => ({
+      start: { kind: 'find', at: 'a', goal: `Take the rune-reader to the cut stone on ${c.a}.`, say: '"Barrow-robbers\' work. They carved a lie so the dead would sleep while they dug." Spades ring on stone nearby.', to: 'robbers' },
+      robbers: { kind: 'fight', at: 'a', n: 3, goal: `Drive the barrow-robbers off ${c.a}.`, say: 'The robbers drop their spades and run. She scrapes the false runes away, and the stone tells the truth again.', world: 2, to: 'after' },
+      after: { kind: 'talk', at: 'a', who: c.maid, goal: 'Speak with the rune-reader.', lines: ['Every stone in the north has a second tongue under the first. I can hear it. You cannot. Yet.'],
+        opts: [{ t: 'Sail with me and read the stones', hire: 'runereader', gold: c.pay, say: '"Every stone, mind. Even the dull ones."' }, { t: 'Part here', gold: c.pay, rep: 4, say: 'She walks off toward the next stone, talking to it already.' }] },
+    }) },
   // a rival crew's wager (PLAN item 3): their ship against yours to another port. The clock is how long she takes; dock and find the harbour judge first.
   race: { title: 'The Race', need: 'b', ship: true, stake: RACE_STAKE, pay: 2 * RACE_STAKE + 90, ask: (c) => `Captain ${c.rival} of ${c.crew} bets ${RACE_STAKE} gold a side that ${c.rship} reaches ${c.b} before you. The harbour judge there keeps the purse.`,
     steps: (c) => ({
@@ -182,6 +190,9 @@ function join(s, key, name, q, g) {
 }
 // a navy deserter at your side or in your crew knows the patrol lanes: one hunter fewer (never none), and half as quick to find you
 export const knowsLanes = (s) => s.comp?.key === 'deserter' || crewOf(s).some((c) => c.comp === 'deserter');
+// a rune-reader at your side or in your crew reads the older runes under every stone you read for the first time: her name, or null
+export const RUNE_GIFT = 30;
+export const runeReader = (s) => (s.comp?.key === 'runereader' ? s.comp.name : crewOf(s).find((c) => c.comp === 'runereader')?.name) || null;
 // a shieldmaiden at your side ashore (not while she falls back), or in your crew when you board, takes a quarter off every blow aimed at you
 export const SHIELD = 0.75;
 export const shieldOf = (s, deck) => ((deck ? crewOf(s).some((c) => c.comp === 'shieldmaiden') : s.comp?.key === 'shieldmaiden' && s.comp.x !== undefined && !s.comp.back) ? SHIELD : 1);

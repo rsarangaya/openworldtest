@@ -39,7 +39,7 @@ import { stepHydra, shotHydra, nearHydra } from './hydra.js';
 import { stepHarpies, shotHarpy, nearHarpies, swivelHarpy } from './harpies.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine, pillarLine, statueLine } from './lore.js';
-import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf } from './sidequests.js';
+import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf, runeReader, RUNE_GIFT } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -766,8 +766,8 @@ export function readRune(s, isl) {
     const seen = (s[m.key] ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
     return { type: 'npc', npc: { name: m.name, kind: isl.name }, lines: [m.line(isl), `${fresh ? `You copy the ${m.words} into your log.` : `You have read this ${m.one} before.`} ${m.count} read: ${seen.length}.`, ...gateHint(s, isl)], panel: null };
   }
-  const seen = (s.runes ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
-  return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`, ...gateHint(s, isl)], panel: null };
+  const seen = (s.runes ||= []), fresh = !seen.includes(isl.id), rr = fresh && runeReader(s); if (fresh) { seen.push(isl.id); s.score += rr ? 40 : 20; } if (rr) s.gold += RUNE_GIFT; // a rune-reader with you reads the older runes and finds the grave-gift they speak of
+  return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`, ...(rr ? [`${rr} reads the older runes cut beneath, and finds the grave-gift they speak of at the stone's foot: ${RUNE_GIFT} gold.`] : []), ...gateHint(s, isl)], panel: null };
 }
 // a temple town's temple within reach of its steps (the island), or null
 const nearTemple = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.style === 'temple') for (const m of islandTown(i).marks) if (m.k === 'temple' && Math.abs(s.foot.x - m.x) < m.w / 2 + 2.5 && Math.abs(s.foot.z - m.z) < m.d / 2 + 2.5) return i; return null; };

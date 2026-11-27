@@ -1,9 +1,9 @@
 import { islandProps } from '../src/gen/props.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding } from '../src/rules/game.js';
+import { newGame, step, interact, readRune, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding } from '../src/rules/game.js';
 import { trackable, trackedQuest } from '../src/rules/track.js';
-import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD } from '../src/rules/sidequests.js';
+import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD, runeReader, RUNE_GIFT } from '../src/rules/sidequests.js';
 import { enterRealm } from '../src/rules/realm.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
@@ -301,4 +301,19 @@ test('the shieldmaiden: only in Asgard, a holmgang or a debt paid, the raiders, 
   const hand = two.s.crew.find((c) => c.comp === 'shieldmaiden'); assert.ok(hand, 'she did not sign on'); assert.equal(hand.role, 'gunner'); assert.ok(two.s.gold >= 300 + 100 * 2 - 80 + 170 - 1);
   assert.equal(shieldOf(two.s), 1, 'no shield ashore once she is in the crew'); assert.equal(shieldOf(two.s, true), SHIELD, 'no shield on a boarded deck'); assert.equal(shieldOf(s, true), 1);
   for (let n = 0; n < 12; n++) { const t = newGame(); t.t = n * ISSUE_LEN + 1; aShip(t); for (const isl of ports(t)) assert.ok(!sideOffersFor(t, isl).some((o) => o.q.tpl === 'shieldmaiden'), 'offered outside Asgard'); }
+});
+
+test('the rune-reader: only in Asgard, the cut stone, the barrow-robbers, and a grave-gift at every new rune stone', () => {
+  const { s, id } = offerOf('runereader', 'asgard'); s.weapon = 'sword'; s.weapons = { sword: true }; s.gold = 300;
+  assert.equal(s.comp.key, 'runereader'); assert.equal(runeReader(s), s.comp.name); assert.match(s.comp.name, /dottir$/, 'not a woman: ' + s.comp.name);
+  const stones = nearbyIslands(s, 0, 0, 4).filter((i) => i.theme === 'asgard'); assert.ok(stones.length >= 3);
+  let gold = s.gold, r = readRune(s, stones[0]); assert.equal(s.gold, gold + RUNE_GIFT, 'no grave-gift beside her'); assert.match(r.lines.join(' '), /older runes/);
+  gold = s.gold; r = readRune(s, stones[0]); assert.equal(s.gold, gold, 'a stone read twice gave twice'); assert.doesNotMatch(r.lines.join(' '), /older runes/);
+  gold = s.gold; play(s, id, 1); // parting: no reader any more
+  assert.equal(s.side.length, 0); assert.equal(s.comp, null); assert.equal(runeReader(s), null); assert.ok(s.gold >= gold + 180 - 1);
+  gold = s.gold; readRune(s, stones[1]); assert.equal(s.gold, gold, 'a grave-gift with nobody to read it');
+  const two = offerOf('runereader', 'asgard'); two.s.weapon = 'sword'; two.s.weapons = { sword: true }; play(two.s, two.id, 0); // she signs on as navigator
+  const hand = two.s.crew.find((c) => c.comp === 'runereader'); assert.ok(hand, 'she did not sign on'); assert.equal(hand.role, 'navigator'); assert.equal(runeReader(two.s), hand.name);
+  gold = two.s.gold; readRune(two.s, stones[2]); assert.equal(two.s.gold, gold + RUNE_GIFT, 'no grave-gift with her in the crew');
+  for (let n = 0; n < 12; n++) { const t = newGame(); t.t = n * ISSUE_LEN + 1; aShip(t); for (const isl of ports(t)) assert.ok(!sideOffersFor(t, isl).some((o) => o.q.tpl === 'runereader'), 'offered outside Asgard'); }
 });
