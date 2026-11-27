@@ -21,6 +21,7 @@ export const EVENTS = {
   song: { name: 'A Singer without a Song', line: 'A tavern singer sits dry-eyed over an empty case, asking for a strong arm.', hook: 'singer' },
   swords: { name: 'A Stranger with a Sword', line: 'A disgraced swordswoman has been drinking alone and asking after one man.', hook: 'swordswoman' },
   charts: { name: 'A Stranger with Charts', line: 'An old cartographer is looking for someone with young legs and a sharp blade.', hook: 'cartographer' },
+  deserter: { name: 'A Deserter in Hiding', line: 'Marines are searching the lanes for a runaway sailor. One cellar door in town has stayed bolted all week.', hook: 'deserter' },
   cutpurses: { name: 'Cutpurses Abroad', line: 'A ring of cutpurses works the lanes after dark. Keep a hand on your purse: the watch pays 30 gold for each one brought down.', night: true, thief: true }, // night only
 };
 const KEYS = Object.keys(EVENTS).filter((k) => !EVENTS[k].night);

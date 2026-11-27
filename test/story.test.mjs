@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, step, interact, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding } from '../src/rules/game.js';
 import { trackable, trackedQuest } from '../src/rules/track.js';
-import { stepOf, placeOf, sideTarget, COMPANIONS } from '../src/rules/sidequests.js';
+import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes } from '../src/rules/sidequests.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
 import { mapAvailable } from '../src/rules/map.js';
@@ -50,7 +50,7 @@ function play(s, id, pick = 0) {
 }
 
 test('every side story can be taken in some town and played to the end', () => {
-  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang', 'race'];
+  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang', 'race', 'deserter'];
   const base = newGame();
   for (let issue = 0; issue < 160 && seen.size < want.length; issue++) {
     for (const isl of ports(base)) {
@@ -261,4 +261,27 @@ test('a companion you are told to speak with waits at the spot instead of appear
   const p = placeOf(s, s.side[0]); stand(s, p.x, p.z); run(s, 1);
   const a = (s.qa || []).find((v) => v.q === id); assert.ok(a?.self, 'the story person is not marked as the companion');
   assert.deepEqual([s.comp.x, s.comp.z], [a.x, a.z]);
+});
+
+test('the navy deserter: papers, the marines, and a navigator who keeps the hunters thin', () => {
+  const { s, id } = offerOf('deserter'); s.weapon = 'sword'; s.weapons = { sword: true }; s.gold = 300;
+  assert.equal(s.comp.key, 'deserter'); assert.ok(knowsLanes(s));
+  const gold = s.gold; play(s, id, 0);
+  assert.equal(s.side.length, 0); assert.equal(s.comp, null);
+  const hand = s.crew.find((c) => c.comp === 'deserter'); assert.ok(hand, 'the deserter did not sign on'); assert.equal(hand.role, 'navigator');
+  assert.ok(s.gold >= gold - 70 + 190 - 1, 'paid the forger and got the reward');
+  assert.ok(knowsLanes(s), 'the perk is lost once they join the crew');
+  // at sea with a bad record: the same run with and without them aboard
+  const hunters = (keep) => { const t = deserialize(serialize(s)); if (!keep) t.crew = t.crew.filter((c) => c.comp !== 'deserter'); t.mode = 'ship'; t.ship.x = 0; t.ship.z = -1800; t.bountyGold = 1000; run(t, 30); return [...t.enemies.values()].filter((e) => e.hunter).length; };
+  const w = hunters(false), d = hunters(true);
+  assert.ok(w >= 2, 'no hunters came at all: ' + w); assert.ok(d >= 1 && d < w, 'hunters with the deserter ' + d + ', without ' + w);
+});
+
+test('a badly hurt companion falls back behind you, and the gang turns on you instead', () => {
+  const { s, id } = offerOf('deserter'); s.side[0].step = 'search';
+  const p = placeOf(s, s.side[0]); stand(s, p.x, p.z); run(s, 0.2);
+  const foe = s.qa.find((a) => a.q === id && a.kind === 'foe'); stand(s, foe.x + 4, foe.z); s.calm = 0; run(s, 2); // the companion arrives and the gang wakes
+  s.comp.hp = 20; const hp = s.hp; run(s, 4);
+  assert.ok(s.comp, 'the companion died anyway'); assert.ok(s.comp.back, 'the companion did not fall back');
+  assert.ok(s.comp.hp > 20, 'no breath got back'); assert.ok(s.hp < hp, 'the gang did not turn on the player');
 });

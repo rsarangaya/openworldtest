@@ -16,6 +16,7 @@ export const COMPANIONS = {
   swordswoman: { title: 'Disgraced swordswoman', kind: 'sailor', hp: 90, dmg: 9, role: 'gunner', town: ['Watch the alleys here.', 'I drank in a town like this for a year. Never again.'], fight: ['Stay on my left!', 'Mine. You take the rest.'], won: ['Not bad. Do not let it go to your head.'] },
   cartographer: { title: 'Old cartographer', kind: 'merchant', hp: 45, dmg: 3, role: 'navigator', town: ['This coast is drawn wrong on every chart I own.', 'Slow down. My knees are older than this town.'], fight: ['I draw maps, I do not do this!'], won: ['Is it over? Good. Where was I?'] },
   singer: { title: 'Tavern singer', kind: 'tavern', hp: 50, dmg: 4, role: 'sailor', town: ['I have sung in this square. They paid in turnips.', 'Hush a moment. That is a good story, I will have it.'], fight: ['Not the throat! Anywhere but the throat!'], won: ['There is a verse in that. You come off rather well.'] },
+  deserter: { title: 'Navy deserter', kind: 'sailor', hp: 70, dmg: 7, role: 'navigator', town: ['Keep your hat low. Mine, I mean.', 'That officer by the well. I served under him. Walk on.'], fight: ['Marines fight in pairs. Split them!', 'I was trained for this. Sadly.'], won: ['The navy taught me that. It is the only thing I thank them for.'] },
   brother: { title: 'The missing brother', kind: 'sailor', hp: 60, dmg: 6, role: 'sailor', town: ['Feels strange, walking a street again.'], fight: ['I know how they fight. Watch the feint.'], won: ['I used to eat with some of those men.'] },
 };
 
@@ -82,6 +83,14 @@ const T = {
       start: { kind: 'talk', at: 'b', who: c.other, goal: `Get the harp from ${c.other} at ${c.b}.`, lines: ['The harp? Fifty gold and it sings for you. Or you can try taking it.'], opts: [{ t: 'Pay the 50 gold', cost: 50, to: 'after' }, { t: 'Draw your weapon', to: 'fight' }] },
       fight: { kind: 'fight', at: 'b', n: 2, goal: 'Take the harp.', say: 'The harp is yours, one string short.', rep: -6, to: 'after' },
       after: { kind: 'talk', at: 'b', who: c.third, goal: 'Give the singer the harp.', lines: ['Oh, there you are, old girl. I owe you a song and a share of my winnings.'], opts: [{ t: 'Sing for my crew', hire: 'singer', gold: c.pay, say: '"Is there rum? Then yes."' }, { t: 'Farewell', gold: c.pay, rep: 4, say: 'You hear the tune for an hour afterwards.' }] },
+    }) },
+  deserter: { title: 'New Papers', need: 'ab', pay: 190, join: 'deserter', ask: (c) => `${c.third} ran from the navy and hides in a cellar here. ${c.other}, a forger in ${c.b}, can make new papers. The deserter will walk with you.`,
+    steps: (c) => ({
+      start: { kind: 'talk', at: 'b', who: c.other, goal: `Get new papers from ${c.other} at ${c.b}.`, lines: ['Papers for a runaway? Seventy gold, and the ink is still wet when you leave.'], opts: [{ t: 'Pay the 70 gold', cost: 70, to: 'search' }, { t: 'Draw your weapon', to: 'forger' }] },
+      forger: { kind: 'fight', at: 'b', n: 2, goal: `Take the papers from ${c.other}'s men.`, say: 'The forger signs at knife point. The hand is shaky, but it will pass.', rep: -6, to: 'search' },
+      search: { kind: 'fight', at: 'a', n: 3, goal: `A navy shore party is combing ${c.a} for the deserter. Drive them off.`, say: 'The marines run for their boat. With new papers, nobody will look twice.', world: -1, to: 'after' },
+      after: { kind: 'talk', at: 'a', who: c.third, goal: 'Speak with the deserter.', lines: ['A new name, at last. I know every patrol lane in these waters. That is worth something to a captain with a record.'],
+        opts: [{ t: 'Sail with me as navigator', hire: 'deserter', gold: c.pay, say: '"The navy will have to look twice as hard for you now."' }, { t: 'Part here', gold: c.pay, rep: 4, say: 'They press a purse on you and are gone by the next tide.' }] },
     }) },
   // a rival crew's wager (PLAN item 3): their ship against yours to another port. The clock is how long she takes; dock and find the harbour judge first.
   race: { title: 'The Race', need: 'b', ship: true, stake: RACE_STAKE, pay: 2 * RACE_STAKE + 90, ask: (c) => `Captain ${c.rival} of ${c.crew} bets ${RACE_STAKE} gold a side that ${c.rship} reaches ${c.b} before you. The harbour judge there keeps the purse.`,
@@ -162,6 +171,8 @@ function join(s, key, name, q, g) {
   if (s.comp) { g.say(s, `You already have company, so ${name} goes their own way.`); return; }
   const C = COMPANIONS[key]; s.comp = { key, name, q: q.id, seed: hash(q.seed, 77), hp: C.hp }; g.say(s, `${name} (${C.title.toLowerCase()}) walks with you.`);
 }
+// a navy deserter at your side or in your crew knows the patrol lanes: one hunter fewer (never none), and half as quick to find you
+export const knowsLanes = (s) => s.comp?.key === 'deserter' || crewOf(s).some((c) => c.comp === 'deserter');
 export const compLine = (s, when, g) => { const c = s.comp, l = c && COMPANIONS[c.key][when]; if (l) g.say(s, `${c.name}: "${l[hash(c.seed, Math.floor(s.t)) % l.length]}"`); };
 
 // take a story off the list, with its ship if it has one at sea
@@ -182,9 +193,10 @@ export function chooseSide(s, id, i, g) {
   const q = sideOf(s).find((v) => v.id === id); if (!q) return false;
   const st = stepOf(s, q), o = st.opts?.[i]; if (!o) return false;
   if (o.cost) { if (s.gold < o.cost) { g.say(s, `You do not have ${o.cost} gold.`); return false; } s.gold -= o.cost; }
-  if (o.say) g.say(s, o.say);
+  const berth = !!s.ship && aboard(s).length < capacity(s);
+  if (o.say && (!o.hire || berth)) g.say(s, o.say); // the yes-line only when there is a berth for them
   if (o.join) join(s, o.join, ctxOf(s, q).third, q, g);
-  if (o.hire) { const C = COMPANIONS[o.hire]; if (s.ship && aboard(s).length < capacity(s)) { crewOf(s).push({ id: 'comp-' + q.id, name: s.comp?.name || C.title, role: C.role, wage: ROLES[C.role].wage, morale: 90, seed: s.comp?.seed || q.seed }); g.say(s, `A new ${C.role} joins your crew.`); } else g.say(s, 'There is no berth free, so you part for now.'); }
+  if (o.hire) { const C = COMPANIONS[o.hire]; if (berth) { crewOf(s).push({ id: 'comp-' + q.id, comp: o.hire, name: s.comp?.name || C.title, role: C.role, wage: ROLES[C.role].wage, morale: 90, seed: s.comp?.seed || q.seed }); g.say(s, `A new ${C.role} joins your crew.`); } else g.say(s, 'There is no berth free, so you part for now.'); }
   advance(s, q, o, o.to, g); return true;
 }
 export function abandonSide(s, id, g) {
@@ -254,7 +266,10 @@ function stepComp(s, dt, g, foes) {
   c.cd = Math.max(0, (c.cd || 0) - dt);
   let tg = null, td = 12;
   for (const a of [...foes.filter((q) => q.awake), ...s.foes]) { const d = Math.hypot(a.x - c.x, a.z - c.z); if (d < td) { td = d; tg = a; } }
-  if (tg) { c.face = Math.atan2(tg.z - c.z, tg.x - c.x); if (td > 1.8) g.walk(s, c, tg.x, tg.z, 4 * dt); else if (c.cd <= 0) { c.cd = 1.3; c.atk = s.t; if (tg.kind === 'foe') hitFoe(s, tg, C.dmg, g); else { const n = s.npcs[tg.id]; if (n) { n.hp -= C.dmg; n.hit = s.t; if (n.hp <= 0) { n.dead = true; n.t = s.t; n.x = tg.x; n.z = tg.z; n.y = tg.y; n.kind = tg.kind; n.seed = tg.seed; } } } } }
+  const low = c.hp < C.hp * (c.back ? 0.7 : 0.35); // back out at a third, back in at two thirds
+  if (low !== !!c.back) { c.back = low; if (low) g.say(s, `${c.name} falls back behind you, bleeding.`); }
+  if (low && tg) { const d = Math.hypot(f.x - tg.x, f.z - tg.z) || 1, bx = f.x + ((f.x - tg.x) / d) * 3.5, bz = f.z + ((f.z - tg.z) / d) * 3.5; if (Math.hypot(bx - c.x, bz - c.z) > 0.8) g.walk(s, c, bx, bz, 5 * dt); tg = null; } // too hurt to fight: keep you between them and the foe (and get some breath back below)
+  else if (tg) { c.face =Math.atan2(tg.z - c.z, tg.x - c.x); if (td > 1.8) g.walk(s, c, tg.x, tg.z, 4 * dt); else if (c.cd <= 0) { c.cd = 1.3; c.atk = s.t; if (tg.kind === 'foe') hitFoe(s, tg, C.dmg, g); else { const n = s.npcs[tg.id]; if (n) { n.hp -= C.dmg; n.hit = s.t; if (n.hp <= 0) { n.dead = true; n.t = s.t; n.x = tg.x; n.z = tg.z; n.y = tg.y; n.kind = tg.kind; n.seed = tg.seed; } } } } }
   else if (Math.hypot(f.x - c.x, f.z - c.z) > 2.8) { g.walk(s, c, f.x, f.z, 5 * dt); c.face = Math.atan2(f.z - c.z, f.x - c.x); }
   if (c.hp <= 0) { g.say(s, `${c.name} falls and does not get up.`); const q = sideOf(s).find((v) => v.id === c.q && T[v.tpl].join); s.comp = null; if (q) abandonSide(s, q.id, g); return; }
   if (!tg && c.hp < C.hp) c.hp = Math.min(C.hp, c.hp + 2 * dt);

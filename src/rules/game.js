@@ -39,7 +39,7 @@ import { stepHydra, shotHydra, nearHydra } from './hydra.js';
 import { stepHarpies, shotHarpy, nearHarpies, swivelHarpy } from './harpies.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine, pillarLine, statueLine } from './lore.js';
-import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
+import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -516,10 +516,10 @@ const foeNear = (s, r) => !!s.serpent || !!s.kraken?.grip || !!s.cyclops?.awake 
 export const HUNT_AT = 300, HUNT_RANGE = 650;
 export const hunterCount = (s) => ((s.bountyGold || 0) >= HUNT_AT ? Math.min(4, 1 + Math.floor((s.bountyGold - HUNT_AT) / 300)) : 0);
 function manageHunters(s) {
-  const p = s.ship, want = hunterCount(s); let n = 0;
+  const p = s.ship, h = hunterCount(s), lanes = knowsLanes(s), want = lanes && h > 1 ? h - 1 : h; let n = 0;
   for (const [id, e] of s.enemies) if (e.hunter) { if (!want || Math.hypot(e.x - p.x, e.z - p.z) > 1500) s.enemies.delete(id); else n++; }
   if (n >= want || s.t < (s.hunterT || 0) || Math.hypot(p.x, p.z) > WALL_R - 400) return;
-  s.hunterT = s.t + 25; s.hunterN = (s.hunterN || 0) + 1; const r = rngFor(s.seed, 6000 + s.hunterN);
+  s.hunterT = s.t + (lanes ? 50 : 25); s.hunterN = (s.hunterN || 0) + 1; const r = rngFor(s.seed, 6000 + s.hunterN);
   for (let k = 0; k < 14; k++) { const a = r() * TAU, d = 300 + r() * 120, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (hitIsland(s, x, z) || Math.hypot(x, z) > WALL_R - 150) continue; const sr = rngFor(s.seed, 6500 + s.hunterN);
     s.enemies.set('n' + s.hunterN, { id: 'n' + s.hunterN, seed: hash(s.seed, 6600 + s.hunterN), kind: 'navy', hunter: true, x, z, yaw: a + Math.PI, name: shipName(sr, realmOf(s)), captain: captainName(sr, realmOf(s)), gen: false, speed: 0, hp: KINDS.navy.hp, maxHp: KINDS.navy.hp, cd: [1, 1] }); if (!n) say(s, 'Navy sails on the horizon: they are hunting you.'); return; }
 }
