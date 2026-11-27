@@ -25,6 +25,7 @@ export const EVENTS = {
   shield: { name: 'A Shield without a Wall', line: 'A shieldmaiden sits by the mead-hall fire with an empty arm. Raiders burned her jarl\'s hall, and her shield was taken for a debt.', hook: 'shieldmaiden', world: 'asgard' }, // Asgard only
   seer: { name: 'A Reader of Runes', line: 'An old rune-reader sits by the mead-hall door, scratching marks on a bone. She says a stone on a nearby island has been made to lie.', hook: 'runereader', world: 'asgard' }, // Asgard only
   urchin: { name: 'Quick Hands in the Market', line: 'Purses keep going missing in the market. The stallholders blame a ragged kid, and the kid blames a fence in another port.', hook: 'urchin' },
+  runaway: { name: 'A Runaway in Silk', line: 'A young stranger in very good boots is sleeping in the hayloft. Men in a noble house\'s colours were asking after them in the next port.', hook: 'noble' },
   cutpurses: { name: 'Cutpurses Abroad', line: 'A ring of cutpurses works the lanes after dark. Keep a hand on your purse: the watch pays 30 gold for each one brought down.', night: true, thief: true }, // night only
 };
 const keysOf = (w) => Object.keys(EVENTS).filter((k) => !EVENTS[k].night && (!EVENTS[k].world || EVENTS[k].world === w)), KEYS = {};

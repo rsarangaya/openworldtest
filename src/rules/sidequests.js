@@ -20,6 +20,7 @@ export const COMPANIONS = {
   shieldmaiden: { title: 'Shieldmaiden', kind: 'sailor', hp: 100, dmg: 8, role: 'gunner', town: ['Mead first, then the next fight. That is the order of things.', 'I will know the men who burned the hall. I will know them by their boots.'], fight: ['Behind my shield!', 'Close up! Shields!'], won: ['The skalds will want that one. Tell it well.'] },
   runereader: { title: 'Rune-reader', kind: 'merchant', hp: 55, dmg: 4, role: 'navigator', town: ['The stones here are young. Two hundred winters, no more.', 'Do not step on that shadow. Humour an old woman.'], fight: ['The stones did not warn me of you!', 'Fire and iron, child. Fire and iron!'], won: ['It is written now. Somewhere, it is always written.'] },
   urchin: { title: 'Pickpocket kid', kind: 'child', small: true, hp: 40, dmg: 3, role: 'sailor', town: ['That one. Fat purse, slow feet. Only looking!', 'I know every alley here. And every dog.'], fight: ['I bite, you know! I bite!', 'Kick him in the shins!'], won: ['Did you see me? Did you see?'] },
+  noble: { title: 'Runaway noble', kind: 'merchant', hp: 60, dmg: 6, role: 'gunner', town: ['Nobody here knows my face. It is wonderful.', 'Is this what bread costs? Truly?'], fight: ['I had a fencing master! He would be appalled!', 'For the house! ...No. For me!'], won: ['Father would faint. I could get used to this.'] },
   brother: { title: 'The missing brother', kind: 'sailor', hp: 60, dmg: 6, role: 'sailor', town: ['Feels strange, walking a street again.'], fight: ['I know how they fight. Watch the feint.'], won: ['I used to eat with some of those men.'] },
 };
 
@@ -117,6 +118,13 @@ const T = {
       after: { kind: 'talk', at: 'b', who: c.third, goal: 'Speak with the kid.', lines: ['I lifted his strongbox while you were talking. Half is yours, fair is fair. ...I could be useful on a ship. I can climb anything.'],
         opts: [{ t: "Sign on as ship's boy", hire: 'urchin', gold: c.pay, say: '"Nobody will touch your purse while I am about. Nobody but me. Joking!"' }, { t: 'Find them an honest master', gold: c.pay, rep: 6, say: 'A sailmaker takes the kid on. You hear later they are the fastest hand on the quay.' }] },
     }) },
+  noble: { title: 'The Runaway Heir', need: 'b', pay: 200, join: 'noble', ask: (c) => `${c.third}, the heir of a noble house, ran from a marriage arranged for them. The house steward, ${c.other}, waits in ${c.b} with hired swords. The heir will walk with you.`,
+    steps: (c) => ({
+      start: { kind: 'talk', at: 'b', who: c.other, goal: `Face ${c.other}, the house steward in ${c.b}.`, lines: ['The heir comes home, or I go home without my post. Ninety gold and I tell the house the trail went cold. Otherwise my men will take them.'], opts: [{ t: 'Pay the 90 gold', cost: 90, to: 'after' }, { t: 'Draw your weapon', to: 'swords' }] },
+      swords: { kind: 'fight', at: 'b', n: 3, goal: `Drive off the steward's hired swords in ${c.b}.`, say: 'The hired swords decide the pay was not enough. The steward leaves on the next boat.', rep: -2, to: 'after' },
+      after: { kind: 'talk', at: 'b', who: c.third, goal: 'Speak with the heir.', lines: ['That is the end of it. Here: what is left of my allowance. I can shoot, you know. Father paid for that much.'],
+        opts: [{ t: 'Sail with me', hire: 'noble', gold: c.pay, say: '"If a magistrate ever troubles you, let me do the talking. They all knew my father."' }, { t: 'Go home on your own terms', gold: c.pay, rep: 6, say: 'The heir sails home to tell the house no in person. A letter of thanks follows you from port to port.' }] },
+    }) },
   // a rival crew's wager (PLAN item 3): their ship against yours to another port. The clock is how long she takes; dock and find the harbour judge first.
   race: { title: 'The Race', need: 'b', ship: true, stake: RACE_STAKE, pay: 2 * RACE_STAKE + 90, ask: (c) => `Captain ${c.rival} of ${c.crew} bets ${RACE_STAKE} gold a side that ${c.rship} reaches ${c.b} before you. The harbour judge there keeps the purse.`,
     steps: (c) => ({
@@ -203,6 +211,9 @@ export const RUNE_GIFT = 30;
 export const runeReader = (s) => (s.comp?.key === 'runereader' ? s.comp.name : crewOf(s).find((c) => c.comp === 'runereader')?.name) || null;
 // a pickpocket kid at your side ashore or in your crew spots a cutpurse before the bump: their name, or null
 export const quickHands = (s) => (s.comp?.key === 'urchin' ? s.comp.name : crewOf(s).find((c) => c.comp === 'urchin')?.name) || null;
+// a runaway noble at your side or in your crew speaks to the magistrate when you are arrested: the fines are halved. Their name, or null
+export const NOBLE_FINE = 0.5;
+export const nobleWord = (s) => (s.comp?.key === 'noble' ? s.comp.name : crewOf(s).find((c) => c.comp === 'noble')?.name) || null;
 // a shieldmaiden at your side ashore (not while she falls back), or in your crew when you board, takes a quarter off every blow aimed at you
 export const SHIELD = 0.75;
 export const shieldOf = (s, deck) => ((deck ? crewOf(s).some((c) => c.comp === 'shieldmaiden') : s.comp?.key === 'shieldmaiden' && s.comp.x !== undefined && !s.comp.back) ? SHIELD : 1);
@@ -282,7 +293,7 @@ export function stepSide(s, dt, g) {
   if (!s.qa || Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) placeActors(s, g, g.islandsAt(s, f.x, f.z));
   const foes = actors(s).filter((a) => a.kind === 'foe');
   for (const a of foes) {
-    const tc = c && c.x !== undefined && Math.hypot(c.x - a.x, c.z - a.z) < Math.hypot(f.x - a.x, f.z - a.z), tx = tc ? c.x : f.x, tz = tc ? c.z : f.z, d = Math.hypot(tx - a.x, tz - a.z);
+    const tc = c && c.x !== undefined && !c.back && Math.hypot(c.x - a.x, c.z - a.z) < Math.hypot(f.x - a.x, f.z - a.z), tx = tc ? c.x : f.x, tz = tc ? c.z : f.z, d = Math.hypot(tx - a.x, tz - a.z);
     a.face = Math.atan2(tz - a.z, tx - a.x); a.cd = Math.max(0, a.cd - dt);
     if (s.jailUntil > s.t || (!a.awake && (s.calm > s.t || Math.hypot(f.x - a.x, f.z - a.z) > 14))) continue;
     if (!a.awake) { for (const b of foes) if (b.q === a.q) b.awake = true; compLine(s, 'fight', g); }

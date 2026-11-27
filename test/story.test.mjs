@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, step, interact, readRune, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding, startThief } from '../src/rules/game.js';
 import { trackable, trackedQuest } from '../src/rules/track.js';
-import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD, runeReader, RUNE_GIFT, quickHands } from '../src/rules/sidequests.js';
+import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD, runeReader, RUNE_GIFT, quickHands, nobleWord, NOBLE_FINE } from '../src/rules/sidequests.js';
 import { enterRealm } from '../src/rules/realm.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
@@ -51,7 +51,7 @@ function play(s, id, pick = 0) {
 }
 
 test('every side story can be taken in some town and played to the end', () => {
-  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang', 'race', 'deserter', 'urchin'];
+  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang', 'race', 'deserter', 'urchin', 'noble'];
   const base = newGame();
   for (let issue = 0; issue < 160 && seen.size < want.length; issue++) {
     for (const isl of ports(base)) {
@@ -331,4 +331,24 @@ test('the pickpocket kid: bought free or the gang broken, then no cutpurse gets 
   two.s.gold = 300; play(two.s, two.id, 0); // pay the fence, sign the kid on
   const hand = two.s.crew.find((c) => c.comp === 'urchin'); assert.ok(hand, 'the kid did not sign on'); assert.equal(hand.role, 'sailor'); assert.equal(quickHands(two.s), hand.name);
   assert.equal(thiefTry(two.s), 300, 'a purse lifted with the kid in the crew');
+});
+
+test('the runaway heir: the steward paid or his swords driven off, then fines are halved while the heir is with you', () => {
+  const fined = (s) => { // commit a crime in a town with a guard station and wait for the arrest: the fine paid, the bounty owed, what was said
+    const town = ports(s).find((i) => stationOf(i)?.jail), pl = islandTown(town).plaza; stand(s, pl.x + 5, pl.z); s.gold = 1000; s.hp = s.maxHp; crime(s, town, 100, true);
+    const owed = s.bountyGold; let got = false; s.events.length = 0;
+    for (let i = 0; i < 60 * 100 && !got; i++) { step(s, idle); got = s.events.some((e) => e.type === 'arrest'); s.events.length = 0; }
+    assert.ok(got, 'never arrested'); assert.equal(s.bountyGold, 0, 'the bounty was not cleared'); return { paid: 1000 - s.gold, owed, msg: s.log.find((m) => /arrested/.test(m)) || '' };
+  };
+  const base = fined(newGame()); assert.ok(base.paid > 0 && Math.abs(base.paid - base.owed) <= 1, 'no full fine without the heir'); assert.doesNotMatch(base.msg, /magistrate/);
+  const { s, id } = offerOf('noble'); s.weapon = 'sword'; s.weapons = { sword: true };
+  assert.equal(s.comp.key, 'noble'); assert.equal(nobleWord(s), s.comp.name); assert.equal(stepOf(s, s.side[0]).kind, 'talk');
+  const gold = s.gold; play(s, id, 1); // fight the hired swords, then send the heir home
+  assert.equal(s.side.length, 0); assert.equal(s.comp, null); assert.equal(nobleWord(s), null); assert.ok(s.gold >= gold + 200 - 1, 'no allowance');
+  const two = offerOf('noble'); two.s.weapon = 'sword'; two.s.weapons = { sword: true };
+  const walk = fined(two.s); assert.ok(Math.abs(walk.paid - Math.ceil(walk.owed * NOBLE_FINE)) <= 1, 'fines not halved with the heir beside you: ' + walk.paid + ' of ' + walk.owed);
+  assert.match(walk.msg, new RegExp(two.s.comp.name + ' had a word with the magistrate'));
+  two.s.gold = 300; play(two.s, two.id, 0); // pay the steward, sign the heir on
+  const hand = two.s.crew.find((c) => c.comp === 'noble'); assert.ok(hand, 'the heir did not sign on'); assert.equal(hand.role, 'gunner'); assert.equal(nobleWord(two.s), hand.name);
+  const crew = fined(two.s); assert.ok(Math.abs(crew.paid - Math.ceil(crew.owed * NOBLE_FINE)) <= 1, 'fines not halved with the heir in the crew');
 });

@@ -39,7 +39,7 @@ import { stepHydra, shotHydra, nearHydra } from './hydra.js';
 import { stepHarpies, shotHarpy, nearHarpies, swivelHarpy } from './harpies.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine, pillarLine, statueLine } from './lore.js';
-import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf, runeReader, RUNE_GIFT, quickHands } from './sidequests.js';
+import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf, runeReader, RUNE_GIFT, quickHands, nobleWord, NOBLE_FINE } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -163,14 +163,14 @@ function placeAtPlaza(s, isl) {
   if (sp) s.foot = { x: sp.x, z: sp.z, y: groundAt(s, sp.x, sp.z), yaw: Math.atan2(pl.z - sp.z, pl.x - sp.x), vy: 0 };
   return false;
 }
-export function payBounty(s, port = null) { // port: a smugglers' cove's fence clears it for less (guards and fines take it in full)
-  const mul = bountyMul(port), pay = Math.min(Math.floor(s.gold), Math.ceil((s.bountyGold || 0) * mul)); if (pay <= 0) return 0;
+export function payBounty(s, port = null, mul = bountyMul(port)) { // port: a smugglers' cove's fence clears it for less (guards and fines take it in full)
+  const pay = Math.min(Math.floor(s.gold), Math.ceil((s.bountyGold || 0) * mul)); if (pay <= 0) return 0;
   s.gold -= pay; s.bountyGold = Math.max(0, s.bountyGold - pay / mul); if (s.bountyGold <= 0) { s.bountyGold = 0; s.bounty = 0; s.alert = {}; s.guards = []; } return pay;
 }
 function arrest(s, isl) {
-  freePrisoner(s, 'The prisoner slips away while you are locked up.'); let jailed = false; const pay = payBounty(s); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false;
+  freePrisoner(s, 'The prisoner slips away while you are locked up.'); let jailed = false; const nb = nobleWord(s), pay = payBounty(s, null, nb ? NOBLE_FINE : 1); s.hp = s.maxHp; s.guards = []; s.alert = {}; s.alerted = false; // a noble at your side or in your crew talks the fines down
   if (isl) { addLocalRep(s, isl.id, Math.max(0, -10 - localRep(s, isl.id)) ); jailed = placeAtPlaza(s, isl); }
-  s.foot.vy = 0; s.events.push({ type: 'arrest', yaw: s.foot.yaw }); say(s, `You were beaten and arrested and thrown in ${jailed ? 'the cell at the guard station' : 'the street'}. You paid ${pay} gold in fines${s.bountyGold > 0 ? `, and still owe ${s.bountyGold}` : ''}.`);
+  s.foot.vy = 0; s.events.push({ type: 'arrest', yaw: s.foot.yaw }); say(s, `You were beaten and arrested and thrown in ${jailed ? 'the cell at the guard station' : 'the street'}. You paid ${pay} gold in fines${nb && pay > 0 ? ` (half: ${nb} had a word with the magistrate)` : ''}${s.bountyGold > 0 ? `, and still owe ${s.bountyGold}` : ''}.`);
 }
 function stepGuards(s, dt) {
   s.hp = Math.min(s.maxHp, s.hp + (s.t - s.hurtT > 6 ? 2 * dt : 0));
