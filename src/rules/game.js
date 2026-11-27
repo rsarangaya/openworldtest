@@ -28,6 +28,7 @@ import { townsfolk, folkPos } from '../gen/world.js';
 import { eventFor } from './events.js';
 import { stepSerpent, shotSerpent, nearLair } from './serpent.js';
 import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
+import { runeLine } from './lore.js';
 import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
 
 export const DT = 1 / 60;
@@ -77,7 +78,7 @@ export const groundAt = (s, x, z) => { if (s.deck && onDeck(s, x, z)) return DEC
 export const camBlocked = (s, x, y, z) => { for (const i of islandsAt(s, x, z)) { if (y < islandHeight(i, x, z) + 1.2) return true; for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1 && y < b.pad + b.h + 4) return true; } return false; };
 const PAD = 0.5; // body radius against walls
 // solid circles for everything that stands on an island: tree trunks, rocks, the well, stalls, lamps, barrels, counters, shelves (cached per island)
-const SOLID = { rack: [[-1, 0, 0.35], [0, 0, 0.35], [1, 0, 0.35]], anvil: [[0, 0, 0.6]], forge: [[0, 0, 0.8]], desk: [[-0.7, 0, 0.45], [0.7, 0, 0.45]], bunk: [[-0.5, 0, 0.5], [0.5, 0, 0.5]], board: [[-1.7, 0, 0.4], [-0.85, 0, 0.4], [0, 0, 0.4], [0.85, 0, 0.4], [1.7, 0, 0.4]], tree: [[0, 0, 0.55]], rock: [[0, 0, 0.7]], bush: [[0, 0, 0.6]], well: [[0, 0, 1.6]], lamp: [[0, 0, 0.35]], sign: [[0, 0, 0.3]], barrel: [[0, 0, 0.6]], crate: [[0, 0, 0.6]], bench: [[-0.6, 0, 0.55], [0.6, 0, 0.55]],
+const SOLID = { rack: [[-1, 0, 0.35], [0, 0, 0.35], [1, 0, 0.35]], anvil: [[0, 0, 0.6]], forge: [[0, 0, 0.8]], desk: [[-0.7, 0, 0.45], [0.7, 0, 0.45]], bunk: [[-0.5, 0, 0.5], [0.5, 0, 0.5]], board: [[-1.7, 0, 0.4], [-0.85, 0, 0.4], [0, 0, 0.4], [0.85, 0, 0.4], [1.7, 0, 0.4]], tree: [[0, 0, 0.55]], rock: [[0, 0, 0.7]], bush: [[0, 0, 0.6]], well: [[0, 0, 1.6]], lamp: [[0, 0, 0.35]], sign: [[0, 0, 0.3]], barrel: [[0, 0, 0.6]], crate: [[0, 0, 0.6]], bench: [[-0.6, 0, 0.55], [0.6, 0, 0.55]], rune: [[0, 0, 0.6]],
   stall: [[-1.3, 0, 0.9], [0, 0, 0.9], [1.3, 0, 0.9]], counter: [[-1.1, 0, 0.7], [0, 0, 0.7], [1.1, 0, 0.7]], shelf: [[-2.4, 0, 0.7], [-0.8, 0, 0.7], [0.8, 0, 0.7], [2.4, 0, 0.7]] };
 const solidCache = new Map();
 const solidsOf = (isl) => { let c = solidCache.get(isl.seed); if (!c) { c = []; for (const p of islandProps(isl)) for (const o of SOLID[p.k] || []) c.push([p.x + o[0], p.z + o[1], o[2]]); solidCache.set(isl.seed, c); if (solidCache.size > 80) solidCache.delete(solidCache.keys().next().value); } return c; };
@@ -710,6 +711,13 @@ const nearNpc = (s) => {
 };
 // the town notice board: the island whose board you are standing at
 const nearBoard = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.port) for (const p of islandProps(i)) if (p.k === 'board' && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 4.6) return i; return null; };
+// an Asgard rune stone within reach (its island), or null
+const nearRune = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.theme === 'asgard') for (const p of islandProps(i)) if (p.k === 'rune' && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 3.2) return i; return null; };
+// read a rune stone: its line of lore; the first read of each stone counts (s.runes, saved) and adds a little to your score
+export function readRune(s, isl) {
+  const seen = (s.runes ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
+  return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`], panel: null };
+}
 const nearTreasure = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.treasure && !s.found.has(i.id) && Math.hypot(i.treasure.x - s.foot.x, i.treasure.z - s.foot.z) < 5) return i; return null; };
 export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
 
@@ -722,6 +730,7 @@ export function prompt(s) {
   const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.kind})`;
   for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
+  if (nearRune(s)) return 'F  Read the rune stone';
   if (nearTreasure(s)) return 'F  Dig';
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) return 'F  Board your ship';
   return null;
@@ -739,6 +748,7 @@ export function interact(s) {
   const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; }
   if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; const dl = dialog(s, n), tip = learn(s, n, isl); if (tip) dl.lines = [...dl.lines, tip]; return { type: 'npc', npc: n, island: isl, ...dl }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
+  const rn = nearRune(s); if (rn) return readRune(s, rn);
   const t = nearTreasure(s);
   if (t) { s.found.add(t.id); s.gold += t.treasure.gold; s.score += t.treasure.gold; say(s, `Buried treasure! ${t.treasure.gold} gold.`); s.events.push({ type: 'coin' }); return { type: 'dig' }; }
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) { s.mode = 'ship'; s.ship.speed = 0; s.ship.trim = bestTrim(s.ship.yaw, s.wind, 0); say(s, 'Aboard! W lets the sail out; Z and C swing the boom.'); return { type: 'board' }; }

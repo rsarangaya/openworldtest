@@ -47,3 +47,20 @@ export function asgardLine(s, a = 0, b = 0) {
   return pool[(hash(a >>> 0, (b | 0) + 5, 33) >>> 0) % pool.length];
 }
 export const LORE_COUNT = LINES.reduce((n, l) => n + l.length, 0);
+// Asgard's rune stones: one carved stone on each Asgard island, read with F. Each tells a piece of the north's own story (the same pool on every Asgard world).
+const RUNES = [
+  'Here lies no man. Here stands a stone for those the sea kept. Their ships still row below, and they do not rest.',
+  'Ulf raised this stone for his brother, who sailed south to the great ice and came back with eyes that would not close.',
+  'The sky fire burns green when the old ones feast. Keep your fires low on those nights, or they will come to share it.',
+  'Under the waves the Serpent sleeps with its tail in its mouth. Every storm is one breath. Do not count them.',
+  'We built the ice so the warm folk would not find us before they were ready. Some among us wanted it never broken.',
+  'Hall of shields, hall of mead, its roof a thousand round boards of gold. Bring a song and a scar, and the door will open.',
+  'Fire is the friend of the living. The drowned fear only flame; iron sinks in them like a stone in a bog.',
+  'Thorgrim carved this. He sailed to the edge of the world and saw a city of glass under the water. Nobody believed him.',
+  'An oath sworn on this stone binds the sworn and the son of the sworn. Break it and the ravens will tell.',
+  'The wolf is bound with a cord made of things that are not: a cat\'s footfall, a mountain\'s root. One day the cord will fail.',
+  'Count the stones of the north. Where the last one stands, the old ones say, the cold sea has a crack of its own.',
+  'Two ravens fly at dawn over every island and come home at dusk. What they saw, the old one knows.',
+];
+export const runeLine = (isl) => RUNES[(hash(isl.seed >>> 0, 7, 41) >>> 0) % RUNES.length];
+export const RUNE_COUNT = RUNES.length;

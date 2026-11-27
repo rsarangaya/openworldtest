@@ -248,7 +248,7 @@ function render(t) {
   const grey = wx && wx.fog > 0.5 ? [0.7, 0.74, 0.78] : [0.42, 0.47, 0.55], dull = (c) => c.map((v, i) => lerp(v, grey[i] * (wx && wx.storm > 0.5 ? 0.82 : 1), over * 0.8)), shade = (c) => c.map((v) => v * (1 - 0.32 * over));
   renderer.draw({
     cam: { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch, fov: 1.05 }, t, far, extent: R * SECTOR * 1.3 + 200, objects, bb: BB, calm: calmZ,
-    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96])), deep: shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27])), shal: shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72])) },
+    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96])), deep: shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27])), shal: shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72])), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
   });
 }
 // pixel-art look: the world is drawn at a small internal height (opts.pixels, default 270) and the browser scales it up with hard edges

@@ -45,6 +45,7 @@ export function createSprites(R) {
       case 'anvil': return get('an', A.ANVIL_BOX, 12, (g) => A.paintAnvil(g));
       case 'forge': return get('fg', A.FORGE_BOX, 12, (g) => A.paintForge(g));
       case 'shelf': return get(`sh${p.kind}`, A.SHELF_BOX, 12, (g) => A.paintShelf(g, p.kind));
+      case 'rune': return get('ru', A.RUNE_BOX, 12, (g) => A.paintRune(g));
       case 'xmark': return get('x', A.XMARK_BOX, 12, (g) => A.paintXMark(g));
     }
     return null;

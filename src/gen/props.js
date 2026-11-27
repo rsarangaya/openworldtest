@@ -3,7 +3,13 @@
 import { rngFor, range } from './rng.js';
 import { islandHeight, islandTown, dockDist, pathDist, bindProps, TAU } from './world.js';
 
+// cached per island (the F prompt and collision ask every frame); the newest 80 islands are kept
+const cache = new Map();
 export function islandProps(isl) {
+  let c = cache.get(isl.seed); if (c) return c;
+  c = build(isl); cache.set(isl.seed, c); if (cache.size > 80) cache.delete(cache.keys().next().value); return c;
+}
+function build(isl) {
   const out = [], town = islandTown(isl), pl = town.plaza, r = rngFor(isl.seed, 3), placed = [];
   const free = (x, z, pad) => !(town.marks || []).some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad) && !town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad + 1.5)
     && !(pl && Math.hypot(pl.x - x, pl.z - z) < 9 + pad) && dockDist(isl, x, z) > 4 && pathDist(isl, x, z) > 2.2;
@@ -17,6 +23,15 @@ export function islandProps(isl) {
       out.push({ k, x, z, v });
     }
   };
+  if (isl.theme === 'asgard') { // one carved rune stone per island, on fairly level open ground (its own random stream: the rest of the island is unchanged)
+    const q = rngFor(isl.seed, 41);
+    for (let k = 0; k < 60; k++) { // small steep islands: later tries accept lower, steeper ground (still walkable)
+      const a = q() * TAU, d = range(q, k < 20 ? 0.25 : 0.12, k < 30 ? 0.7 : 0.88) * isl.r, x = isl.x + Math.cos(a) * d, z = isl.z + Math.sin(a) * d, y = islandHeight(isl, x, z);
+      if (y < (k < 30 ? 1.3 : 0.9) || y > isl.h * 0.7 || !free(x, z, 3)) continue;
+      if (Math.max(...[[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]].map(([u, w]) => Math.abs(islandHeight(isl, x + u, z + w) - y))) > (k < 30 ? 1.1 : 1.7)) continue;
+      out.push({ k: 'rune', x, z, v: 0 }); placed.push({ x, z }); break;
+    }
+  }
   const green = isl.biome === 'tropical' || isl.biome === 'temperate' || isl.biome === 'frozen';
   if (green) scatter(8 + Math.round(isl.r * 0.45), 0.3, 0.85, 'tree', 3, 0.6);
   if (green) scatter(Math.round(isl.r * 0.4), 0.25, 0.85, 'bush', 2.5);

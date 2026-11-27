@@ -24,6 +24,8 @@ fn skyCol(rd:vec3f)->vec3f{
   var c=mix(g.fogC.rgb,mix(vec3f(.25,.5,.9),vec3f(.3,.42,.62),g.fwd.w),pow(h,.5));
   let sd=max(dot(rd,normalize(g.sun.xyz)),0.);
   c+=vec3f(1.,.85,.6)*(pow(sd,600.)*3.+pow(sd,12.)*.25);
+  if(g.shalC.w>0.&&rd.y>.08){let q=rd.xz/(rd.y+.35);let w=q.y*.7+.5*sin(q.x*.55)+.22*sin(q.x*1.6+1.);let b=abs(fract(w*.45)-.5);let m=step(.45,vn(q*.35+vec2f(3.,1.)))*step(rd.y,.7);
+    c=mix(c,mix(vec3f(.62,.4,.85),vec3f(.3,.95,.62),step(b,.06)),step(b,.1)*m*g.shalC.w);}
   if(rd.y>.01){let q=rd.xz/(rd.y+.2)*1.3+vec2f(0.,0.);let n=.6*vn(q*1.6)+.4*vn(q*3.3);let cl=step(.58,n)*step(.03,rd.y);
     c=mix(c,vec3f(1.,.98,.95)*(.78+.22*sd)*mix(1.,.72,g.fwd.w),cl*.9);}
   let o=g.deepC.w;c=mix(c,g.fogC.rgb*(.88+.24*vn(rd.xz/(abs(rd.y)+.25)*2.)),clamp(o*.95,0.,.97));
@@ -172,7 +174,7 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
     const ux = -fy * 0 + (0 * fz - sz * fy), uy = sz * fx - sx * fz, uz = sx * fy - 0 * fx; // up = right x forward
     const vp = mul(perspective(c.fov, W / H, 0.1, f.far), lookAt(c.x, c.y, c.z, c.x + fx, c.y + fy, c.z + fz));
     G.set(vp, 0);
-    G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, 0.45, 0.8, 0.3, (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, 0], 16);
+    G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, 0.45, 0.8, 0.3, (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, f.pal.aurora || 0], 16);
     for (let i = 0; i < 8; i++) { const z = f.calm?.[i]; G.set(z ? [z[0], z[1], z[2], 0] : [0, 0, 0, 0], 48 + i * 4); }
     Q.writeBuffer(gBuf, 0, G, 0, 80);
     const ext = f.extent, cell = 1.5, // the water grid follows the camera in small steps (its cells under the ship are a couple of units)

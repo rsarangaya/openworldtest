@@ -164,6 +164,14 @@ export function paintShopBack(g, b, biome) {
   fillPath(g, ell(hw * 0.5, -h * 0.55, 0.28, 0.28), '#ffe58a'); fillPath(g, ell(hw * 0.5, -h * 0.55, 0.75, 0.75), 'rgba(255,230,140,0.18)'); // hanging lamp glow
 }
 // the town notice board: two posts, a little roof, and pinned notes
+export const RUNE_BOX = { x0: -1.1, x1: 1.1, y0: -3.1, y1: 0.3 };
+export function paintRune(g) { // an Asgard rune stone: a tall grey slab with a rounded top, a red serpent band carved round its face and angular runes inside
+  cel(g, poly(-0.85, 0, -0.95, -1.6, -0.75, -2.55, -0.25, -2.95, 0.35, -2.9, 0.8, -2.45, 0.9, -1.5, 0.8, 0), [0.6, 0.62, 0.66], { lw: 0.1 });
+  g.beginPath(); g.moveTo(-0.55, -0.35); g.lineTo(-0.65, -1.6); g.quadraticCurveTo(-0.55, -2.55, 0.05, -2.6); g.quadraticCurveTo(0.6, -2.45, 0.6, -1.5); g.lineTo(0.5, -0.35); g.lineWidth = 0.13; g.strokeStyle = '#b8342a'; g.stroke();
+  fillPath(g, ell(-0.55, -0.32, 0.12, 0.09), '#b8342a');
+  for (const [x, y] of [[-0.25, -2.1], [0.15, -2.05], [-0.3, -1.5], [0.1, -1.45], [-0.25, -0.9], [0.15, -0.85]]) { line(g, x, y, x, y + 0.38, 0.06, '#2a2c36'); line(g, x, y + 0.08, x + 0.17, y - 0.04 + ((x * 10) & 1) * 0.2, 0.06, '#2a2c36'); }
+  fillPath(g, poly(-0.6, -2.5, -0.2, -2.8, -0.45, -2.3), rgb([0.6, 0.62, 0.66], 1.25, 0.7));
+}
 export const BOARD_BOX = { x0: -2.3, x1: 2.3, y0: -4.4, y1: 0.3 };
 export function paintBoard(g) {
   for (const s of [-1, 1]) cel(g, rr(s * 1.7 - 0.12, -3.4, 0.24, 3.4, 0.04), [0.4, 0.28, 0.18], { lw: 0.08 });
