@@ -69,7 +69,8 @@ function gen(seed, sx, sz) {
         dock: { x0: x + ca * (shore + 22), z0: z + sa * (shore + 22), x1: x + ca * (shore - 1), z1: z + sa * (shore - 1) },
         berth: { x: mx - sa * off * side, z: mz + ca * off * side, yaw: ang } };
       isl.port.cheap = pick(nr, GOODS); isl.port.dear = pick(nr, GOODS.filter((g) => g !== isl.port.cheap));
-      isl.style = isl.port.style = home ? 'plain' : frost ? 'fortress' : styleOf(isl.tier, (hash(seed, sx, sz, 900 + out.length) >>> 0) % 1000 / 1000);
+      isl.style = isl.port.style = home ? 'plain' : frost ? 'fortress' : styleOf(isl.tier, (hash(seed, sx, sz, 900 + out.length) >>> 0) % 1000 / 1000, (hash(seed, sx, sz, 950 + out.length) >>> 0) % 1000 / 1000);
+      if (isl.style === 'mining') { isl.port.cheap = 'cannon'; if (isl.port.dear === 'cannon') isl.port.dear = 'rum'; } // the foundry by the mine casts guns
     } else if (rad >= 14 && r() < 0.6) {
       const ang = r() * TAU;
       isl.treasure = { x: x + Math.cos(ang) * rad * 0.62, z: z + Math.sin(ang) * rad * 0.62, gold: 150 + ((r() * 350) | 0) };
@@ -229,8 +230,8 @@ export function islandTown(isl) {
   // a spot is good when the ground is land, gently sloped, clear of the dock, the plaza and other buildings
   const R = (cx, cz, w, d) => [cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2], hit = (a, b) => a[0] < b[1] && a[1] > b[0] && a[2] < b[3] && a[3] > b[2];
   const strip = (cx, cz, d) => [cx - 3.2, cx + 3.2, cz + d / 2, cz + d / 2 + 6]; // the approach in front of a (south-facing) door must stay clear
-  const spot = (x, z, w, d, shop, gap = 3.8) => {
-    const y = baseHeight(isl, x, z); if (y < 1.4 || y > isl.h * 0.75) return null;
+  const spot = (x, z, w, d, shop, gap = 3.8, high = false) => { // high: may stand up the hill (a mine)
+    const y = baseHeight(isl, x, z); if (y < 1.4 || (y > isl.h * 0.75 && !high)) return null;
     let lo = 1e9, hi = -1e9;
     for (const [ox, oz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const h = baseHeight(isl, x + (ox * w) / 2, z + (oz * d) / 2); lo = Math.min(lo, h); hi = Math.max(hi, h); }
     if (lo < 0.8 || hi - lo > 2.6 || dockDist(isl, x, z) < 8 || Math.hypot(Math.max(Math.abs(x - plaza.x) - w / 2, 0), Math.max(Math.abs(z - plaza.z) - d / 2, 0)) < 8.6) return null; // the whole building, not just its centre, stays out of the plaza
@@ -271,7 +272,7 @@ export function islandTown(isl) {
   // the landmarks of this kind of town, on level open ground clear of every building and of each other
   const marks = [];
   for (const [k, w, d] of LANDMARKS[isl.style] || []) for (let tries = 0; tries < 240; tries++) {
-    const an = r() * TAU, ring = 13 + r() * 8 + tries * 0.14, x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false);
+    const an = r() * TAU, hill = k === 'mine', ring = 13 + r() * 8 + tries * (hill ? 0.1 : 0.14), x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false, hill ? 2 : 3.8, hill); // a mine may sit closer to the houses and up the hill, but not far out
     if (!sp || marks.some((q) => Math.hypot(q.x - x, q.z - z) < (Math.max(q.w, q.d) + Math.max(w, d)) / 2 + 2.5) || buildings.some((b) => b.door && Math.abs(b.x - x) < (b.w + w) / 2 + 1 && z > b.z && z - b.z < (b.d + d) / 2 + 6)) continue;
     const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); break;
   }

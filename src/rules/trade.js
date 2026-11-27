@@ -1,6 +1,6 @@
 // Shops and trading: pure functions on the game state (no drawing, no DOM).
 import { GOODS, portPrice } from '../gen/world.js';
-import { foodCost } from '../gen/style.js';
+import { foodCost, repairCost } from '../gen/style.js';
 
 import { buyMult, sellMult, deed } from './rep.js';
 import { SHIPS, SHIP_ORDER, TRADE_IN } from './ships.js';
@@ -29,10 +29,10 @@ export function buyFood(s, n = 1, port = null) {
   if (n <= 0) return 0;
   s.gold -= n * each; s.food += n; return n;
 }
-export function repair(s) {
+export function repair(s, port = null) {
   if (!s.ship) return 0;
-  const need = Math.ceil(s.maxHull - s.hull), pts = Math.min(need, Math.floor(s.gold / 2));
-  s.gold -= pts * 2; s.hull = Math.min(s.maxHull, s.hull + pts); return pts;
+  const each = repairCost(port), need = Math.ceil(s.maxHull - s.hull), pts = Math.min(need, Math.floor(s.gold / each));
+  s.gold -= pts * each; s.hull = Math.min(s.maxHull, s.hull + pts); return pts;
 }
 // the shipwright: sells a ship moored at the dock of the island the player stands on. Buying a bigger one trades the old one in.
 export function shipQuote(s, id) { const c = SHIPS[id], old = s.ship ? SHIPS[s.shipClass || 'sailboat'] : null; return old ? Math.round(c.price - old.price * TRADE_IN) : c.price; }

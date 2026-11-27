@@ -39,6 +39,10 @@ export function createDebug({ get, teleport, warp, say, info }) {
       for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) { const b = islandTown(isl).buildings.find((q) => q.kind === kind); if (b) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < bd) { bd = d; best = [isl, b]; } } }
       if (!best) { say(s, 'No ' + name + ' nearby'); return; } const [isl, b] = best; needShip(s); Object.assign(s.ship, { x: isl.port.berth.x, z: isl.port.berth.z, yaw: -Math.PI / 2, speed: 0 });
       const x = b.x, z = b.z + b.d / 2 + 2; s.enemies.clear(); teleport(); s.mode = 'foot'; s.foot = { x, z, y: groundAt(s, x, z), yaw: -Math.PI / 2, vy: 0 }; }]),
+    ['Go: mining town (on foot)', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; let best = null; // in front of the nearest mine mouth, facing it (no mine: the land end of the dock, facing the plaza)
+      for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) if (isl.style === 'mining' && (!best || Math.hypot(isl.x - p.x, isl.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z))) best = isl;
+      if (!best) { say(s, 'No mining town nearby'); return; } const d = best.port.dock, m = islandTown(best).marks.find((q) => q.k === 'mine'), pl = islandTown(best).plaza, x = m ? m.x : d.x1, z = m ? m.z + m.d / 2 + 7 : d.z1; needShip(s); Object.assign(s.ship, { x: best.port.berth.x, z: best.port.berth.z, yaw: best.port.berth.yaw, speed: 0 });
+      const yaw = m ? -Math.PI / 2 : Math.atan2(pl.z - z, pl.x - x); s.ship.yaw = yaw; s.enemies.clear(); teleport(); s.ship.yaw = best.port.berth.yaw; s.mode = 'foot'; s.foot = { x, z, y: groundAt(s, x, z), yaw, vy: 0 }; }], // teleport turns the view to the ship's heading
     ['Spawn raider', (s) => spawn(s, 'raider')],
     ['Spawn navy', (s) => spawn(s, 'navy')],
     ['Clear enemies', (s) => { s.enemies.clear(); s.guards = []; s.foes = []; }],
