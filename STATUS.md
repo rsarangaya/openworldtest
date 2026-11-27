@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 81, commit 611444b). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 82, commit fafe75b). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 116 tests, all passing
-npm run build      # writes index.html (311.7 kB, 122.7 kB gzipped)
+npm test           # 118 tests, all passing
+npm run build      # writes index.html (314.9 kB, 124.1 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -32,7 +32,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
-- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky.
+- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, and a mead hall (feast and skald's songs) in place of each tavern.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
@@ -46,7 +46,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Asgard still uses Terra's island generator and layout; no fjord coasts, mead hall, axes, Norse music or its own weak spot.
+- Asgard still uses Terra's island generator and layout; no fjord coasts, axes, Norse music or its own weak spot.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
@@ -638,3 +638,15 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Chrome (localhost, real build, debug "World: Asgard"): the aurora shows in the sky; on foot at Thorfjord the stone draws with its red band, the prompt reads "F  Read the rune stone", the panel shows the lore and "Rune stones read: 1". No console errors in the real flow (an early error burst came from my own test shortcut that put the player at sea without a ship; reloaded and redone through the debug panel).
 - Performance against round 80 (same machine): build 308.4 -> 311.7 kB (121.3 -> 122.7 kB gzipped); props per Asgard island about 0.6 ms (once, then cached); ground building unchanged (about 5.8 ms per Asgard port island in Node). In Chrome on foot in an Asgard town: CPU 0.19 ms step + 1.7 ms draw. Graphics card: one extra branch in the sky shader, not measured.
 - Not checked: walking up by real key presses (the Chrome tab is not focused for pointer lock), the aurora in bad weather by eye, sound.
+
+## Round 82 (2026-11-26): Asgard mead halls (pushed, commit fafe75b)
+- **Mead hall:** in Asgard every tavern is a big longhouse (13 x 8 instead of 8 x 7, taller, with the usual shields and dragon heads), with a long hearth (fire, spit and roast) on one side and two feast tables with roasts, bread and drinking horns on the other, plus a second mead barrel. All are flat pixel sprites and solid to walk into. On a cramped island the normal-size tavern is used (17 of 17 Asgard taverns near the start on seed 1717 are halls).
+- **Keeper's menu:** titled "Mead Hall", with two extra choices. *Join the feast* (15 gold): full health, +15 morale for every hand, +5 score, once per feast (a new one every 5 minutes of game time; the timer is saved). *Ask the skald for a song*: 10 saga verses, one after another (the drowned, the Serpent, the hall of shields, the Wall, a hint of a sunken city).
+- **Removed:** an unused mesh function for shop furniture (dead code; the bundler already left it out, so no size change from it).
+- Defaults chosen without asking: every Asgard tavern is a hall, not only in cities (towns would otherwise have none); feast price 15 gold; the feast heals and cheers the crew but gives no lasting bonus.
+- Tests: 118 pass (2 new: halls in Asgard only, with a hearth and two tables inside, and every keeper can be walked to from the door with the game's own collision on two seeds; a scripted player walks in, talks to the keeper, feasts, is refused a second feast after a save and when too poor, and the skald goes through every verse).
+- Chrome (localhost, real build, debug "World: Asgard"): walked in through the door of Beardal's hall with a held W key; the hearth fire, the feast tables and the keeper's counter draw correctly; F opened the "Mead Hall" menu; the feast took 15 gold and healed 40 -> 100; a second feast was refused ("tables are bare"); two songs in a row were different; the hall looks right from outside under the aurora. No console errors. CPU in the hall: 0.18 ms step + 1.0 ms draw.
+- Performance against round 81 (Node, same machine, noisy): town + props + meshes per Asgard port island 7.9-9.7 ms before, 8.1-8.9 ms after; foot step + prompt inside the hall about 40 us both. Build 311.7 -> 314.9 kB (122.7 -> 124.1 kB gzipped). Graphics: two more sprites in the atlas.
+- Not checked: sound, real mouse play (the tab is not focused for pointer lock).
+- Noticed, left: the keeper's first-visit chart line names a different island than the town you are in ("waters round Eaglegarth" in Beardal); the ship's stats stay on screen ashore (known).
+- Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed by me because the game asks to confirm leaving; its server is stopped, so just close the tab.
