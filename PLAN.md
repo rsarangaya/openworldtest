@@ -217,7 +217,7 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 - **Asgard must look and feel different from Terra:** Vikings, not villagers (fur, braids and beards, horned and plain helmets, round shields, axes), timber long-halls with carved dragon-head gables and turf or shingle roofs, stave halls, rune stones, drying racks, smoke holes, fjord cliffs and pines, snow, longships (square striped sail, dragon prow, shields along the rail) for local and enemy ships, a cold palette, aurora. Asgardian sea life and birds are different from Terra's (ice whales and narwhals, seals, orca, ravens and white eagles, no tropical fish). Each world gets its own people, building, ship and creature set.
 
 ## Where the plan stands (2026-11-27, after round 109)
-**Next, in a suggested order** (harpies done, round 109; the scheduled runs are off)
+**Next, in a suggested order** (harpies done, round 109; the scheduled runs are on)
 1. Player feedback and checks by eye and ear (open item 1), including the shipyard trade-route page and a raid or cutpurse fought with a real weapon in Chrome.
 2. Town stories: more companions, rival-crew races, Asgard versions (item 3).
 3. Asgard people carrying axes (item 5).
