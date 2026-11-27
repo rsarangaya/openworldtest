@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 85, commit 3e3f78b). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 86, commit af797b9). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 124 tests, all passing
-npm run build      # writes index.html (319.8 kB, 126.2 kB gzipped)
+npm test           # 128 tests, all passing
+npm run build      # writes index.html (321.9 kB, 127.0 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-26)
+## Where things stand (2026-11-27)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -32,7 +32,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
-- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths,, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall).
+- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
@@ -46,7 +46,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Asgard has no weak spot of its own yet; island layout otherwise follows Terra's. Asgard people do not carry axes yet.
+- Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
@@ -686,3 +686,17 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 84 (Node, same machine): the per-frame sound scene costs about 0.5 us more (1.7 us with the island lookup); building one bar about 0.4 us every 4-8 s. Build 318.2 -> 319.8 kB (125.4 -> 126.2 kB gzipped). No graphics change.
 - Not checked: **the music itself by ear** (I cannot hear it; the notes are checked, the sound is not), real mouse play (the key taps of the browser tool barely move you, so walking used held key events).
 - Left on the machine: the Chrome test tab (127.0.0.1:8137) could not be closed because the game asks to confirm leaving; its server is stopped, so just close the tab.
+
+## Round 86 (2026-11-27): Asgard's rune gate (pushed, commit af797b9)
+- **The gate:** on Asgard's rim, on the bearing toward Olympus (from the grand map), stand about 1400 units of black stone cliffs (snow on top, lower towards the ends), the same build as Terra's Wall but only that stretch. In the middle, a 140-unit veil of green light. The rest of Asgard's rim still leads home to Terra as before.
+- **Opening it:** the veil holds until you have read four rune stones (any four, on any Asgard islands). Touching it then starts a short scene, reusing the Wall's: "The runes you copied glow on the veil, one by one...", green flashes, "The runes blaze green and the veil parts!", a banner "The Rune Gate is open". Only rubble is left at the waterline, and the gate stays open (saved). Sailing on through fades to Olympus (still a stand-in world).
+- **Finding it:** each rune stone now ends with where the gate lies from that island (compass word) and how many more stones it wants. Bumping the veil too early says how many you know; the cliffs say to look for the veil.
+- **Entering a world:** you now arrive on the edge that faces the world you came from (from Terra into Asgard this is unchanged; from Asgard into Olympus it is Olympus's Asgard side).
+- **Debug:** "Go: rune gate (+runes)" puts your ship in front of the veil and tops your read stones up to four.
+- Defaults chosen without asking: four stones (the rune line "Count the stones of the north..." already hinted at it); no ram or speed needed (a ship resting against the veil opens it as soon as you know enough); the gate leads to Olympus because it is Asgard's nearest neighbour on the grand map; the banner gets 4 seconds before the crossing fades.
+- **Bugs found and fixed while testing:** a scripted ship pressed against the veil never opened it after the runes were read (it needed speed); the "Rune Gate is open" banner was replaced at once by the crossing banner.
+- Tests: 128 pass (4 new: the gate faces Olympus and is only drawn near it, the open gate has less wall, entering Olympus puts you on its Asgard side; a scripted player at the helm with oars is stopped by the shut veil and by the cliffs, reads four stones (each says where the gate is), sails back in, gets the scene and sails on to Olympus, and the open gate survives a save; a ship resting against the veil opens it once the runes are known; the rest of the rim still leads to Terra).
+- Chrome (localhost, real build, new game, debug "World: Asgard" then "Go: rune gate"): the black cliffs and green veil show ahead; with sails up and oars out she reached the veil, the scene played (letterbox, side camera, white flash, green bursts, the veil gone, the rubble left), "The Rune Gate is open" showed for a few seconds, then "Entering unknown waters" and the Olympus stand-in. No console errors. The veil looks like a green disc from far off in fog (radial fog on a curved wall; the Wall does the same).
+- Performance against round 85 (Node, same machine): Asgard ship step 79.5 -> 73.1 us (noise); one Terra wall sector 0.85 -> 0.78 ms (unchanged code path). Build 319.8 -> 321.9 kB (126.2 -> 127.0 kB gzipped). Graphics: a few hundred extra triangles near the gate only.
+- Not checked: the sounds of the scene (it reuses the Wall's crack and boom), CPU time in Chrome for this round, real mouse play.
+- Left on the machine: two Chrome test tabs (127.0.0.1:8791) could not be closed because the game asks to confirm leaving; the server is stopped, so just close them.
