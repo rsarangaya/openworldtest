@@ -20,6 +20,7 @@ export function thiefRoll(s, isl, quiet, ev) {
 export function startThief(s, isl, H) {
   if (s.thief || !isl?.port) return null; const f = s.foot, p = H.near(s, f.x, f.z, 1.4); if (!p) return null;
   const amt = Math.min(s.gold, take(s.gold)); if (amt <= 0) return null;
+  const kid = H.kid?.(s); if (kid) { s.thiefT = s.t; H.say(s, `${kid} grabs a wrist at your elbow: "Not this purse, friend." A cutpurse runs off into the dark empty-handed.`); return null; } // one thief knows another
   s.gold -= amt; s.thief = { isl: isl.id, name: isl.port.name, seed: hash(s.seed, isl.id, s.t | 0, 64), x: p.x, z: p.z, y: p.y, hp: THIEF_HP, amt, t0: s.t, face: 0, walk: 0 }; s.thiefT = s.t;
   H.say(s, `Someone bumps you in the dark. Your purse is ${amt} gold lighter! A cutpurse runs for the lanes: after him!`); s.events?.push({ type: 'hit' });
   return s.thief;

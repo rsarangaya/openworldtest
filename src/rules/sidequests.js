@@ -19,6 +19,7 @@ export const COMPANIONS = {
   deserter: { title: 'Navy deserter', kind: 'sailor', hp: 70, dmg: 7, role: 'navigator', town: ['Keep your hat low. Mine, I mean.', 'That officer by the well. I served under him. Walk on.'], fight: ['Marines fight in pairs. Split them!', 'I was trained for this. Sadly.'], won: ['The navy taught me that. It is the only thing I thank them for.'] },
   shieldmaiden: { title: 'Shieldmaiden', kind: 'sailor', hp: 100, dmg: 8, role: 'gunner', town: ['Mead first, then the next fight. That is the order of things.', 'I will know the men who burned the hall. I will know them by their boots.'], fight: ['Behind my shield!', 'Close up! Shields!'], won: ['The skalds will want that one. Tell it well.'] },
   runereader: { title: 'Rune-reader', kind: 'merchant', hp: 55, dmg: 4, role: 'navigator', town: ['The stones here are young. Two hundred winters, no more.', 'Do not step on that shadow. Humour an old woman.'], fight: ['The stones did not warn me of you!', 'Fire and iron, child. Fire and iron!'], won: ['It is written now. Somewhere, it is always written.'] },
+  urchin: { title: 'Pickpocket kid', kind: 'child', small: true, hp: 40, dmg: 3, role: 'sailor', town: ['That one. Fat purse, slow feet. Only looking!', 'I know every alley here. And every dog.'], fight: ['I bite, you know! I bite!', 'Kick him in the shins!'], won: ['Did you see me? Did you see?'] },
   brother: { title: 'The missing brother', kind: 'sailor', hp: 60, dmg: 6, role: 'sailor', town: ['Feels strange, walking a street again.'], fight: ['I know how they fight. Watch the feint.'], won: ['I used to eat with some of those men.'] },
 };
 
@@ -109,6 +110,13 @@ const T = {
       after: { kind: 'talk', at: 'a', who: c.maid, goal: 'Speak with the rune-reader.', lines: ['Every stone in the north has a second tongue under the first. I can hear it. You cannot. Yet.'],
         opts: [{ t: 'Sail with me and read the stones', hire: 'runereader', gold: c.pay, say: '"Every stone, mind. Even the dull ones."' }, { t: 'Part here', gold: c.pay, rep: 4, say: 'She walks off toward the next stone, talking to it already.' }] },
     }) },
+  urchin: { title: 'Quick Hands', need: 'b', pay: 130, join: 'urchin', ask: (c) => `${c.third}, a street kid with quick hands, steals for ${c.other}, a fence in ${c.b} who keeps a gang of children working the markets. The kid wants out, and will walk with you.`,
+    steps: (c) => ({
+      start: { kind: 'talk', at: 'b', who: c.other, goal: `Buy the kid free of ${c.other}, the fence in ${c.b}.`, lines: ['That one owes me a month of purses. Sixty gold and the debt is gone. Or my lads can teach you both a lesson.'], opts: [{ t: 'Pay the 60 gold', cost: 60, to: 'after' }, { t: 'Draw your weapon', to: 'fence' }] },
+      fence: { kind: 'fight', at: 'b', n: 3, goal: `Break ${c.other}'s gang in ${c.b}.`, say: "The fence's lads scatter, and the children he kept slip off into the lanes. Nobody here is sorry.", rep: 3, to: 'after' },
+      after: { kind: 'talk', at: 'b', who: c.third, goal: 'Speak with the kid.', lines: ['I lifted his strongbox while you were talking. Half is yours, fair is fair. ...I could be useful on a ship. I can climb anything.'],
+        opts: [{ t: "Sign on as ship's boy", hire: 'urchin', gold: c.pay, say: '"Nobody will touch your purse while I am about. Nobody but me. Joking!"' }, { t: 'Find them an honest master', gold: c.pay, rep: 6, say: 'A sailmaker takes the kid on. You hear later they are the fastest hand on the quay.' }] },
+    }) },
   // a rival crew's wager (PLAN item 3): their ship against yours to another port. The clock is how long she takes; dock and find the harbour judge first.
   race: { title: 'The Race', need: 'b', ship: true, stake: RACE_STAKE, pay: 2 * RACE_STAKE + 90, ask: (c) => `Captain ${c.rival} of ${c.crew} bets ${RACE_STAKE} gold a side that ${c.rship} reaches ${c.b} before you. The harbour judge there keeps the purse.`,
     steps: (c) => ({
@@ -193,6 +201,8 @@ export const knowsLanes = (s) => s.comp?.key === 'deserter' || crewOf(s).some((c
 // a rune-reader at your side or in your crew reads the older runes under every stone you read for the first time: her name, or null
 export const RUNE_GIFT = 30;
 export const runeReader = (s) => (s.comp?.key === 'runereader' ? s.comp.name : crewOf(s).find((c) => c.comp === 'runereader')?.name) || null;
+// a pickpocket kid at your side ashore or in your crew spots a cutpurse before the bump: their name, or null
+export const quickHands = (s) => (s.comp?.key === 'urchin' ? s.comp.name : crewOf(s).find((c) => c.comp === 'urchin')?.name) || null;
 // a shieldmaiden at your side ashore (not while she falls back), or in your crew when you board, takes a quarter off every blow aimed at you
 export const SHIELD = 0.75;
 export const shieldOf = (s, deck) => ((deck ? crewOf(s).some((c) => c.comp === 'shieldmaiden') : s.comp?.key === 'shieldmaiden' && s.comp.x !== undefined && !s.comp.back) ? SHIELD : 1);

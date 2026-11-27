@@ -1,9 +1,9 @@
 import { islandProps } from '../src/gen/props.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newGame, step, interact, readRune, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding } from '../src/rules/game.js';
+import { newGame, step, interact, readRune, sideOffersFor, takeSide, pickSide, dropSide, nearbyIslands, groundAt, canStand, crime, stationOf, contractsFor, signContract as takeContract, grapple, finishBoarding, startThief } from '../src/rules/game.js';
 import { trackable, trackedQuest } from '../src/rules/track.js';
-import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD, runeReader, RUNE_GIFT } from '../src/rules/sidequests.js';
+import { stepOf, placeOf, sideTarget, COMPANIONS, knowsLanes, shieldOf, SHIELD, runeReader, RUNE_GIFT, quickHands } from '../src/rules/sidequests.js';
 import { enterRealm } from '../src/rules/realm.js';
 import { EVENTS, eventFor } from '../src/rules/events.js';
 import { ISSUE_LEN } from '../src/rules/news.js';
@@ -51,7 +51,7 @@ function play(s, id, pick = 0) {
 }
 
 test('every side story can be taken in some town and played to the end', () => {
-  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang', 'race', 'deserter'];
+  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang', 'race', 'deserter', 'urchin'];
   const base = newGame();
   for (let issue = 0; issue < 160 && seen.size < want.length; issue++) {
     for (const isl of ports(base)) {
@@ -316,4 +316,19 @@ test('the rune-reader: only in Asgard, the cut stone, the barrow-robbers, and a 
   const hand = two.s.crew.find((c) => c.comp === 'runereader'); assert.ok(hand, 'she did not sign on'); assert.equal(hand.role, 'navigator'); assert.equal(runeReader(two.s), hand.name);
   gold = two.s.gold; readRune(two.s, stones[2]); assert.equal(two.s.gold, gold + RUNE_GIFT, 'no grave-gift with her in the crew');
   for (let n = 0; n < 12; n++) { const t = newGame(); t.t = n * ISSUE_LEN + 1; aShip(t); for (const isl of ports(t)) assert.ok(!sideOffersFor(t, isl).some((o) => o.q.tpl === 'runereader'), 'offered outside Asgard'); }
+});
+
+test('the pickpocket kid: bought free or the gang broken, then no cutpurse gets your purse while the kid is about', () => {
+  const thiefTry = (s) => { const isl = ports(s).find((i) => { stand(s, i.x, i.z); return true; }); s.thief = null; s.thiefT = -1e9; s.gold = 300; startThief(s, isl); return s.gold; }; // startThief itself does not check the hour
+  const { s, id } = offerOf('urchin'); s.weapon = 'sword'; s.weapons = { sword: true };
+  assert.equal(s.comp.key, 'urchin'); assert.equal(quickHands(s), s.comp.name); assert.ok(COMPANIONS.urchin.small);
+  const q = s.side[0]; assert.equal(stepOf(s, q).kind, 'talk');
+  let gold = s.gold; play(s, id, 1); // fight the gang, then find the kid an honest master
+  assert.equal(s.side.length, 0); assert.equal(s.comp, null); assert.equal(quickHands(s), null); assert.ok(s.gold >= gold + 130 - 1, 'no share of the strongbox');
+  assert.ok(thiefTry(s) < 300, 'a cutpurse got nothing with no kid about');
+  const two = offerOf('urchin'); two.s.weapon = 'sword'; two.s.weapons = { sword: true };
+  assert.equal(thiefTry(two.s), 300, 'a purse lifted with the kid beside you'); assert.equal(two.s.thief, null);
+  two.s.gold = 300; play(two.s, two.id, 0); // pay the fence, sign the kid on
+  const hand = two.s.crew.find((c) => c.comp === 'urchin'); assert.ok(hand, 'the kid did not sign on'); assert.equal(hand.role, 'sailor'); assert.equal(quickHands(two.s), hand.name);
+  assert.equal(thiefTry(two.s), 300, 'a purse lifted with the kid in the crew');
 });

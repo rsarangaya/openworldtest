@@ -39,7 +39,7 @@ import { stepHydra, shotHydra, nearHydra } from './hydra.js';
 import { stepHarpies, shotHarpy, nearHarpies, swivelHarpy } from './harpies.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine, pillarLine, statueLine } from './lore.js';
-import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf, runeReader, RUNE_GIFT } from './sidequests.js';
+import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide, knowsLanes, shieldOf, runeReader, RUNE_GIFT, quickHands } from './sidequests.js';
 
 export const DT = 1 / 60;
 export const ROW_SPEED = 9, MAX_SPEED = 30, CANNON_RANGE = 75, CANNON_CD = 2.2, DOCK_RANGE = 24;
@@ -691,7 +691,7 @@ const G = { ship: (s, q, kind, name, at) => { // a story ship, put in open water
   near: (s, x, z, r) => { const y0 = groundAt(s, x, z); for (let d = r; d < r + 8; d += 0.6) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, y = groundAt(s, px, pz); if (y >= 0.8 && Math.abs(y - y0) < 1.6 && roomy(s, px, pz)) return { x: px, z: pz, y }; } return null; }, // dry land beside a point
   spot: (s, isl, seed) => { const pl = isl.port ? islandTown(isl).plaza : isl.landing || isl, r = rngFor(seed, 77); for (let k = 0; k < 120; k++) { const a = r() * TAU, d = (isl.port ? 8 : 4) + r() * (isl.port ? 12 : 10), x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, y = groundAt(s, x, z); if (y >= 0.8 && roomy(s, x, z)) return { x, z, y }; } const p = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 3, 26); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; } };
 // land battles (raid.js): a landing party now and then in the port you walk, fought beside the town's guards
-const H = { say, spray, walk: walkToward, ground: groundAt, ev: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id); return isl && eventFor(s, isl); }, near: (s, x, z, r) => G.near(s, x, z, r), station: (isl) => stationOf(isl) || islandTown(isl).plaza,
+const H = { say, spray, walk: walkToward, ground: groundAt, kid: quickHands, ev: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id); return isl && eventFor(s, isl); }, near: (s, x, z, r) => G.near(s, x, z, r), station: (isl) => stationOf(isl) || islandTown(isl).plaza,
   round: (s, o, tg) => { const p = freeSpotNear(s, tg.x, tg.z, o.x, o.z, 2.2, 6); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; },
   burn: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id), mx = TOWN_MAX[isl?.tier] || 100, t = ((s.towns ||= {})[id] ||= { hp: mx, max: mx, t: s.t }); t.hp = Math.min(t.hp, mx * 0.3); t.t = s.t; t.plundered = true; } };
 export const startRaid = (s, isl) => beginRaid(s, isl, H);
