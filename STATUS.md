@@ -1,21 +1,21 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 80, commit c389280). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 81, commit 611444b). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 114 tests, all passing
-npm run build      # writes index.html (315.7 kB, 123.5 kB gzipped)
+npm test           # 116 tests, all passing
+npm run build      # writes index.html (311.7 kB, 122.7 kB gzipped)
 npm run dev        # unminified build
 ```
 
 Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
 URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons, Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
 ## Where things stand (2026-11-26)
 
@@ -32,21 +32,21 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
-- Asgard (first pass): Norse names, cold islands, longhouses, viking people, longships, its own animals.
+- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
 - Sound (never heard by me).
-- In the running game: story fights, event crowds, leaving a jail cell, the map, fortress towns, the trade-port crane, the new town jails, Asgard towns.
+- In the running game: walking up to a rune stone by real key presses (it was placed next to the stone by script), the aurora's look in fog, snow and storms, story fights, event crowds, leaving a jail cell, the map, fortress towns, the trade-port crane, the new town jails, Asgard towns.
 - Soft and mid looks, storms and a weak graphics card since the speed-up (round 75).
 - The "Your call" pop-up after really digging up a cache (it was triggered directly in Chrome).
 - Real tab switching with AFK on; frame rate on a normal foreground tab; real mouse play.
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Asgard still uses Terra's island generator and layout; no rune stones, aurora, fjord coasts, mead hall, Norse music or its own weak spot.
+- Asgard still uses Terra's island generator and layout; no fjord coasts, mead hall, axes, Norse music or its own weak spot.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
@@ -629,3 +629,12 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance: game step at sea 0.041 ms on Terra, 0.052 ms in Asgard, 0.056 ms with the pack up (Node; round 79 was 0.052 ms). Build 312.4 -> 315.7 kB (122.1 -> 123.5 kB gzipped).
 - Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed by me because the game asks to confirm leaving; the server behind it is stopped, so just close the tab.
 
+## Round 81 (2026-11-26): Asgard rune stones and the aurora (pushed, commit 611444b)
+- **Rune stones:** one carved stone on each Asgard island (73 of 79 near the start on seed 1717; a few tiny steep islands have no room), on fairly level open ground clear of the town, solid to walk into. Stand by it: "F  Read the rune stone" opens a panel with one of 12 lines of Norse lore (the drowned, the Serpent, the hall of shields, why the Wall was built, a hint of a crack in the cold sea), then "Rune stones read: n". The first read of each stone counts (s.runes, saved) and adds 20 score. Terra has none. Flat pixel sprite: grey slab, red serpent band, angular runes.
+- **Aurora:** green bands with a violet fringe across Asgard's sky, hard-edged and still (like the clouds, so no shimmer), fading out under cloud, fog and storms. Shown in reflections on the water too.
+- **Found and fixed (older):** the F prompt rebuilt every nearby island's props each frame (about 0.65 ms a frame on foot). Island props are now cached (newest 80 islands): foot step plus prompt 650 -> about 35 us (Node).
+- Defaults chosen without asking: one stone per island; the lore is the same pool on every Asgard world; reading gives score only (no gold); the aurora is always on in Asgard (no day and night yet) and does not move.
+- Tests: 116 pass (2 new: stones on Asgard islands only, never inside buildings, 90%+ walkable from the shore with the game's own collision; a scripted player walks up to a stone, is stopped by it, reads it with F, it counts once and survives a save).
+- Chrome (localhost, real build, debug "World: Asgard"): the aurora shows in the sky; on foot at Thorfjord the stone draws with its red band, the prompt reads "F  Read the rune stone", the panel shows the lore and "Rune stones read: 1". No console errors in the real flow (an early error burst came from my own test shortcut that put the player at sea without a ship; reloaded and redone through the debug panel).
+- Performance against round 80 (same machine): build 308.4 -> 311.7 kB (121.3 -> 122.7 kB gzipped); props per Asgard island about 0.6 ms (once, then cached); ground building unchanged (about 5.8 ms per Asgard port island in Node). In Chrome on foot in an Asgard town: CPU 0.19 ms step + 1.7 ms draw. Graphics card: one extra branch in the sky shader, not measured.
+- Not checked: walking up by real key presses (the Chrome tab is not focused for pointer lock), the aurora in bad weather by eye, sound.
