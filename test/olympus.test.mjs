@@ -74,3 +74,21 @@ test('a scripted player sails from the Outer Sea to Olympus, rows into a harbour
   assert.ok(!(s.runes || []).length && !(s.pillars || []).length, 'statues count apart from rune stones and pillars');
   assert.deepEqual(deserialize(serialize(s)).statues, [isl.id]); assert.ok(STATUE_COUNT >= 10);
 });
+
+test('Olympus is sunny: a scripted player sails there and counts the weather over a long run; more clear spells, fewer storms and fogs, never snow', async () => {
+  const { SPELL } = await import('../src/rules/weather.js'); const { weatherNow } = await import('../src/rules/game.js');
+  const s = newGame(1717); s.gold = 5000; s.flags.crossed = true; s.flags.beyond = true;
+  const home = islands(s.seed, 0).find((i) => i.port); assert.ok(buyShip(s, home)); buyFood(s, 99); s.mode = 'ship';
+  const count = () => { const n = { clear: 0, cloudy: 0, rain: 0, storm: 0, fog: 0, snow: 0 }, t0 = s.t; for (let k = 2; k < 600; k++) { s.t = k * SPELL + 100; n[weatherNow(s).kind]++; } s.t = t0; return n; };
+  Object.assign(s.ship, { x: 1500, z: 1500 }); const terra = count();
+  const th = REALMS.find((r) => r.id === 'olympus').grand.ang; Object.assign(s.ship, { x: Math.cos(th) * (OUTER_EDGE - 1), z: Math.sin(th) * (OUTER_EDGE - 1), yaw: th, speed: 9 });
+  for (let i = 0; i < 1200 && !s.warp; i++) step(s, {}); assert.ok(warpNow(s)); assert.equal(realmOf(s), 'olympus');
+  const oly = count(); enterRealm(s, 'asgard'); const asg = count(); enterRealm(s, 'olympus');
+  assert.ok(oly.clear > terra.clear * 1.25 && oly.clear > 0.62 * 598, `clear: Olympus ${oly.clear}, Terra ${terra.clear}`);
+  assert.ok(oly.storm < terra.storm * 0.6 && oly.fog < terra.fog * 0.4, `storms ${oly.storm}/${terra.storm}, fogs ${oly.fog}/${terra.fog}`);
+  assert.equal(oly.snow, 0, 'never snow in Olympus'); assert.ok(oly.rain > 0 && oly.cloudy > 0, 'still the odd cloudy or rainy spell');
+  assert.ok(asg.snow > 0 && asg.clear < oly.clear, 'Asgard keeps its cold weather');
+  // then really sail about Olympus for half an hour of game time: the weather calls out, never snow, and the sea calms in clear spells
+  const said = []; let snow = 0; s.ship.x = 0; s.ship.z = 0; for (let i = 0; i < 20 * 1800; i++) { s.enemies.clear(); s.shots.length = 0; s.ship.x = 0; s.ship.z = 0; step(s, { sail: 0.4 }, 1 / 20); const w = weatherNow(s); snow = Math.max(snow, w.snow); for (const e of s.events.splice(0)) if (e.text) said.push(e.text); }
+  assert.equal(snow, 0); assert.ok(!said.some((t) => /Snow/.test(t)), said.join(' | '));
+});

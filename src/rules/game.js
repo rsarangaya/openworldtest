@@ -2,7 +2,7 @@
 // Two modes: 'foot' (first person, on land) and 'ship' (third person, at sea).
 import { GOODS, SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS } from '../gen/world.js';
 import { sailEfficiency, windAt, windAngle, polar, pointOfSail, setRough, calm } from './sea.js';
-import { weatherAt, isCold, roughOf, windMul, gust } from './weather.js';
+import { weatherAt, climeOf, roughOf, windMul, gust } from './weather.js';
 import { weaponOf, equip, keyWeapon } from './weapons.js';
 import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } from './rep.js';
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
@@ -561,7 +561,7 @@ export function warpNow(s) {
   say(s, to === 'terra' ? 'Back in the Outer Sea. The Wall lies ahead.' : 'You have crossed into a new world.'); return true;
 }
 // the weather where you are (see rules/weather.js)
-export const weatherNow = (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; return weatherAt(s.seed, s.t, isCold(realmOf(s), p.x, p.z, WALL_R)); };
+export const weatherNow = (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; return weatherAt(s.seed, s.t, climeOf(realmOf(s), p.x, p.z, WALL_R)); };
 const WEATHER_SAY = { rain: 'Rain sweeps in.', storm: 'A storm is breaking. Shorten sail or stay close to land.', fog: 'Fog rolls over the water.', snow: 'Snow begins to fall.', clear: 'The sky clears.' };
 function stepWeather(s) { const w = weatherNow(s); setRough(roughOf(w)); if (s.wxKind && w.kind !== s.wxKind && WEATHER_SAY[w.kind]) say(s, WEATHER_SAY[w.kind]); s.wxKind = w.kind; }
 function stepShip(s, inp, dt) {

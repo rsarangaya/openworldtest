@@ -951,7 +951,7 @@ test('raiders come within 400 while the raider quest or a cull contract is unfin
 test('weather: stable spells, clear at the start, cold places snow instead of rain, storms raise the swell, shift the wind and only batter an over-canvassed ship at sea', async () => {
   const { weatherAt, SPELL, weatherForce, isCold, roughOf, windMul, KINDS_W } = await import('../src/rules/weather.js'); const { wave, setRough } = await import('../src/rules/sea.js'); const { weatherNow } = await import('../src/rules/game.js');
   assert.deepEqual(weatherAt(SEED, 1234), weatherAt(SEED, 1234)); assert.equal(weatherAt(SEED, 5).kind, 'clear'); assert.equal(weatherAt(SEED, SPELL * 2 - 1).kind, 'clear');
-  const mild = new Set(), cold = new Set(); for (let k = 2; k < 400; k++) { mild.add(weatherAt(SEED, k * SPELL + 100).kind); const c = weatherAt(SEED, k * SPELL + 100, true); cold.add(c.kind); assert.equal(c.rain, 0, 'no rain where it freezes'); }
+  const mild = new Set(), cold = new Set(); for (let k = 2; k < 400; k++) { mild.add(weatherAt(SEED, k * SPELL + 100).kind); const c = weatherAt(SEED, k * SPELL + 100, 'cold'); cold.add(c.kind); assert.equal(c.rain, 0, 'no rain where it freezes'); }
   for (const k of ['clear', 'cloudy', 'rain', 'storm', 'fog']) assert.ok(mild.has(k), 'mild ' + k); assert.ok(cold.has('snow') && !cold.has('rain'));
   let prev = null; for (let t = SPELL * 2; t < SPELL * 12; t += 1) { const w = weatherAt(SEED, t); if (prev) for (const key of ['cloud', 'rain', 'storm', 'fog']) assert.ok(Math.abs(w[key] - prev[key]) < 0.09, 'blends, no jumps'); prev = w; }
   assert.ok(isCold('asgard', 0, 0, WALL_R) && !isCold('terra', 100, 100, WALL_R) && isCold('terra', WALL_R * 0.93, 0, WALL_R));
