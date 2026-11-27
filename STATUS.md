@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 79, commit 6109741). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 80, commit c389280). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 110 tests, all passing
-npm run build      # writes index.html (312.4 kB, 122.1 kB gzipped)
+npm test           # 114 tests, all passing
+npm run build      # writes index.html (315.7 kB, 123.5 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -34,7 +34,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard (first pass): Norse names, cold islands, longhouses, viking people, longships, its own animals.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
-- First monster: the sea serpent (three lairs per Terra world, rumoured first).
+- Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
@@ -616,3 +616,16 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Not checked: firing by real key presses (the Chrome tab was throttled to 10 fps, so a quick key tap fell between frames; game time ran at about a tenth of real time), the sound, a small boat against it.
 - Performance against round 78: game step at sea 0.052 ms, 0.061 ms with the serpent up (Node); build 306.5 -> 312.4 kB (119.7 -> 122.1 kB gzipped). Graphics: two more sprites in the atlas, up to five more billboards while it is up.
 - Left on the machine: a Python web server on port 8765 (not started by this run) is still running.
+
+## Round 80 (2026-11-26): draugr longships, Asgard's monster (pushed, commit c389280)
+- Three sea barrows per Asgard world, in open water (reuses the serpent's spot finder, now `seaSpots`). Asgard notice boards (every other issue) and tavern keepers rumour the nearest one with a bearing and "bring fire".
+- Sail within 220 units and a pack of three dead longships rises round you ("the drowned ..."). They steer straight at you and ram (9 hull, every 6 s each; the rammer takes 8 too) and fire when abeam. Round and chain shot do half damage, fire shot 1.25x and burns them faster (4.5/s). They cannot be grappled. No cargo when sunk, normal gold. Sink all three: +450 gold, the barrow stays quiet through saves (s.slain), and towns run "Draugr laid to rest". Leave (600 units) and the survivors sink back. No ordinary ships are put in a living barrow's waters.
+- Look: Asgard longship with a dark mossy hull, tattered grey-green striped sail, green accent. Debug panel: "Go: draugr barrow" (in Asgard).
+- Defaults chosen without asking: pack of 3, 85 health each, ramming as their own attack (so they feel different from raiders), fire as the answer; live pack not saved.
+- Balance (scripted captains, Node): galleon with fire shot wins in 30 s untouched; galleon with round shot only wins in 84 s at 247/400 hull; cutter round-only wins at 41/140; sailboat with 10 fire shot wins at 26/100. A first try (ram 12 every 4 s) sank every round-only ship, so it was softened.
+- Tests: 114 pass (4 new: barrows in open water and none on Terra, the board rumour, a scripted captain who sinks the pack and it stays quiet through a save, half damage from iron / no boarding / sinking back).
+- Chrome (localhost, real build, debug setup): the pack rose 211 units from the barrow with its message, rammed, and held fire-shot broadsides (Q and E held while turning) sank all three in about 25 s; +1078 gold with the bonus. The longship draws correctly with its health bar. No console errors.
+- Not checked: sound, the tavern line by eye, aiming by real mouse play (the tab runs throttled).
+- Performance: game step at sea 0.041 ms on Terra, 0.052 ms in Asgard, 0.056 ms with the pack up (Node; round 79 was 0.052 ms). Build 312.4 -> 315.7 kB (122.1 -> 123.5 kB gzipped).
+- Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed by me because the game asks to confirm leaving; the server behind it is stopped, so just close the tab.
+

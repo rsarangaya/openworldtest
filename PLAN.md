@@ -216,16 +216,16 @@ M opens a map that only shows what the player has found out (visits, NPC charts,
 - **The Wall** is a continuous ice cliff, same height all round, banded deep blue to white with a snow lip, icicles and rubble. One stretch (the weak spot, seeded; `gateAngle` in code) is paler and cracked. It needs the ram at speed above 3.2. When broken it **stays open** (ragged edges, ice rubble) and you can sail back through. More weak spots in other directions come with more worlds (one per world, on that world's bearing).
 - **Asgard must look and feel different from Terra:** Vikings, not villagers (fur, braids and beards, horned and plain helmets, round shields, axes), timber long-halls with carved dragon-head gables and turf or shingle roofs, stave halls, rune stones, drying racks, smoke holes, fjord cliffs and pines, snow, longships (square striped sail, dragon prow, shields along the rail) for local and enemy ships, a cold palette, aurora. Asgardian sea life and birds are different from Terra's (ice whales and narwhals, seals, orca, ravens and white eagles, no tropical fish). Each world gets its own people, building, ship and creature set.
 
-## Where the plan stands (2026-11-26, after round 79)
-**Next step:** item 5, Asgard second pass (rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot). Draugr longships (the next monster) fit in there.
-**Done:** contracts and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, side stories, town events, companions, compass and chart map, one hand for all weapons, welcome and tutorial, choosing the quest to follow, buildings and a jail in every town, the graphics speed-up, the rim-or-explore message after the supply cache, the sea serpent. All pushed (round 79).
+## Where the plan stands (2026-11-26, after round 80)
+**Next step:** item 5, Asgard second pass, continued: rune stones (readable lore on Asgard islands) and the aurora in the Asgard sky next; then mead hall, fjord coasts, axes, music, its own weak spot. Draugr longships are done (round 80).
+**Done:** contracts and tavern jobs, the Wall breakthrough and Outer Sea, separate worlds with a loader, fast travel, weather, sea life, Asgard first pass, three town types, AFK and debug modes, side stories, town events, companions, compass and chart map, one hand for all weapons, welcome and tutorial, choosing the quest to follow, buildings and a jail in every town, the graphics speed-up, the rim-or-explore message after the supply cache, the sea serpent, draugr longships in Asgard. All pushed (round 80).
 
 **Open, in a suggested order**
 1. Gather player feedback, and check by eye and ear what has only been tested (story fights, event crowds, jail, map, sounds; soft and mid looks, storms, Asgard and a weak graphics card since the speed-up).
 2. (Done, round 74) Every town gets real buildings, including a guard station with a jail.
 3. Rest of the town stories (see "Living towns" below). Part done in round 77: board, deadline and escort steps, two stories, two events. Round 78 added the remaining main events and the singer. Left for later: more companions, rival-crew races, Asgard versions.
 4. (Done, round 79) First monster: the sea serpent.
-5. Asgard second pass: rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.
+5. Asgard second pass (draugr longships done, round 80): rune stones, mead hall, aurora, fjord coasts, axes, music, its own weak spot onward.
 6. More town types: mining, smugglers, temple; layouts and clothing per type.
 7. Day and night.
 8. Underwater and salvage, then Atlantis; Olympus.
@@ -239,7 +239,7 @@ One monster active at a time, in rare places, flat pixel sprites, hinted first b
 - Asgard: Jormungandr's young (storms), draugr longships, frost giant, Fenrir wolf pack, valkyries.
 - Atlantis (best with underwater): kraken (surface phase first), sirens, hippocampus (tameable).
 - Olympus: cyclops throwing boulders, harpies, hydra (fire shot), Scylla and Charybdis.
-Suggested first: sea serpent, then draugr longships, then the kraken's surface phase.
+Suggested first: sea serpent (done, round 79), then draugr longships (done, round 80), then the kraken's surface phase.
 
 ## Living towns, layered quests, companions (planned 2026-11-25; first pass built, see STATUS.md round 68)
 Goal: towns with something going on, and side quests with more than one layer instead of "kill X" or "talk to Y". Lean rule: everything is **data + a pure function of (seed, town, issue)** like the notice boards. No new renderer work, no new meshes; a handful of new flat sprites at most. Only resolved ids go in the save.
