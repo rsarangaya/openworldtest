@@ -13,6 +13,11 @@ export const EVENTS = {
   blockade: { name: 'Blockade', line: 'A gang off the coast is choking the harbour. Everything costs more until they are gone.', buy: 1.25, food: 8, hook: 'blockade' },
   child: { name: 'A Child Missing', line: 'Lanterns along the shore, and one name being called over and over.', folk: 4, hook: 'child' },
   smugglers: { name: 'Smugglers Sighted', line: 'The council is offering a reward for a ship that pays no harbour dues.', hook: 'smugglers' },
+  wedding: { name: 'A Wedding Day', line: 'Garlands on every door, a feast laid out, and no groom.', food: 2, folk: 6, hook: 'wedding' },
+  trial: { name: 'Public Trial', line: 'The square is packed. A neighbour stands accused and the magistrate wants witnesses.', folk: 6, hook: 'trial' },
+  pressgang: { name: 'Press Gang', line: 'Navy men are dragging likely lads out of doorways to fill a crew.', folk: 2, hook: 'pressgang' },
+  gale: { name: 'Storm Damage', line: 'Last night\'s gale took roofs and boats. Food is dear and good timber is wanted.', food: 7, hook: 'timber' },
+  song: { name: 'A Singer without a Song', line: 'A tavern singer sits dry-eyed over an empty case, asking for a strong arm.', hook: 'singer' },
   swords: { name: 'A Stranger with a Sword', line: 'A disgraced swordswoman has been drinking alone and asking after one man.', hook: 'swordswoman' },
   charts: { name: 'A Stranger with Charts', line: 'An old cartographer is looking for someone with young legs and a sharp blade.', hook: 'cartographer' },
 };

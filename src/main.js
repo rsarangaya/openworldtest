@@ -219,7 +219,7 @@ function render(t) {
       for (const o of s.foes) if (o.isl === isl.id) { const la = s.t - (o.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person(o.kind, o.seed, 'down', atkFrame(o, Math.hypot(o.x - s.foot.x, o.z - s.foot.z) < 2.6, 1 + (((o.walk || 0) * 1.4 | 0) & 1))), o.x + Math.cos(o.face || 0) * lu * 0.7, o.y, o.z + Math.sin(o.face || 0) * lu * 0.7, sprites.PERSON_SCALE); hpBar(o.id, o.kind, o.x, o.y, o.z); } // a hidden fighter, now revealed
       for (const a of s.qa || []) if (a.isl === isl.id) { // people in your stories: a speaker, a mark to search, or a gang
         if (a.kind === 'find') { bb(sprites.fx('flash'), a.x, a.y + 0.7 + Math.sin(s.t * 3) * 0.2, a.z, 0.3); continue; }
-        if (a.kind === 'talk') { bb(sprites.person('villager', a.seed, 'down', 0), a.x, a.y, a.z, sprites.PERSON_SCALE); bb(sprites.fx('flash'), a.x, a.y + 3.1, a.z, 0.22); continue; }
+        if (a.kind === 'talk') { if (!a.self) bb(sprites.person('villager', a.seed, 'down', 0), a.x, a.y, a.z, sprites.PERSON_SCALE); bb(sprites.fx('flash'), a.x, a.y + 3.1, a.z, 0.22); continue; }
         const la = s.t - (a.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person('sailor', a.seed, 'down', atkFrame(a, Math.hypot(a.x - s.foot.x, a.z - s.foot.z) < 2.6, 1 + (((a.walk || 0) * 1.4 | 0) & 1))), a.x + Math.cos(a.face || 0) * lu * 0.7, a.y, a.z + Math.sin(a.face || 0) * lu * 0.7, sprites.PERSON_SCALE * (a.boss ? 1.18 : 1));
         if (a.awake) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((a.hp / a.max) * 10)))), a.x, a.y + (a.boss ? 3.4 : 2.9), a.z, 0.5);
       }

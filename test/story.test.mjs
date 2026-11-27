@@ -43,16 +43,16 @@ function play(s, id, pick = 0) {
       stand(s, mine[0].x + 0.6, mine[0].z);
       const r = interact(s);
       assert.notEqual(r.type, 'none', `${q.tpl}/${q.step}: F did nothing`);
-      if (r.opts) { s.gold += 100; assert.ok(pickSide(s, id, pick)); }
+      if (r.opts) { s.gold += 100; assert.ok(pickSide(s, id, Math.min(pick, r.opts.length - 1))); }
     }
   }
   assert.fail('story never ended');
 }
 
 test('every side story can be taken in some town and played to the end', () => {
-  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child'];
+  const seen = new Set(), want = ['heirloom', 'brother', 'map', 'debt', 'swordswoman', 'cartographer', 'brawl', 'duel', 'timber', 'herbs', 'blockade', 'cargo', 'ghost', 'smugglers', 'child', 'singer', 'wedding', 'trial', 'pressgang'];
   const base = newGame();
-  for (let issue = 0; issue < 80 && seen.size < want.length; issue++) {
+  for (let issue = 0; issue < 160 && seen.size < want.length; issue++) {
     for (const isl of ports(base)) {
       const s = newGame(); s.t = issue * ISSUE_LEN + 1; s.weapon = 'sword'; s.weapons = { sword: true }; aShip(s);
       stand(s, isl.x, isl.z);
@@ -239,4 +239,26 @@ test('every port can be walked from its pier to its square, with no step too hig
       assert.ok(ok, `${seed} ${isl.port.name}: the square cannot be reached from the pier`);
     }
   }
+});
+
+test('every choice in every story leads somewhere: each option can be taken and the story still ends', () => {
+  const seen = new Set();
+  for (let issue = 0; issue < 160; issue++) {
+    const probe = newGame(); probe.t = issue * ISSUE_LEN + 1; aShip(probe);
+    for (const isl of ports(probe)) for (const offer of sideOffersFor(probe, isl)) {
+      if (seen.has(offer.q.tpl)) continue; seen.add(offer.q.tpl);
+      for (let pick = 1; pick < 3; pick++) {
+        const s = newGame(); s.t = probe.t; s.weapon = 'sword'; s.weapons = { sword: true }; aShip(s); s.gold = 500; stand(s, isl.x, isl.z);
+        assert.ok(takeSide(s, offer), offer.q.tpl); play(s, offer.q.id, pick); assert.equal(s.side.length, 0, offer.q.tpl + ' option ' + pick);
+      }
+    }
+  }
+  assert.ok(seen.size >= 19, [...seen].join());
+});
+
+test('a companion you are told to speak with waits at the spot instead of appearing twice', () => {
+  const { s, id } = offerOf('singer'); s.side[0].step = 'after';
+  const p = placeOf(s, s.side[0]); stand(s, p.x, p.z); run(s, 1);
+  const a = (s.qa || []).find((v) => v.q === id); assert.ok(a?.self, 'the story person is not marked as the companion');
+  assert.deepEqual([s.comp.x, s.comp.z], [a.x, a.z]);
 });

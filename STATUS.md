@@ -7,8 +7,8 @@ Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 103 tests, all passing
-npm run build      # writes index.html (295.2 kB, 116.3 kB gzipped)
+npm test           # 105 tests, all passing
+npm run build      # writes index.html (299.3 kB, 117.7 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -23,8 +23,8 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Start: a welcome message and a one-page tutorial on a new game.
 - Story: 8 quests to the Wall (after the supply cache a pop-up says you can head straight for the rim or explore first); one weak spot, broken with the ram in a breakthrough scene; the breach stays open.
 - Open world after: Outer Sea, edge of the world picks the next world by bearing, fast travel to visited ports.
-- Side stories: layered, with choices and fights (up to 3 at once); three companions who join for a while.
-- Town events: eleven kinds, changing with the notice board.
+- Side stories: layered, with choices and fights (up to 3 at once); four companions who join for a while.
+- Town events: sixteen kinds, changing with the notice board.
 - Quest choice: follow the story, a side story or a contract from the quest log.
 - Navigation: compass strip with your ship's direction; zoomable chart map, earned from the cartographer's story or by breaking the Wall.
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
@@ -597,3 +597,11 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against the pushed round 76: ground building per port island 4.3 -> 4.4 ms, game step unchanged (about 19 us ashore, 49 us at sea), build 289.8 -> 295.2 kB. Graphics-card time not measured (drawing unchanged apart from one sprite).
 - Not covered: real mouse look and walking by hand, sound.
 - Noticed, left: a small old terrace edge in one town you have to step round; the ship's stats stay on screen ashore; a hostile story ship fires at once after throwing you off her deck.
+
+## Round 78 (2026-11-26): more town events and a singer (pushed)
+- New events: wedding (missing groom), public trial, press gang, storm damage, a singer without a song. New companion: the tavern singer.
+- **Fixed (since round 68):** a story that ends by talking to your companion drew that person twice; they now wait at the spot.
+- Tests: 105 pass; one takes every option in every story. Scripted player: about 1000 stories, no new game faults.
+- Chrome: the singer story's offer, choice and next step; no page errors. Not seen: the other four events, the companion waiting at the spot (changed after the check).
+- Performance against round 77: unchanged (ground 4.4 ms, step 19 / 47 us). Build 295.2 -> 299.3 kB.
+- Not built from the plan: runaway noble, navy deserter, pickpocket and shieldmaiden companions; rival-crew races at sea; Asgard story versions.

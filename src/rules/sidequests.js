@@ -15,6 +15,7 @@ export const MAX_SIDE = 3;
 export const COMPANIONS = {
   swordswoman: { title: 'Disgraced swordswoman', kind: 'sailor', hp: 90, dmg: 9, role: 'gunner', town: ['Watch the alleys here.', 'I drank in a town like this for a year. Never again.'], fight: ['Stay on my left!', 'Mine. You take the rest.'], won: ['Not bad. Do not let it go to your head.'] },
   cartographer: { title: 'Old cartographer', kind: 'merchant', hp: 45, dmg: 3, role: 'navigator', town: ['This coast is drawn wrong on every chart I own.', 'Slow down. My knees are older than this town.'], fight: ['I draw maps, I do not do this!'], won: ['Is it over? Good. Where was I?'] },
+  singer: { title: 'Tavern singer', kind: 'tavern', hp: 50, dmg: 4, role: 'sailor', town: ['I have sung in this square. They paid in turnips.', 'Hush a moment. That is a good story, I will have it.'], fight: ['Not the throat! Anywhere but the throat!'], won: ['There is a verse in that. You come off rather well.'] },
   brother: { title: 'The missing brother', kind: 'sailor', hp: 60, dmg: 6, role: 'sailor', town: ['Feels strange, walking a street again.'], fight: ['I know how they fight. Watch the feint.'], won: ['I used to eat with some of those men.'] },
 };
 
@@ -76,7 +77,26 @@ const T = {
       amb: { kind: 'fight', at: 'a', n: 3, goal: 'Protect the cartographer.', say: 'Quiet again. The chart is finished.', to: 'after' },
       after: { kind: 'talk', at: 'a', who: c.third, goal: 'Speak with the cartographer.', lines: ['Under the marker, as I promised. Your share, and thank you.'], opts: [{ t: 'Sail with me as navigator', hire: 'cartographer', gold: c.pay, say: '"At my age? ...Yes."' }, { t: 'Farewell', gold: c.pay, rep: 4, say: 'The chart will outlive you both.' }] },
     }) },
+  singer: { title: 'A Song Taken', need: 'b', pay: 150, join: 'singer', ask: (c) => `${c.third} had a harp taken for a debt, and it hangs in ${c.b}. The singer will walk with you.`,
+    steps: (c) => ({
+      start: { kind: 'talk', at: 'b', who: c.other, goal: `Get the harp from ${c.other} at ${c.b}.`, lines: ['The harp? Fifty gold and it sings for you. Or you can try taking it.'], opts: [{ t: 'Pay the 50 gold', cost: 50, to: 'after' }, { t: 'Draw your weapon', to: 'fight' }] },
+      fight: { kind: 'fight', at: 'b', n: 2, goal: 'Take the harp.', say: 'The harp is yours, one string short.', rep: -6, to: 'after' },
+      after: { kind: 'talk', at: 'b', who: c.third, goal: 'Give the singer the harp.', lines: ['Oh, there you are, old girl. I owe you a song and a share of my winnings.'], opts: [{ t: 'Sing for my crew', hire: 'singer', gold: c.pay, say: '"Is there rum? Then yes."' }, { t: 'Farewell', gold: c.pay, rep: 4, say: 'You hear the tune for an hour afterwards.' }] },
+    }) },
   // short jobs that town events post
+  wedding: { title: 'The Missing Groom', need: 'a', pay: 150, ask: (c) => `The groom rowed off toward ${c.a} at dawn. ${c.giver} wants him found.`, steps: (c) => ({
+    start: { kind: 'talk', at: 'a', who: c.third, goal: `Find the groom on ${c.a}.`, lines: ['I am not running from her. I am running from her mother. ...Must I go back?'], opts: [{ t: 'Walk him back', to: 'back' }, { t: 'Let him go', to: 'gone' }] },
+    back: { kind: 'talk', at: 'home', who: c.giver, lead: true, goal: `Bring the groom to ${c.giver}.`, lines: ['There he is! Wash him, somebody. The feast is going cold.'], opts: [{ t: 'Take the reward', gold: c.pay, rep: 10 }] },
+    gone: { kind: 'talk', at: 'home', who: c.giver, goal: `Tell ${c.giver} there will be no groom.`, lines: ['Gone? Well. Better today than in a year.'], opts: [{ t: 'Say you are sorry', gold: Math.round(c.pay / 5), rep: 2 }, { t: 'Say he drowned', gold: Math.round(c.pay / 2), rep: -6, say: 'The whole town mourns a man who is fishing quite happily.' }] },
+  }) },
+  trial: { title: 'The Trial', need: '', pay: 90, ask: (c) => `${c.other} stands accused of theft. The magistrate and the family both want a word with you.`, steps: (c) => ({
+    start: { kind: 'talk', at: 'home', who: c.other, goal: `Hear ${c.other} out in ${c.home}.`, lines: ['I took bread, not silver. The merchant knows it. Will you speak for me?'], opts: [{ t: 'Speak up for them', rep: 6, world: 2, say: 'The magistrate frowns, then lets them go with a warning.' }, { t: "Take the merchant's bribe", gold: c.pay, rep: -8, say: 'You say what you were paid to say.' }, { t: 'Break them out', to: 'run' }] },
+    run: { kind: 'fight', at: 'home', n: 3, goal: `Fight off the bailiffs in ${c.home}.`, say: 'They slip away down the alley and press a purse into your hand.', gold: c.pay, rep: -10 },
+  }) },
+  pressgang: { title: 'The Press Gang', need: '', pay: 80, ask: () => 'A mother begs you to get her boy back from the press gang.', steps: (c) => ({
+    start: { kind: 'talk', at: 'home', who: c.other, goal: `Face the officer, ${c.other}, in ${c.home}.`, lines: ['The boy serves the fleet now. Unless you have sixty gold, or a better argument.'], opts: [{ t: 'Pay the 60 gold', cost: 60, rep: 14, say: 'The boy runs home without looking back.' }, { t: 'Draw your weapon', to: 'brawl' }, { t: 'Walk away', rep: -4 }] },
+    brawl: { kind: 'fight', at: 'home', n: 3, goal: `Drive off the press gang in ${c.home}.`, say: 'The gang leaves in a hurry. The mother gives you all she has.', gold: c.pay, rep: 14, world: -2 },
+  }) },
   brawl: { title: 'Break It Up', need: '', pay: 60, ask: () => 'The tavern keeper will pay whoever ends the brawl.', steps: (c) => ({ start: { kind: 'fight', at: 'home', n: 3, goal: `End the brawl in ${c.home}.`, say: 'The brawlers think better of it.', gold: c.pay, rep: 8 } }) },
   duel: { title: 'The Duel', need: '', pay: 120, ask: () => 'The duellist offers a purse to anyone who can put him down.', steps: (c) => ({ start: { kind: 'fight', at: 'home', n: 1, boss: true, goal: `Answer the duellist in ${c.home}.`, say: 'He yields and tosses you the purse.', gold: c.pay, rep: 5 } }) },
   timber: { title: 'Timber for the Burnt House', need: 'a', pay: 110, ask: (c) => `The council needs good timber from ${c.a}.`, steps: (c) => ({ start: { kind: 'find', at: 'a', goal: `Cut timber on ${c.a}.`, say: 'You load as much as you can carry.', to: 'back' }, back: { kind: 'talk', at: 'home', who: c.giver, goal: `Deliver the timber to ${c.giver}.`, lines: ['A roof by nightfall. Bless you.'], opts: [{ t: 'Take the pay', gold: c.pay, rep: 10 }] } }) },
@@ -173,7 +193,7 @@ function placeActors(s, g, here) {
     const st = stepOf(s, q), p = placeOf(s, q), isl = here.find((i) => i.id === p.id); if (!isl || st.kind === 'board') continue;
     const base = g.spot(s, isl, hash(q.seed, q.step.length, st.at.charCodeAt(0)));
     if (!base) continue;
-    if (st.kind !== 'fight') { keep.push({ q: q.id, isl: isl.id, kind: st.kind, name: st.who || 'the mark', seed: hash(q.seed, st.who ? st.who.length : 3, 5), ...base }); continue; }
+    if (st.kind !== 'fight') { keep.push({ q: q.id, isl: isl.id, kind: st.kind, name: st.who || 'the mark', seed: hash(q.seed, st.who ? st.who.length : 3, 5), self: s.comp?.q === q.id && s.comp.name === st.who, ...base }); continue; }
     for (let k = 0; k < st.n; k++) { const at = (k && g.near(s, base.x, base.z, k * 1.7)) || base, boss = st.boss && !k; keep.push({ q: q.id, isl: isl.id, kind: 'foe', boss, seed: hash(q.seed, k, 9), x: at.x, y: at.y, z: at.z, hp: boss ? 55 : 24, max: boss ? 55 : 24, cd: 0.8 + k * 0.3 }); }
   }
   s.qa = keep;
@@ -221,6 +241,7 @@ export function stepSide(s, dt, g) {
 }
 function stepComp(s, dt, g, foes) {
   const c = s.comp, C = COMPANIONS[c.key], f = s.foot;
+  const mark = actors(s).find((a) => a.self); if (mark) { c.x = mark.x; c.y = mark.y; c.z = mark.z; return; } // the story wants a word with them: they wait at the spot, not beside you as well
   if (c.x === undefined || Math.hypot(f.x - c.x, f.z - c.z) > 28) { const p = g.near(s, f.x, f.z, 1.8) || f; c.x = p.x; c.z = p.z; c.y = g.ground(s, c.x, c.z); }
   c.cd = Math.max(0, (c.cd || 0) - dt);
   let tg = null, td = 12;
