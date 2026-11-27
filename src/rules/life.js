@@ -1,6 +1,6 @@
 // Ambient sea life and birds (not interactable). Pure and stateless: every animal is a function of (realm, seed, cell, time), so nothing is stored or saved and the cost is a
 // handful of trig calls per frame. The sea is cut into cells; each cell may hold one group that swims a slow loop that stays clear of land. Birds circle islands and the open sea.
-// Each realm has its own table: Terra is warm and sunny; Asgard has cold-water animals and its own birds (more worlds add a table).
+// Each realm has its own table: Terra is warm and sunny; Asgard has cold-water animals and its own birds; Atlantis has dolphins, mantas and turtles (more worlds add a table).
 import { sectorIslands, SECTOR, WALL_R } from '../gen/world.js';
 import { hash } from '../gen/rng.js';
 
@@ -8,6 +8,7 @@ export const CELL = 210, RANGE = 2, MAX_SHOWN = 70, SHOW_R = 320;
 // [kind, weight]; `outer` is used past the Wall in Terra (open ocean: bigger animals, no turtles or gulls)
 export const TABLES = {
   terra: { sea: [['dolphin', 4], ['flyfish', 3], ['whale', 2], ['turtle', 2], ['fin', 1], ['school', 3]], outer: [['whale', 4], ['dolphin', 3], ['flyfish', 3], ['fin', 1], ['school', 2]], coast: 'gull', open: 'albatross', openP: 0.1 },
+  atlantis: { sea: [['dolphin', 5], ['ray', 3], ['turtle', 3], ['flyfish', 2], ['school', 3], ['whale', 1]], outer: [['whale', 3], ['dolphin', 3], ['ray', 2], ['flyfish', 2]], coast: 'gull', open: 'albatross', openP: 0.1 },
   asgard: { sea: [['narwhal', 3], ['seal', 3], ['orca', 2], ['icewhale', 2], ['school', 2]], outer: [['icewhale', 3], ['orca', 2], ['narwhal', 2], ['school', 1]], coast: 'raven', open: 'eagle', openP: 0.12 },
 };
 export const tableOf = (realm) => TABLES[realm] || TABLES.terra;
@@ -49,7 +50,7 @@ export function lifeAt(realm, seed, t, cx, cz, out = [], ship = null) {
       if (k === 'whale' || k === 'icewhale') { const c = (t / (g.P * 4) + m * 0.4 + (g.seed % 89) / 89) % 1; show = c < 0.6; const u = c / 0.6; y = u < 0.15 ? -2.2 * (1 - smooth(u / 0.15)) : u > 0.85 ? -2.2 * smooth((u - 0.85) / 0.15) : 0; fr = u < 0.25 ? 0 : u < 0.6 ? 2 : u < 0.85 ? 0 : 1; }
       else if (k === 'dolphin' || k === 'orca' || k === 'narwhal') { const long = k !== 'dolphin', c = long ? (cyc * 0.7) % 1 : cyc, span = long ? 0.4 : 0.38; show = c < span; const u = c / span; y = (long ? 2.4 : 3.4) * Math.sin(Math.PI * u) - 0.4; fr = u < 0.4 ? 0 : u < 0.62 ? 1 : 2; }
       else if (k === 'flyfish') { show = cyc < 0.13; const u = cyc / 0.13; y = 1.7 * Math.sin(Math.PI * u) + 0.3; fr = ((t * 16) | 0) & 1; }
-      else if (k === 'turtle' || k === 'seal') { y = -0.15; fr = ((t * 0.7 + m) | 0) & 1; }
+      else if (k === 'turtle' || k === 'seal' || k === 'ray') { y = -0.15; fr = ((t * (k === 'ray' ? 1.4 : 0.7) + m) | 0) & 1; } // a manta beats its wings twice as fast
       else if (k === 'school') { y = 0.05; fr = ((t * 3 + m) | 0) & 1; }
       let ox = x, oz = z, odx = dx, odz = dz;
       if (ship) {

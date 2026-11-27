@@ -50,6 +50,7 @@ export function createSprites(R) {
       case 'hearth': return get('hh', A.HEARTH_BOX, 12, (g) => A.paintHearth(g));
       case 'feast': return get('ft' + (p.v & 1), A.FEAST_BOX, 12, (g) => A.paintFeast(g, p.v & 1));
       case 'rune': return get('ru', A.RUNE_BOX, 12, (g) => A.paintRune(g));
+      case 'pillar': return get('pl', A.PILLAR_BOX, 12, (g) => A.paintPillar(g), true);
       case 'xmark': return get('x', A.XMARK_BOX, 12, (g) => A.paintXMark(g));
     }
     return null;

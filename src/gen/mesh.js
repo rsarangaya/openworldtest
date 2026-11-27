@@ -94,6 +94,7 @@ const DIRV = { '+x': [1, 0], '-x': [-1, 0], '+z': [0, 1], '-z': [0, -1] };
 const WOOD = [0.5, 0.36, 0.22], DARKWOOD = [0.33, 0.22, 0.13], STONE = [0.5, 0.48, 0.46];
 
 // Asgard's longhouses: dark timber walls with plank lines, steep turf or thatch roofs with an overhang, a carved dragon head at each end of the ridge, round shields along the walls, a smoke hole instead of a chimney
+const AT_WALL = [[0.95, 0.94, 0.9], [0.9, 0.91, 0.88], [0.96, 0.92, 0.84]], AT_ROOF = [[0.98, 0.8, 0.3], [0.2, 0.6, 0.62], [0.96, 0.74, 0.26]]; // Atlantis: white walls, gold and sea-green roofs
 const VK_WALL = [[0.4, 0.27, 0.17], [0.33, 0.23, 0.15], [0.45, 0.31, 0.2]], VK_ROOF = [[0.36, 0.42, 0.26], [0.52, 0.44, 0.28], [0.3, 0.36, 0.3]], VK_SHIELD = [[0.7, 0.18, 0.15], [0.9, 0.75, 0.25], [0.2, 0.35, 0.6], [0.88, 0.86, 0.8], [0.15, 0.4, 0.25]];
 function vikingTrim(m, b, y0, y1, ry, alongX) {
   const hw = b.w / 2, hd = b.d / 2, dk = [0.2, 0.13, 0.08], gold = [0.85, 0.7, 0.3];
@@ -182,7 +183,7 @@ function landmark(m, k, x, y, z, w, d, seed) {
   }
 }
 function building(m, isl, b) {
-  const vik = isl.theme === 'asgard', sl = STYLE_LOOK[isl.style], wall = vik ? VK_WALL[b.roof % 3] : sl ? sl.wall[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : sl ? sl.roof[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
+  const vik = isl.theme === 'asgard', at = isl.theme === 'atlantis', sl = STYLE_LOOK[isl.style], wall = vik ? VK_WALL[b.roof % 3] : at ? AT_WALL[b.roof % 3] : sl ? sl.wall[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : at ? AT_ROOF[b.roof % 3] : sl ? sl.roof[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
   m.box(b.x, y0 - 1.4, b.z, b.w + 0.4, 2.8, b.d + 0.4, [0.44, 0.42, 0.4]); // foundation reaches below the terrain on any slope
   if (!b.door) m.box(b.x, y0 + 0.3, b.z, b.w + 0.25, 0.6, b.d + 0.25, STONE, 0.15); // stone plinth (houses only: shops are hollow)
   if (b.door) {

@@ -64,3 +64,20 @@ const RUNES = [
 ];
 export const runeLine = (isl) => RUNES[(hash(isl.seed >>> 0, 7, 41) >>> 0) % RUNES.length];
 export const RUNE_COUNT = RUNES.length;
+// Atlantis's crystal pillars: one on each Atlantis island, read with F. Their inscriptions tell the drowned kingdom's own story.
+const PILLARS = [
+  'Ten kings ruled the ring of islands, and every ninth year they met here, at the pillar, to judge one another by the law cut in its side.',
+  'The sea gave us the island and the sea will ask for it back. Build light, build white, and teach the children to swim before they walk.',
+  'Orichalc for the rings of the walls, gold for the roofs of the gods, and sea-glass for the eyes of the pillars, so they can watch the deep.',
+  'The old city lies below this one. On calm nights its towers still burn, a long way down, and the fishermen hang their nets away from them.',
+  'The dolphins came to the harbour on the morning of the great wave and would not leave. Those who followed them out to sea were spared.',
+  'Here the canal-builders cut three rings of water round the hill, and a bridge over each, and a gate on each bridge that never closed.',
+  'A Terran ship came through the fog in the time of the ninth king. Its sailors called our towers stars and our people ghosts.',
+  'Do not take what the sea keeps. The wrecks belong to the drowned, and the drowned keep careful count.',
+  'The pillar sings when the tide turns. Put your ear to it: that is the old city counting its bells.',
+  'A king of the seventh ring wished to rule the sky as well as the sea. The mountain that answered him is still far to the east.',
+  'The mantas carried the first builders over the reef, and so no Atlantean may harm one. Feed them, and they will remember your sail.',
+  'Every pillar stands where a tower stood. Count them, and you will know how large the city was before the water came.',
+];
+export const pillarLine = (isl) => PILLARS[(hash(isl.seed >>> 0, 9, 43) >>> 0) % PILLARS.length];
+export const PILLAR_COUNT = PILLARS.length;

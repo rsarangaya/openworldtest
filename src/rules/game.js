@@ -29,7 +29,7 @@ import { eventFor } from './events.js';
 import { stepSerpent, shotSerpent, nearLair, compassWord } from './serpent.js';
 import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
 import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
-import { runeLine } from './lore.js';
+import { runeLine, pillarLine } from './lore.js';
 import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
 
 export const DT = 1 / 60;
@@ -79,7 +79,7 @@ export const groundAt = (s, x, z) => { if (s.deck && onDeck(s, x, z)) return DEC
 export const camBlocked = (s, x, y, z) => { for (const i of islandsAt(s, x, z)) { if (y < islandHeight(i, x, z) + 1.2) return true; for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1 && y < b.pad + b.h + 4) return true; } return false; };
 const PAD = 0.5; // body radius against walls
 // solid circles for everything that stands on an island: tree trunks, rocks, the well, stalls, lamps, barrels, counters, shelves (cached per island)
-const SOLID = { rack: [[-1, 0, 0.35], [0, 0, 0.35], [1, 0, 0.35]], anvil: [[0, 0, 0.6]], forge: [[0, 0, 0.8]], desk: [[-0.7, 0, 0.45], [0.7, 0, 0.45]], bunk: [[-0.5, 0, 0.5], [0.5, 0, 0.5]], board: [[-1.7, 0, 0.4], [-0.85, 0, 0.4], [0, 0, 0.4], [0.85, 0, 0.4], [1.7, 0, 0.4]], tree: [[0, 0, 0.55]], rock: [[0, 0, 0.7]], bush: [[0, 0, 0.6]], well: [[0, 0, 1.6]], lamp: [[0, 0, 0.35]], sign: [[0, 0, 0.3]], barrel: [[0, 0, 0.6]], crate: [[0, 0, 0.6]], bench: [[-0.6, 0, 0.55], [0.6, 0, 0.55]], rune: [[0, 0, 0.6]], hearth: [[-0.8, 0, 0.6], [0.8, 0, 0.6]], feast: [[-1.2, 0, 0.6], [0, 0, 0.6], [1.2, 0, 0.6]],
+const SOLID = { rack: [[-1, 0, 0.35], [0, 0, 0.35], [1, 0, 0.35]], anvil: [[0, 0, 0.6]], forge: [[0, 0, 0.8]], desk: [[-0.7, 0, 0.45], [0.7, 0, 0.45]], bunk: [[-0.5, 0, 0.5], [0.5, 0, 0.5]], board: [[-1.7, 0, 0.4], [-0.85, 0, 0.4], [0, 0, 0.4], [0.85, 0, 0.4], [1.7, 0, 0.4]], tree: [[0, 0, 0.55]], rock: [[0, 0, 0.7]], bush: [[0, 0, 0.6]], well: [[0, 0, 1.6]], lamp: [[0, 0, 0.35]], sign: [[0, 0, 0.3]], barrel: [[0, 0, 0.6]], crate: [[0, 0, 0.6]], bench: [[-0.6, 0, 0.55], [0.6, 0, 0.55]], rune: [[0, 0, 0.6]], pillar: [[0, 0, 0.6]], hearth: [[-0.8, 0, 0.6], [0.8, 0, 0.6]], feast: [[-1.2, 0, 0.6], [0, 0, 0.6], [1.2, 0, 0.6]],
   stall: [[-1.3, 0, 0.9], [0, 0, 0.9], [1.3, 0, 0.9]], counter: [[-1.1, 0, 0.7], [0, 0, 0.7], [1.1, 0, 0.7]], shelf: [[-2.4, 0, 0.7], [-0.8, 0, 0.7], [0.8, 0, 0.7], [2.4, 0, 0.7]] };
 const solidCache = new Map();
 const solidsOf = (isl) => { let c = solidCache.get(isl.seed); if (!c) { c = []; for (const p of islandProps(isl)) for (const o of SOLID[p.k] || []) c.push([p.x + o[0], p.z + o[1], o[2]]); solidCache.set(isl.seed, c); if (solidCache.size > 80) solidCache.delete(solidCache.keys().next().value); } return c; };
@@ -726,12 +726,16 @@ const nearNpc = (s) => {
 };
 // the town notice board: the island whose board you are standing at
 const nearBoard = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.port) for (const p of islandProps(i)) if (p.k === 'board' && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 4.6) return i; return null; };
-// an Asgard rune stone within reach (its island), or null
-const nearRune = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.theme === 'asgard') for (const p of islandProps(i)) if (p.k === 'rune' && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 3.2) return i; return null; };
+// an Asgard rune stone or an Atlantis crystal pillar within reach (its island), or null
+const nearRune = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.theme === 'asgard' || i.theme === 'atlantis') for (const p of islandProps(i)) if ((p.k === 'rune' || p.k === 'pillar') && Math.hypot(p.x - s.foot.x, p.z - s.foot.z) < 3.2) return i; return null; };
 // what the stones say of the rune gate: which way it lies from this island, and how many more stones it wants
 const gateHint = (s, isl) => { const a = runeGateAngle(), n = (s.runes || []).length; return `The stones speak of a gate of runes at the edge of this world, far to the ${compassWord(Math.cos(a) * WALL_R - isl.x, Math.sin(a) * WALL_R - isl.z)}. ${n >= RUNES_NEEDED ? 'You have read enough to make its veil answer you.' : `Read ${RUNES_NEEDED - n} more and its veil will answer you.`}`; };
 // read a rune stone: its line of lore; the first read of each stone counts (s.runes, saved) and adds a little to your score
 export function readRune(s, isl) {
+  if (isl.theme === 'atlantis') { // a crystal pillar: its inscription; the first read of each counts (s.pillars, saved) and adds to your score
+    const seen = (s.pillars ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
+    return { type: 'npc', npc: { name: 'Crystal pillar', kind: isl.name }, lines: [pillarLine(isl), `${fresh ? 'You copy the inscription into your log.' : 'You have read this pillar before.'} Pillars read: ${seen.length}.`], panel: null };
+  }
   const seen = (s.runes ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
   return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`, ...(s.flags.runeGate ? [] : [gateHint(s, isl)])], panel: null };
 }
@@ -757,7 +761,7 @@ export function prompt(s) {
   const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.kind})`;
   for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
-  if (nearRune(s)) return 'F  Read the rune stone';
+  { const rn = nearRune(s); if (rn) return rn.theme === 'atlantis' ? 'F  Read the crystal pillar' : 'F  Read the rune stone'; }
   if (nearTemple(s)) return `F  Make an offering at the temple (${OFFERING}g)`;
   if (nearTreasure(s)) return 'F  Dig';
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) return 'F  Board your ship';

@@ -30,13 +30,17 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: weak spot', (s) => { const g = gatePos(s.baseSeed || s.seed); sail(s, g.x * (1 - 60 / WALL_R), g.z * (1 - 60 / WALL_R), g.angle); }],
     ['Go: Outer Sea edge', (s) => { s.flags.crossed = true; const th = REALMS.find((r) => r.id === 'asgard').grand.ang; sail(s, Math.cos(th) * (OUTER_EDGE - 120), Math.sin(th) * (OUTER_EDGE - 120), th); }],
     ['World: Asgard', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('asgard'); }],
+    ['World: Atlantis', (s) => { s.flags.crossed = true; needShip(s); s.mode = 'ship'; warp('atlantis'); }],
+    ['Go: nearest town plaza', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot, cx = sectorOf(p.x), cz = sectorOf(p.z); let best = null;
+      for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const isl of sectorIslands(s.seed, cx + i, cz + j)) if (isl.port && (!best || Math.hypot(isl.x - p.x, isl.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z))) best = isl;
+      if (!best) { say(s, 'No town near'); return; } const pz = islandTown(best).plaza; needShip(s); Object.assign(s.ship, { x: best.port.x, z: best.port.z, speed: 0 }); s.mode = 'foot'; s.foot = { x: pz.x + 3, z: pz.z + 3, y: groundAt(s, pz.x + 3, pz.z + 3), yaw: 0, vy: 0 }; teleport(); }],
     ['Go: fjord mouth', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const p = s.mode === 'ship' && s.ship ? s.ship : s.foot, cx = sectorOf(p.x), cz = sectorOf(p.z); let best = null;
       for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const isl of sectorIslands(s.seed, cx + i, cz + j)) if (isl.fjords?.[0]?.port && (!best || Math.hypot(isl.x - p.x, isl.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z))) best = isl;
       if (!best) { say(s, 'No fjord port near'); return; } const a = best.port.angle, d = best.r * 1.7; sail(s, best.x + Math.cos(a) * d, best.z + Math.sin(a) * d, a + Math.PI); }],
     ['Go: rune gate (+runes)', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const a = runeGateAngle(); s.runes ||= []; while (s.runes.length < RUNES_NEEDED) s.runes.push('dbg' + s.runes.length); sail(s, Math.cos(a) * (WALL_R - 260), Math.sin(a) * (WALL_R - 260), a); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
-    ['Go: wreck', (s) => { const w = wrecks(s.seed, s.realm === 'asgard' ? 'asgard' : '')[0]; s.salvage = {}; s.dive = null; sail(s, w.x - 14, w.z, 0); s.ship.sail = 0; }],
+    ['Go: wreck', (s) => { const w = wrecks(s.seed, s.realm && s.realm !== 'terra' ? s.realm : '')[0]; s.salvage = {}; s.dive = null; sail(s, w.x - 14, w.z, 0); s.ship.sail = 0; }],
     ['Go: draugr barrow', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const b = barrows(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('barrow')); s.draugr = null; sail(s, b.x - 260, b.z, 0); }],
     ...[['armoury', 'smith'], ['mead hall', 'tavern']].map(([name, kind]) => ['Go: ' + name + ' (on foot)', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; let best = null, bd = 1e9; // in front of the nearest such door, facing in
       for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) { const b = islandTown(isl).buildings.find((q) => q.kind === kind); if (b) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < bd) { bd = d; best = [isl, b]; } } }

@@ -22,7 +22,7 @@ const nearestTreasure = (s) => {
   tcache.set(s, { t: s.t, v }); return v;
 };
 // the compass points at the port from the sea, and at the actual person once you are on foot
-const aim = (s, t, kind, label) => { const p = s.mode === 'foot' && t.npcs?.find((o) => o.kind === kind); return { ...t, ...(p ? { x: p.x, z: p.z } : {}), label }; };
+const aim = (s, t, kind, label) => { if (!t) return null; const p = s.mode === 'foot' && t.npcs?.find((o) => o.kind === kind); return { ...t, ...(p ? { x: p.x, z: p.z } : {}), label }; };
 
 export const QUESTS = [
   { id: 'ticket', title: 'One-Way Ticket', desc: 'The documentary said the Wall is real. Buy a ship from the shipwright in Port Haven.',

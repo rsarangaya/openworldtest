@@ -15,7 +15,7 @@ export const gatePos = (seed) => { const a = gateAngle(seed); return { x: Math.c
 const frostSpot = (seed) => { const g = gatePos(seed); return { x: Math.cos(g.angle) * (WALL_R - 300), z: Math.sin(g.angle) * (WALL_R - 300) }; };
 
 // ---------------------------------------------------------------- islands
-const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'], north: ['frozen', 'frozen', 'frozen', 'frozen', 'rocky'] };
+const BIOMES = { warm: ['tropical', 'tropical', 'tropical', 'sandbar', 'volcanic'], mild: ['temperate', 'temperate', 'rocky', 'rocky', 'sandbar'], cold: ['frozen', 'frozen', 'rocky', 'frozen'], north: ['frozen', 'frozen', 'frozen', 'frozen', 'rocky'], atlantis: ['tropical', 'tropical', 'tropical', 'sandbar', 'temperate'] };
 const cache = new Map(), tags = new Map();
 // which look a seed has: the seed of a realm is registered when you enter it (see rules/realm.js), Terra is the default
 const THEMES = new Map();
@@ -26,7 +26,7 @@ export const clearWorldCaches = () => { folkCache.clear(); townCache.clear(); };
 function gen(seed, sx, sz) {
   const r = rngFor(seed, sx, sz, 1), out = [];
   if (Math.hypot((sx + 0.5) * SECTOR, (sz + 0.5) * SECTOR) > WALL_R + SECTOR) return out;
-  const fw = frostSpot(seed), frostHere = sectorOf(fw.x) === sx && sectorOf(fw.z) === sz, homeHere = sx === 0 && sz === 0;
+  const fw = frostSpot(seed), frostHere = themeOf(seed) !== 'atlantis' && sectorOf(fw.x) === sx && sectorOf(fw.z) === sz, homeHere = sx === 0 && sz === 0; // no ice rock in warm Atlantis
   const want = homeHere ? 3 : (r() < 0.18 ? 0 : 1 + ((r() * 3) | 0));
   for (let tries = 0; (out.length < want || (frostHere && !out.some((o) => o.special))) && tries < 60; tries++) {
     const home = homeHere && out.length === 0, frost = frostHere && !out.some((o) => o.special) && (tries > 20 || out.length >= want);
@@ -38,7 +38,7 @@ function gen(seed, sx, sz) {
     if (out.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + rad + 40)) continue;
     if (!frost && Math.hypot(x - fw.x, z - fw.z) < rad + 120) continue;
     const d = Math.hypot(x, z) / WALL_R;
-    const th = themeOf(seed), biome = th === 'asgard' ? pick(r, BIOMES.north) : home ? 'tropical' : frost ? 'frozen' : pick(r, d < 0.35 ? BIOMES.warm : d < 0.72 ? BIOMES.mild : BIOMES.cold);
+    const th = themeOf(seed), biome = th === 'asgard' ? pick(r, BIOMES.north) : th === 'atlantis' ? pick(r, BIOMES.atlantis) : home ? 'tropical' : frost ? 'frozen' : pick(r, d < 0.35 ? BIOMES.warm : d < 0.72 ? BIOMES.mild : BIOMES.cold);
     const base = biome === 'sandbar' ? 3 : biome === 'volcanic' ? range(r, 22, 34) : biome === 'rocky' ? range(r, 14, 24) : range(r, 9, 16);
     const hgt = biome === 'sandbar' ? 3 : base * clamp(0.7 + rad / 100, 0.7, 1.5);
     const id = `${sx},${sz},${out.length}`, seedI = hash(seed, sx, sz, out.length + 11), nr = rngFor(seedI, 5);
@@ -108,10 +108,10 @@ export function sectorIslands(seed, sx, sz) {
   return v;
 }
 export function questWorld(seed) {
-  const t = questTags(seed), find = (id) => { const [a, b] = id.split(',').map(Number); return sectorIslands(seed, a, b).find((i) => i.id === id); }; // the cached, quest-tagged islands: a fresh gen() copy has no quest, and a town built from one would be cached without its sailor or warden
+  const t = questTags(seed), find = (id) => { if (!id) return null; const [a, b] = id.split(',').map(Number); return sectorIslands(seed, a, b).find((i) => i.id === id); }; // the cached, quest-tagged islands: a fresh gen() copy has no quest, and a town built from one would be cached without its sailor or warden
   const h = sectorIslands(seed, 0, 0)[0], s = find(t.sailor), f = find(t.frost), g = gatePos(seed);
   const pt = (i) => ({ id: i.id, name: i.port.name, x: i.port.x, z: i.port.z, island: i.name, get npcs() { return islandTown(i).npcs; } }); // npcs is looked up lazily: the island's quest tags are applied after this runs
-  return { home: pt(h), sailor: pt(s), frost: pt(f), gate: { x: g.x, z: g.z, angle: g.angle } };
+  return { home: pt(h), sailor: pt(s), frost: f ? pt(f) : null, gate: { x: g.x, z: g.z, angle: g.angle } }; // Atlantis has no ice rock (the story there is long over)
 }
 
 // terrain height at (x,z): > 0 is land, sea level is 0. rawHeight is the natural island; islandHeight also flattens

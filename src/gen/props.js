@@ -24,13 +24,14 @@ function build(isl) {
       out.push({ k, x, z, v });
     }
   };
-  if (isl.theme === 'asgard') { // one carved rune stone per island, on fairly level open ground (its own random stream: the rest of the island is unchanged)
+  if (isl.theme === 'asgard' || isl.theme === 'atlantis') { // one landmark per island (Asgard: a carved rune stone; Atlantis: a crystal pillar), on fairly level open ground (its own random stream: the rest of the island is unchanged)
     const q = rngFor(isl.seed, 41);
     for (let k = 0; k < 60; k++) { // small steep islands: later tries accept lower, steeper ground (still walkable)
       const a = q() * TAU, d = range(q, k < 20 ? 0.25 : 0.12, k < 30 ? 0.7 : 0.88) * isl.r, x = isl.x + Math.cos(a) * d, z = isl.z + Math.sin(a) * d, y = islandHeight(isl, x, z);
-      if (y < (k < 30 ? 1.3 : 0.9) || y > isl.h * 0.7 || !free(x, z, 3)) continue;
+      const sand = isl.biome === 'sandbar'; // a sandbar is low all over: take any dry ground on it
+      if (y < (sand ? 0.8 : k < 30 ? 1.3 : 0.9) || y > isl.h * (sand ? 2.5 : 0.7) || !free(x, z, 3)) continue;
       if (Math.max(...[[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]].map(([u, w]) => Math.abs(islandHeight(isl, x + u, z + w) - y))) > (k < 30 ? 1.1 : 1.7)) continue;
-      out.push({ k: 'rune', x, z, v: 0 }); placed.push({ x, z }); break;
+      out.push({ k: isl.theme === 'asgard' ? 'rune' : 'pillar', x, z, v: 0 }); placed.push({ x, z }); break;
     }
   }
   const green = isl.biome === 'tropical' || isl.biome === 'temperate' || isl.biome === 'frozen';

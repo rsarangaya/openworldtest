@@ -15,7 +15,7 @@ const memo = new Map();
 export const wrecks = (seed, th = '') => memo.get(seed) || memo.set(seed, seaSpots(seed, [[0.16, 0.36], [0.4, 0.6], [0.62, 0.8], [0.82, 0.94]], 9100, 'wreck').map((w, i) => ({ ...w, name: shipName(rngFor(seed, 9150 + i), th), good: GOODS[hash(seed, 9160 + i) % GOODS.length] }))).get(seed);
 const keyOf = (s, w) => realm(s) + ':' + w.id;
 export const divesLeft = (s, w) => DIVES - ((s.salvage || {})[keyOf(s, w)] || 0);
-const all = (s) => wrecks(s.seed, realm(s) === 'asgard' ? 'asgard' : ''), live = (s) => all(s).filter((w) => divesLeft(s, w) > 0);
+const all = (s) => wrecks(s.seed, realm(s) === 'terra' ? '' : realm(s)), live = (s) => all(s).filter((w) => divesLeft(s, w) > 0);
 // the wreck under the ship (within reach of a diver), or null
 export function wreckHere(s) { const p = s.ship; return (p && all(s).find((w) => Math.hypot(w.x - p.x, w.z - p.z) < DIVE_R && divesLeft(s, w) > 0)) || null; }
 // wrecks worth drawing near (x, z): their floating debris
@@ -23,7 +23,7 @@ export const wrecksNear = (s, x, z, r) => live(s).filter((w) => Math.hypot(w.x -
 export function wreckRumour(s, x, z) {
   let best = null, bd = 1e9; for (const w of live(s)) { const d = Math.hypot(w.x - x, w.z - z); if (d < bd) { bd = d; best = w; } }
   if (!best) return null;
-  return `${realm(s) === 'asgard' ? 'A trader swears' : 'An old diver swears'} the ${best.name.replace(/^The /, '')} went down ${bd > 2500 ? 'far out' : bd > 1200 ? 'a long sail' : 'not far'} to the ${compassWord(best.x - x, best.z - z)} with ${best.good} in her hold. Barrels still float over the spot. Heave to above her and send a diver down.`;
+  return `${realm(s) === 'asgard' ? 'A trader swears' : realm(s) === 'atlantis' ? 'A pearl diver swears' : 'An old diver swears'} the ${best.name.replace(/^The /, '')} went down ${bd > 2500 ? 'far out' : bd > 1200 ? 'a long sail' : 'not far'} to the ${compassWord(best.x - x, best.z - z)} with ${best.good} in her hold. Barrels still float over the spot. Heave to above her and send a diver down.`;
 }
 // F at sea over a wreck: send the diver down, or say why not. danger(s) is true while a foe is close.
 export function startDive(s, w, say, stormy, danger) {

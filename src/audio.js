@@ -1,9 +1,10 @@
 // Procedural audio (no sample files): sea, wind, cannons, coins. Built on the first click or key press.
-// Generative music in three styles: Terra (calm D major pads), Asgard (D minor over a low open-fifth drone, a horn call now and then)
+// Generative music in four styles: Terra (calm D major pads), Asgard (D minor over a low open-fifth drone, a horn call now and then), Atlantis (D lydian bells)
 // and the mead hall (a quicker lyre tune over a frame drum). A style is a pure list of notes per bar, so it can be checked without sound.
-export const musicStyle = (sc) => (sc?.hall ? 'hall' : sc?.norse ? 'norse' : 'terra');
-const CH = { terra: [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 0, 4, 7], [7, 11, 14, 18]], norse: [[0, 7, 12, 15], [-2, 5, 10, 14], [-4, 3, 8, 12], [-2, 5, 10, 14]] };
-const SCALE = { terra: [0, 2, 4, 7, 9, 12, 14, 16], norse: [0, 3, 5, 7, 10, 12, 15, 17], hall: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15] }; // major pentatonic, minor pentatonic, D dorian
+export const musicStyle = (sc) => (sc?.hall ? 'hall' : sc?.norse ? 'norse' : sc?.atl ? 'atlantis' : 'terra');
+// Atlantis: D lydian, swaying between I and II (the raised fourth gives it a bright, watery lift), with high bell-like notes
+const CH = { terra: [[0, 4, 7, 11], [5, 9, 12, 16], [-3, 0, 4, 7], [7, 11, 14, 18]], norse: [[0, 7, 12, 15], [-2, 5, 10, 14], [-4, 3, 8, 12], [-2, 5, 10, 14]], atlantis: [[0, 4, 7, 11], [2, 6, 9, 13], [0, 4, 7, 14], [2, 6, 11, 13]] };
+const SCALE = { terra: [0, 2, 4, 7, 9, 12, 14, 16], norse: [0, 3, 5, 7, 10, 12, 15, 17], hall: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15], atlantis: [0, 2, 4, 6, 9, 11, 12, 14, 16, 18] }; // major pentatonic, minor pentatonic, D dorian, D lydian
 // one bar: { len (s), notes: [{ t, n (semitones from D3), type, peak, a, d, pad?, drum? }] }; rnd is a 0..1 random source
 export function barNotes(style, bar, rnd) {
   const notes = [], P = (t, n, type, peak, a, d) => notes.push({ t, n, type, peak, a, d });
@@ -14,12 +15,12 @@ export function barNotes(style, bar, rnd) {
     let k = 4 + ((rnd() * 3) | 0); for (let i = 0; i < 6; i++) { if (i && rnd() < 0.15) continue; k = Math.max(0, Math.min(S.length - 1, k + ((rnd() * 5) | 0) - 2)); P(i * len / 6 + 0.02, S[k] + 12, 'triangle', 0.08, 0.008, 0.55); }
     return { len, notes };
   }
-  const norse = style === 'norse', c = CH[norse ? 'norse' : 'terra'][bar % 4], len = 8, S = SCALE[norse ? 'norse' : 'terra'];
+  const norse = style === 'norse', atl = style === 'atlantis', st = norse || atl ? style : 'terra', c = CH[st][bar % 4], len = 8, S = SCALE[st];
   for (const n of c) notes.push({ t: 0, n: n + 12, pad: true, peak: 0.05, a: 2.5, d: len - 1 });
   P(0, norse ? -12 : c[0], 'sine', 0.08, 1.5, len); // slow bass (Asgard: a low D drone under every chord)
   if (norse) { P(0, -5, 'sine', 0.05, 1.5, len); if (rnd() < 0.35) { P(1.2, -5, 'sawtooth', 0.018, 0.5, 1.6); P(3.0, 0, 'sawtooth', 0.022, 0.4, 2.6); } } // the low fifth, and now and then a two-note horn call
   const root = norse ? 12 : c[0] + 12, hits = (norse ? 2 : 3) + ((rnd() * 3) | 0);
-  for (let i = 0; i < hits; i++) { const pick = rnd() < 0.6 ? c[(rnd() * 4) | 0] + 24 : root + S[(rnd() * S.length) | 0]; P(0.8 + i * (len / hits) + rnd() * 0.6, pick, 'triangle', 0.07, 0.015, norse ? 2.2 : 1.6); }
+  for (let i = 0; i < hits; i++) { const pick = rnd() < 0.6 ? c[(rnd() * 4) | 0] + 24 : root + S[(rnd() * S.length) | 0]; P(0.8 + i * (len / hits) + rnd() * 0.6, pick + (atl ? 12 : 0), atl ? 'sine' : 'triangle', atl ? 0.06 : 0.07, 0.015, norse ? 2.2 : atl ? 3 : 1.6); } // Atlantis: an octave up, pure and ringing, like bells under water
   return { len, notes };
 }
 export function createAudio() {

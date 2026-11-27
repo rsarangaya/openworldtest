@@ -32,8 +32,8 @@ export const songFor = (seed, n) => SONGS[(((hash(seed, 31) >>> 0) % SONGS.lengt
 // what the music and crowd should do: on foot near a town plaza the crowd swells; Asgard has its own music, the mead hall its own tune.
 // isl is the island underfoot (standingOn), or null at sea
 export function soundScene(s, isl) {
-  const norse = s.realm === 'asgard'; if (s.mode !== 'foot') return { foot: false, town: 0, norse };
-  const pz = isl?.port && islandTown(isl).plaza; if (!pz) return { foot: true, town: 0, norse };
+  const norse = s.realm === 'asgard', atl = s.realm === 'atlantis'; if (s.mode !== 'foot') return { foot: false, town: 0, norse, atl };
+  const pz = isl?.port && islandTown(isl).plaza; if (!pz) return { foot: true, town: 0, norse, atl };
   const w = { village: 0.5, town: 0.8, city: 1 }[isl.tier] || 0.5;
-  return { foot: true, norse, hall: inHall(isl, s.foot.x, s.foot.z), town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) };
+  return { foot: true, norse, atl, hall: inHall(isl, s.foot.x, s.foot.z), town: w * Math.max(0, 1 - Math.max(0, Math.hypot(s.foot.x - pz.x, s.foot.z - pz.z) - 14) / 45) };
 }
