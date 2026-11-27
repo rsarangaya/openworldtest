@@ -17,9 +17,9 @@ export const UNKNOWN = 0, HINTED = 1, KNOWN = 2;
 // `rumour` is the line an NPC says when they first mention it. Order matters: rumours about planned worlds come in this order.
 export const REALMS = [
   { id: 'terra', name: 'Terra', radius: WALL_R, cell: CELL, home: true, blurb: 'The known world, ringed by ice.', grand: { ang: 0, dist: 0, size: 1 }, color: [96, 168, 96] },
-  { id: 'asgard', name: 'Asgard', planned: true, blurb: 'Above the clouds, where the long ships sail on wind and fire.', grand: { ang: -1.5, dist: 1.95, size: 0.6 }, color: [150, 190, 220], rumour: 'a high land of snow and stone where the old gods are said to feast' },
-  { id: 'atlantis', name: 'Atlantis', planned: true, blurb: 'A drowned world of glass and light.', grand: { ang: 2.35, dist: 2.0, size: 0.62 }, color: [60, 150, 170], rumour: 'a drowned kingdom, sunk long ago, with towers still lit beneath the waves' },
-  { id: 'olympus', name: 'Olympus', planned: true, blurb: 'Peaks that touch the sky, and the oldest, proudest people.', grand: { ang: 0.35, dist: 2.05, size: 0.58 }, color: [210, 190, 120], rumour: 'a mountain that touches the sky, home to the oldest and proudest of all peoples' },
+  { id: 'asgard', radius: WALL_R, cell: CELL, name: 'Asgard', planned: true, blurb: 'Above the clouds, where the long ships sail on wind and fire.', grand: { ang: -1.5, dist: 1.95, size: 0.6 }, color: [150, 190, 220], rumour: 'a high land of snow and stone where the old gods are said to feast' },
+  { id: 'atlantis', radius: WALL_R, cell: CELL, name: 'Atlantis', planned: true, blurb: 'A drowned world of glass and light.', grand: { ang: 2.35, dist: 2.0, size: 0.62 }, color: [60, 150, 170], rumour: 'a drowned kingdom, sunk long ago, with towers still lit beneath the waves' },
+  { id: 'olympus', radius: WALL_R, cell: CELL, name: 'Olympus', planned: true, blurb: 'Peaks that touch the sky, and the oldest, proudest people.', grand: { ang: 0.35, dist: 2.05, size: 0.58 }, color: [210, 190, 120], rumour: 'a mountain that touches the sky, home to the oldest and proudest of all peoples' },
 ];
 export const realmById = (id) => REALMS.find((r) => r.id === id);
 // decorative rings of the grand map (radii in Terra wall radii): the ice wall round Terra, and the mountains ring round everything

@@ -19,7 +19,7 @@ import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
 import { newsFor, markRead } from './rules/news.js';
 import { SHIPS, SHIP_ORDER, TRADE_IN } from './rules/ships.js';
 import { localRep, worldRep, tier, buyMult } from './rules/rep.js';
-import { drawTerra, drawWorld, makeView, zoomView, panView, centreView, where } from './mapview.js';
+import { drawLocal, drawWorld, makeView, zoomView, panView, centreView, where } from './mapview.js';
 import { createCompass } from './compass.js';
 import { hourAt, clockText, isNight, nowHour, sleepTillDawn, BED } from './rules/daynight.js';
 import { realmState, REALMS as WORLDS, HINTED } from './rules/map.js';
@@ -277,7 +277,7 @@ export function createUI() {
   ui.map = (s, onClose, onTravel) => {
     const el = $('panel'); let tab = 'terra', t0 = performance.now(), timer = 0, N = 640, view = makeView();
     const close = () => { clearInterval(timer); on('panel', false); onClose?.(); };
-    const draw = () => { const c = $('mapc'); if (!c || !ui.panelOpen()) { clearInterval(timer); return; } const ctx = c.getContext('2d'), t = (performance.now() - t0) / 1000; if (tab === 'terra') drawTerra(ctx, s, N, t, view); else drawWorld(ctx, s, N, t, view); };
+    const draw = () => { const c = $('mapc'); if (!c || !ui.panelOpen()) { clearInterval(timer); return; } const ctx = c.getContext('2d'), t = (performance.now() - t0) / 1000; if (tab === 'terra') drawLocal(ctx, s, N, t, view); else drawWorld(ctx, s, N, t, view); };
     // wheel or + / - zooms, drag moves the chart, "Me" brings it to where you are
     const controls = () => {
       const c = $('mapc'), scale = () => N / (c.clientWidth || N), mid = N / 2;
@@ -292,8 +292,8 @@ export function createUI() {
     };
     const travelHtml = () => { const why = travelBlock(s), list = travelList(s); return `<div style="max-height:48vh;overflow:auto"><p><small>Sail to a port you have already walked. The voyage takes time at sea and uses provisions (you have <b>${s.food}</b>).</small></p>${why ? `<p class=bad>${esc(why)}</p>` : ''}${list.length ? '<table>' + list.map((t) => `<tr><td><b>${esc(t.name)}</b><br><small>${t.dist > 1000 ? (t.dist / 1000).toFixed(1) + ' km' : Math.round(t.dist) + ' m'} · ${Math.max(1, Math.round(t.time / 60))} min · ${t.food} provisions</small></td><td class=n><button class=small data-go="${esc(t.id)}" ${why || s.food < t.food ? 'disabled' : ''}>Sail</button></td></tr>`).join('') + '</table>' : '<p class=hint>No ports visited here yet. Walk into a port to add it.</p>'}</div>`; };
     const show = () => {
-      const heard = WORLDS.filter((r) => !r.home && realmState(s, r.id) >= HINTED).length;
-      el.innerHTML = `<div class=box style="max-width:min(720px,96vw)"><h2>Map</h2><div><button class=small id=mT ${tab === 'terra' ? 'disabled' : ''}>Terra</button> <button class=small id=mW ${tab === 'world' ? 'disabled' : ''}>All worlds (${heard} heard of)</button> ${s.flags.crossed ? `<button class=small id=mV ${tab === 'travel' ? 'disabled' : ''}>Fast travel</button>` : ''}</div>${tab === 'travel' ? travelHtml() : ''}<canvas id=mapc width=${N} height=${N} style="width:min(640px,54vh);height:min(640px,54vh);display:${tab === 'travel' ? 'none' : 'block'};margin:.6em auto;border:2px solid #07080c;cursor:grab;touch-action:none"></canvas>${tab === 'travel' ? '' : '<div style="text-align:center"><button class=small id=mOut>&minus;</button> <button class=small id=mIn>+</button> <button class=small id=mMe>Find me</button> <small>scroll to zoom, drag to move</small></div>'}<small>${tab === 'terra' ? 'Only waters you have sailed, places you have walked and charts you were given are drawn. A dashed ring is a wreck you have heard of.' : 'Other worlds appear when you hear of them, and in colour when you reach them.'}</small><p><button id=mC>Close (M)</button></p></div>`;
+      const here = (WORLDS.find((r) => r.id === (s.realm || 'terra')) || WORLDS[0]).name, heard = WORLDS.filter((r) => !r.home && realmState(s, r.id) >= HINTED).length;
+      el.innerHTML = `<div class=box style="max-width:min(720px,96vw)"><h2>Map</h2><div><button class=small id=mT ${tab === 'terra' ? 'disabled' : ''}>${esc(here)}</button> <button class=small id=mW ${tab === 'world' ? 'disabled' : ''}>All worlds (${heard} heard of)</button> ${s.flags.crossed ? `<button class=small id=mV ${tab === 'travel' ? 'disabled' : ''}>Fast travel</button>` : ''}</div>${tab === 'travel' ? travelHtml() : ''}<canvas id=mapc width=${N} height=${N} style="width:min(640px,54vh);height:min(640px,54vh);display:${tab === 'travel' ? 'none' : 'block'};margin:.6em auto;border:2px solid #07080c;cursor:grab;touch-action:none"></canvas>${tab === 'travel' ? '' : '<div style="text-align:center"><button class=small id=mOut>&minus;</button> <button class=small id=mIn>+</button> <button class=small id=mMe>Find me</button> <small>scroll to zoom, drag to move</small></div>'}<small>${tab === 'terra' ? 'Only waters you have sailed, places you have walked and charts you were given are drawn. A dashed ring is a wreck you have heard of.' : 'Other worlds appear when you hear of them, and in colour when you reach them.'}</small><p><button id=mC>Close (M)</button></p></div>`;
       $('mC').onclick = close; $('mT').onclick = () => { tab = 'terra'; view = makeView(); show(); }; $('mW').onclick = () => { tab = 'world'; view = makeView(); show(); }; if (s.flags.crossed) $('mV').onclick = () => { tab = 'travel'; show(); }; el.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => { const id = b.dataset.go; close(); onTravel?.(id); })); if (tab !== 'travel') controls(); draw(); clearInterval(timer); timer = setInterval(draw, 500);
     };
     show(); on('panel', true);

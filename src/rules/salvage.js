@@ -31,8 +31,8 @@ export function wreckRumour(s, x, z) {
   if (!best) return null; (s.salvage ||= {})[keyOf(s, best)] ??= 0; // heard of: the chart map marks roughly where she lies
   return `${realm(s) === 'asgard' ? 'A trader swears' : realm(s) === 'atlantis' ? 'A pearl diver swears' : realm(s) === 'olympus' ? 'A sponge diver swears' : 'An old diver swears'} the ${best.name.replace(/^The /, '')} went down ${bd > 2500 ? 'far out' : bd > 1200 ? 'a long sail' : 'not far'} to the ${compassWord(best.x - x, best.z - z)} with ${best.good} in her hold. Barrels still float over the spot. Heave to above her and send a diver down.`;
 }
-// Terra's wrecks for the chart map: the ones you have heard of (dives 0) or dived on, with how many dives they have had
-export const chartWrecks = (s) => wrecks(s.baseSeed || s.seed).flatMap((w) => { const n = (s.salvage || {})['terra:' + w.id]; return n === undefined ? [] : [{ ...w, dives: n, stripped: n >= DIVES }]; });
+// the wrecks of the world you are in, for its chart map: the ones you have heard of (dives 0) or dived on, with how many dives they have had
+export const chartWrecks = (s) => all(s).flatMap((w) => { const n = (s.salvage || {})[keyOf(s, w)]; return n === undefined ? [] : [{ ...w, dives: n, stripped: n >= DIVES }]; });
 // F at sea over a wreck: send the diver down, or say why not. danger(s) is true while a foe is close.
 export function startDive(s, w, say, stormy, danger, rough = 0) {
   const p = s.ship;

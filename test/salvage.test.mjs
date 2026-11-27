@@ -121,3 +121,35 @@ test('a dive can go wrong over a deep wreck or in a swell: the line fouls, or th
     assert.equal(divesLeft(t, w), 0);
   }
 });
+
+test('every world keeps its own chart: a captain in Asgard hears of a wreck, sails there, dives, and the Asgard chart shows the waters, the wreck and the rune gate', async () => {
+  const { chartWrecks } = await import('../src/rules/salvage.js');
+  const { mapOf, reveal } = await import('../src/rules/map.js');
+  const { gateAngleOf } = await import('../src/rules/realm.js');
+  const s = newGame(2024); const terraW = wrecks(2024)[0]; (s.salvage ||= {})['terra:' + terraW.id] = 1; // a Terra wreck already dived on
+  enterRealm(s, 'asgard'); assert.deepEqual(chartWrecks(s), [], 'Terra\'s wrecks show on the Asgard chart');
+  const home = sectorIslands(s.seed, 0, 0)[0]; let body = null;
+  for (let n = 0; n < 12 && !body; n++) { s.t = n * ISSUE_LEN + 1; body = newsFor(s, home).items.find((q) => q.head === 'An old wreck')?.body; }
+  assert.ok(body, 'no wreck rumour on the Asgard board');
+  const w = wrecks(s.seed, 'asgard').find((q) => body.includes(q.name.replace(/^The /, ''))); assert.ok(w);
+  assert.deepEqual(chartWrecks(s).map((q) => q.id), [w.id]);
+  const terraCells = Object.keys(mapOf(s).cells.terra || {}).length;
+  atSea(s, w.x - 200, w.z - 60); assert.ok(reach(s, w) !== null, 'never reached the wreck'); s.ship.speed = 0;
+  const cells = mapOf(s).cells.asgard || {}; assert.ok(Object.keys(cells).length > 4, 'sailing Asgard charted nothing');
+  assert.equal(Object.keys(mapOf(s).cells.terra || {}).length, terraCells, 'Asgard waters were written onto Terra\'s chart');
+  interact(s); assert.ok(s.dive, s.log.at(-1)); for (let i = 0; i < 60 * (DIVE_S + 1); i++) tick(s);
+  assert.equal(chartWrecks(s)[0].dives, 1);
+  // draw it: the dived wreck's name at zoom 5, the gate's name once its cliffs are seen, the dashed rim
+  const said = [], dashes = []; const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : k === 'measureText' ? () => ({ width: 10 }) : k === 'fillText' ? (t) => said.push(t) : k === 'setLineDash' ? (d) => dashes.push(d.length) : () => ({ addColorStop() {} })), set: (o, k, v) => ((o[k] = v), true) });
+  globalThis.document = { createElement: () => ({ getContext: () => ctx, width: 0, height: 0 }) };
+  const { drawLocal, makeView } = await import('../src/mapview.js');
+  const v = makeView(); v.zoom = 5; v.x = w.x; v.z = w.z; drawLocal(ctx, s, 640, 0, v);
+  assert.ok(said.includes(w.name.replace(/^The /, '')), 'the dived wreck is not named on the Asgard chart');
+  assert.ok(!said.includes('The Rune Gate'), 'the gate is drawn before anyone saw it');
+  const ga = gateAngleOf('asgard'); reveal(s, 'asgard', Math.cos(ga) * (WALL_R - 200), Math.sin(ga) * (WALL_R - 200), 520);
+  said.length = 0; drawLocal(ctx, s, 640, 0, makeView()); assert.ok(said.includes('The Rune Gate'), 'the gate is missing once seen'); assert.ok(dashes.some((n) => n > 0), 'no dashed rim');
+  delete globalThis.document;
+  // back home the Terra chart shows Terra's wreck again, and Asgard's waters survive a save
+  const t = deserialize(serialize(s)); assert.ok(Object.keys(mapOf(t).cells.asgard).length >= Object.keys(cells).length);
+  enterRealm(s, 'terra'); assert.deepEqual(chartWrecks(s).map((q) => q.id), [terraW.id]);
+});

@@ -4,6 +4,7 @@ import { sectorIslands, WALL_R } from './gen/world.js';
 import { hash } from './gen/rng.js';
 import { chartWrecks } from './rules/salvage.js';
 import { CELL, UNKNOWN, HINTED, worldLayout, grandPoint, mapOf, REALMS } from './rules/map.js';
+import { GATES, gateAngleOf, RIM_EXIT } from './rules/realm.js';
 
 const INK = '#2b1d12', PAPER = '#d8c08e', PAPER_D = '#c4a874', SEA = '#5d93a6', SEA_L = '#7fb0bd', SKETCH = '#b9a57c', ICE = '#f2f8fb';
 const LAND = { tropical: '#8fae52', frozen: '#e8eef0', sandbar: '#e2cd8d', volcanic: '#8d6a5c', rocky: '#a59c8c' };
@@ -47,10 +48,11 @@ function rose(ctx, x, y, r) {
 }
 function frame(ctx, size) { ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(5.5, 5.5, size - 11, size - 11); ctx.lineWidth = 1; ctx.strokeRect(10.5, 10.5, size - 21, size - 21); }
 
-// the local chart of Terra: the waters you have seen, the islands in them, the ice wall where you have seen it, your ship and you
-export function drawTerra(ctx, s, size, t = 0, view = makeView()) {
+// the local chart of the world you are in: the waters you have seen, the islands in them, its rim where you have seen it (Terra: the ice wall;
+// elsewhere the edge of the world, and a gate's cliffs), the wrecks you know of, your ship and you
+export function drawLocal(ctx, s, size, t = 0, view = makeView()) {
   ctx.imageSmoothingEnabled = false;
-  const m = mapOf(s), cells = m.cells.terra || {}, seed = s.baseSeed || s.seed, k = (size / SPAN) * view.zoom, ox = size / 2 - view.x * k, oy = size / 2 - view.z * k;
+  const realm = s.realm || 'terra', home = realm === 'terra', m = mapOf(s), cells = m.cells[realm] || {}, seed = home ? s.baseSeed || s.seed : s.seed, vis = home ? m.visited : m.visitedR?.[realm] || {}, k = (size / SPAN) * view.zoom, ox = size / 2 - view.x * k, oy = size / 2 - view.z * k;
   const X = (x) => ox + x * k, Y = (z) => oy + z * k, seen = (x, y, pad) => x > -pad && y > -pad && x < size + pad && y < size + pad;
   ctx.drawImage(paperFor(size), 0, 0);
   // faint chart lines every 1000
@@ -68,11 +70,14 @@ export function drawTerra(ctx, s, size, t = 0, view = makeView()) {
   ctx.stroke(); ctx.restore();
   // the ice wall, only where you have seen it
   const known = (x, z) => cells[Math.floor(x / CELL) + ',' + Math.floor(z / CELL)] || UNKNOWN;
-  for (const [w, col] of [[11, INK], [8, ICE]]) {
-    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); let pen = false;
-    for (let a = 0; a <= 360; a++) { const an = (a / 360) * 6.283, c = Math.cos(an), sn = Math.sin(an), r = WALL_R + (hash(11, a % 360) % 60) - 30; if (known(c * WALL_R * 0.97, sn * WALL_R * 0.97) === UNKNOWN) { pen = false; continue; } if (pen) ctx.lineTo(X(c * r), Y(sn * r)); else ctx.moveTo(X(c * r), Y(sn * r)); pen = true; }
-    ctx.stroke();
+  const g = GATES[realm], ga = g && gateAngleOf(realm), gw = g && g.arc / WALL_R;
+  for (const [w, col] of home ? [[11, INK], [8, ICE]] : [[2, INK]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.setLineDash(home ? [] : [7, 5]); ctx.beginPath(); let pen = false;
+    for (let a = 0; a <= 360; a++) { const an = (a / 360) * 6.283, c = Math.cos(an), sn = Math.sin(an), r = home ? WALL_R + (hash(11, a % 360) % 60) - 30 : RIM_EXIT; if (known(c * WALL_R * 0.97, sn * WALL_R * 0.97) === UNKNOWN) { pen = false; continue; } if (pen) ctx.lineTo(X(c * r), Y(sn * r)); else ctx.moveTo(X(c * r), Y(sn * r)); pen = true; }
+    ctx.stroke(); ctx.setLineDash([]);
   }
+  // a gate's cliffs on the rim, once you have seen them
+  if (g && known(Math.cos(ga) * WALL_R * 0.97, Math.sin(ga) * WALL_R * 0.97) !== UNKNOWN) { ctx.strokeStyle = INK; ctx.lineWidth = Math.max(5, 90 * k); ctx.lineCap = 'butt'; ctx.beginPath(); ctx.arc(X(0), Y(0), WALL_R * k, ga - gw, ga + gw); ctx.stroke(); label(ctx, g.name, X(Math.cos(ga) * (WALL_R - 260)), Y(Math.sin(ga) * (WALL_R - 260)), 'italic 12px Georgia, serif'); }
   // islands, towns, names
   const named = [], grow = Math.max(1.15, 2.1 - view.zoom * 0.3);
   for (const o of islandsOf(seed)) {
@@ -80,9 +85,9 @@ export function drawTerra(ctx, s, size, t = 0, view = makeView()) {
     if (st >= 2) { ctx.fillStyle = 'rgba(214,236,226,.55)'; coast(ctx, x, y, r * 1.4 + 2, o.seed); ctx.fill(); }
     coast(ctx, x, y, r, o.seed); ctx.fillStyle = st >= 2 ? LAND[o.biome] || LAND.tropical : PAPER_D; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = INK; ctx.stroke();
     if (st >= 2 && r > 9) { ctx.fillStyle = 'rgba(40,50,20,.35)'; ctx.beginPath(); for (let i = 0; i < 3; i++) { const h = hash(o.seed >>> 0, i, 9), px = x + ((h % 100) / 100 - 0.5) * r, py = y + (((h >> 8) % 100) / 100 - 0.5) * r; ctx.moveTo(px - 3, py + 2); ctx.lineTo(px, py - 4); ctx.lineTo(px + 3, py + 2); } ctx.fill(); }
-    if (!m.visited[o.id]) continue;
+    if (!vis[o.id]) continue;
     if (o.port) { ctx.fillStyle = '#a3341f'; ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#f3e3bd'; ctx.fillRect(x - 3.5, y, 7, 5); ctx.strokeRect(x - 3.5, y, 7, 5); }
-    named.push([m.visited[o.id], x, y - Math.max(r, 7) - 4, o.port ? 1 : 0]);
+    named.push([vis[o.id], x, y - Math.max(r, 7) - 4, o.port ? 1 : 0]);
   }
   // only places you have been are named, ports first, and a name is left out rather than printed over another
   const used = [];
@@ -94,13 +99,14 @@ export function drawTerra(ctx, s, size, t = 0, view = makeView()) {
     const x = X(w.x), y = Y(w.z); if (seen(x, y, 20)) wreckMark(ctx, x, y, w.stripped, view.zoom >= 3 && w.name.replace(/^The /, ''));
   }
   // your ship (when you are ashore) and you
-  if (s.ship && (s.realm || 'terra') === 'terra' && s.mode !== 'ship') { const x = X(s.ship.x), y = Y(s.ship.z); ctx.fillStyle = '#fff3c4'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x, y); ctx.lineTo(x - 8, y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e3b73e'; ctx.beginPath(); ctx.moveTo(x - 9, y + 2); ctx.lineTo(x + 9, y + 2); ctx.lineTo(x + 5, y + 7); ctx.lineTo(x - 5, y + 7); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-  if ((s.realm || 'terra') === 'terra') marker(ctx, X(where(s).x), Y(where(s).z), where(s).yaw || 0, t);
+  if (s.ship && s.mode !== 'ship') { const x = X(s.ship.x), y = Y(s.ship.z); ctx.fillStyle = '#fff3c4'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x, y); ctx.lineTo(x - 8, y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e3b73e'; ctx.beginPath(); ctx.moveTo(x - 9, y + 2); ctx.lineTo(x + 9, y + 2); ctx.lineTo(x + 5, y + 7); ctx.lineTo(x - 5, y + 7); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  marker(ctx, X(where(s).x), Y(where(s).z), where(s).yaw || 0, t);
   // furniture: frame, compass rose, scale
   frame(ctx, size); rose(ctx, size - 46, size - 48, 28);
   const unit = [2000, 1000, 500, 250, 100].find((v) => v * k < size * 0.25) || 100, len = unit * k;
   ctx.fillStyle = INK; ctx.fillRect(22, size - 26, len, 3); ctx.fillRect(22, size - 30, 2, 11); ctx.fillRect(20 + len, size - 30, 2, 11); label(ctx, unit >= 1000 ? unit / 1000 + ' km' : unit + ' m', 22 + len / 2, size - 32, '12px Georgia, serif');
 }
+export const drawTerra = drawLocal; // the old name
 function wreckMark(ctx, x, y, stripped, name) {
   ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.globalAlpha = stripped ? 0.5 : 1; ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
   ctx.rotate(-0.35); ctx.beginPath(); ctx.moveTo(-8, -1); ctx.lineTo(8, -1); ctx.lineTo(5, 4); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fillStyle = '#6d5134'; ctx.fill(); ctx.stroke(); // a hull, listing

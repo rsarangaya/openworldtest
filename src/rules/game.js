@@ -692,7 +692,7 @@ function stepEvents(s) {
   if (ev?.smoke) { const bs = islandTown(isl).buildings, b = bs[(isl.seed >>> 0) % bs.length]; if (b) puff(s, 'smoke', b.x + (Math.floor(s.t) % 3) - 1, b.pad + b.h + 1, b.z, 2.2, { vy: 2.4, sc: 2.2 }); }
 }
 // input: { rudder, sail, fireL, fireR } at sea; { mx, mz, run, yaw } on foot
-function stepMap(s) { if (realmOf(s) !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, realmOf(s)); } return; } const sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot; if (explore(s, 'terra', p.x, p.z, !sea) && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing) && visit(s, isl) && STYLES[isl.style]?.label && s.mode === 'foot') say(s, `${isl.port.name}, a ${STYLES[isl.style].label}. ${STYLES[isl.style].perk}`); } }
+function stepMap(s) { const r = realmOf(s), sea = s.mode === 'ship' || !!s.deck, p = sea && s.ship ? s.ship : s.foot, moved = explore(s, r, p.x, p.z, !sea); if (r !== 'terra') { if (s.mode === 'foot' && !s.deck && Math.floor(s.t) !== Math.floor(s.t - DT)) { const isl = standingOn(s); if (isl && isl.port) visit(s, isl, r); } return; } if (moved && !sea) { const isl = standingOn(s); if (isl && (isl.port || isl.landing) && visit(s, isl) && STYLES[isl.style]?.label && s.mode === 'foot') say(s, `${isl.port.name}, a ${STYLES[isl.style].label}. ${STYLES[isl.style].perk}`); } }
 export function step(s, input, dt = DT) {
   if (s.over || s.ending) return;
   s.t += dt; stepWeather(s);
