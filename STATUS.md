@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 93, commit 135200b). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 94, commit 16d531c). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 146 tests, all passing
-npm run build      # writes index.html (346.8 kB, 136.7 kB gzipped)
+npm test           # 151 tests, all passing
+npm run build      # writes index.html (351.4 kB, 138.2 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 93)
+## Where things stand (2026-11-27, after round 94)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -38,7 +38,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Olympus: its own world in place of the Terra-like stand-in. A deep sunny blue sea under a clear haze; rocky and green islands, the bigger ones with tall pale limestone peaks (up to 1.5x height) and dry olive slopes; marble walls with terracotta and gold roofs; Greek names (islands like "Kerynos", cities like "Thasopolis", ships like "The Bronze Eagle", captains like "Kleon of Myrene"); Olympians in chitons (white, cream, red or blue) with a coloured hem, a gold girdle and sometimes a laurel wreath; dolphins below the cliffs and eagles over the coasts; its own music (D mixolydian, each chord plucked like a lyre); and a marble statue on each island read with F (twelve dedications; counted once, saved in `s.statues`, 20 points each).
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last).
-- Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
+- Monsters: the sea serpent (three lairs per Terra world), draugr longships (three sea barrows per Asgard world) and the kraken (one lair per Atlantis world: it grabs the ship, holds her to a crawl and squeezes; shoot the arms), all rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
@@ -51,7 +51,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
-- Atlantis (round 92) and Olympus (round 93) have their own look but no monster, nothing underwater and no gate on to another world yet. Olympus weather is the same mix as elsewhere (not sunnier).
+- Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; Olympus has no monster yet, there is nothing underwater and no gate on to another world yet. Olympus weather is the same mix as elsewhere (not sunnier).
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
@@ -799,4 +799,19 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Chrome (localhost, real build, debug "World: Olympus" then "Go: nearest town plaza"): deep blue sea, tall pale peaks on the horizon, terracotta roofs, an Olympian in a blue chiton with the gold girdle; the debug panel shows realm olympus and music olympus. No console errors. CPU about 1.2 ms a frame in town (0.12 step + 1.11 draw) at 113 fps.
 - Performance against round 92 (Node, same machine): Terra island build 3.18-3.42 vs 3.18-3.19 ms (noise), Olympus 3.34 ms; game step 0.018-0.019 ms (no change). Build 342.0 -> 346.8 kB (134.8 -> 136.7 kB gzipped), mostly names and dedications.
 - Not checked: the statue by eye in the browser (covered by the scripted test; single key taps in Chrome barely move the player), the music by ear, marble walls in shade look grey, GPU time.
+- Left on the machine: the Chrome test tab (127.0.0.1:8792) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 94 (2026-11-27): the kraken in Atlantis (pushed, commit 16d531c)
+Atlantis's monster, its surface phase (`rules/kraken.js`, about 60 lines, built on the serpent's `seaSpots` and `compassWord`).
+- **Where:** one lair per Atlantis world in open water (0.45-0.75 of the world radius, 120+ units from land). Ships are not put in its waters. Notice boards (in the slot the serpent and draugr use) and Atlantis taverns (every other five minutes) give a rumour with a bearing.
+- **The fight:** sail within 180 units and it rises under you: four arms wrap the ship (two abeam, one on each bow) and its head breaks the surface off one bow. While it holds on it holds her to a crawl (speed at most 1.5 whatever the sails) and squeezes the hull for 8 every 4 seconds. After 14 seconds it lets go and sinks for 7, then grabs again from the other side. Shot hurts the arms and head only while it holds on: fire x1.5 plus burning, round x1, chain x0.6. Hit points 600. Slain: +800 gold, a "Kraken slain" headline, `s.slain` (saved). Sail more than 480 units from the lair while it is down and it sinks back and heals.
+- **Balance (scripted, firing both broadsides whenever held):** galleon about 30 s, 2 grabs, loses 32 hull; brigantine 49 s, 3 grabs, loses 56; cutter 64-68 s, 4 grabs, loses 72-80; sailboat 70 s, 4 grabs, ends on 20 of 100. Small boats should keep away, as the rumour says.
+- **Art:** two flat pixel sprites: a red-purple arm curling over with pale suckers (two frames, curling in towards the ship) and a great dome head with gold slit eyes; health bar above the head.
+- **Found in play:** the grab let a fast ship keep about 5 speed (the drag lost against the sails), so it now clamps speed while held. In Chrome the arm on the rear quarter filled the camera and the head sat beside it; arms moved to the bows and the head forward (1.15 rad, 28 units), which frames the ship.
+- **Debug:** "Go: kraken lair" (in Atlantis).
+- Defaults chosen without asking: one lair per world (as planned); it is not boardable and has no underwater phase; the guns aim at the head; the grab uses the serpent's "monster" sound.
+- Tests: 151 pass (5 new: one lair per Atlantis world and none elsewhere; the rumour; a scripted captain who fires whenever held kills it, is dragged to a crawl and squeezed, is paid and it stays dead through a save; a captain without guns loses hull, is let go, sails away and it heals; shot only bites while held, fire more than chain).
+- Chrome (localhost, real build, debug "World: Atlantis" then "Go: kraken lair", sailing in by keys): it rises with four arms and the head, squeezes, lets go and grabs again ("grabs her again" once hurt, so the shots landed). No console errors. CPU 0.8-1.0 ms a frame during the fight (step 0.02-0.18 + draw 0.64-0.87) at 120 fps.
+- Performance against round 93 (Node, same machine): game step 0.041-0.043 ms either way (no change), 0.06 ms with the kraken holding on and both broadsides firing. Build 346.8 -> 351.4 kB (136.7 -> 138.2 kB gzipped).
+- Not checked: the kraken in storms or fog, sound by ear, GPU time, the rumour on a real notice board by eye.
 - Left on the machine: the Chrome test tab (127.0.0.1:8792) asks to confirm leaving, so it is still open; the server is stopped.
