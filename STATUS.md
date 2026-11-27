@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch. Every world now keeps its own chart map, with its wrecks and its gate. Wounded, the kraken dives for its den, and your diver finishes it with powder kegs. A hydra lives in Olympus: cut a head and two grow back, unless fire shot sears the stump. Two mercenary companies keep agents in taverns: join one for its jobs, or hire one of its ships for your fleet. Your own fleet ships can be sent on trade runs between ports for a share of the profit, at a risk of raiders. Now and then raiders land at the port you are walking: fight them beside the guards for pay, or the town burns. After dark a cutpurse may lift part of your purse and run: catch him for the gold back; some nights are "Cutpurses Abroad".** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 108, commit 46ea512). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch. Every world now keeps its own chart map, with its wrecks and its gate. Wounded, the kraken dives for its den, and your diver finishes it with powder kegs. A hydra lives in Olympus: cut a head and two grow back, unless fire shot sears the stump. Two mercenary companies keep agents in taverns: join one for its jobs, or hire one of its ships for your fleet. Your own fleet ships can be sent on trade runs between ports for a share of the profit, at a risk of raiders. Now and then raiders land at the port you are walking: fight them beside the guards for pay, or the town burns. After dark a cutpurse may lift part of your purse and run: catch him for the gold back; some nights are "Cutpurses Abroad". Harpies nest in Olympus and snatch crew, cargo and food off your deck.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 109, commit 22230e7). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 196 tests, all passing
-npm run build      # writes index.html (388.8 kB, 152.2 kB gzipped)
+npm test           # 203 tests, all passing
+npm run build      # writes index.html (394.1 kB, 154.0 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,12 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Paused (2026-11-27)
-- The scheduled task `continue-openworld-plan` is turned off at the user's request, and its last run was stopped.
-- **Unfinished, local only (not committed or pushed): harpies in Olympus** (`src/rules/harpies.js`, `test/harpies.test.mjs`, hooks in other source files, a rebuilt `index.html`). On this working copy `npm test` passes 202 of 202. Not done or not confirmed: Chrome play, performance and size check, notes for the round. Finish these before pushing.
-- The pushed game is round 108; the test count and size above are for that round.
-
-## Where things stand (2026-11-27, after round 108)
+## Where things stand (2026-11-27, after round 109)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -32,6 +27,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Town events: sixteen kinds, changing with the notice board.
 - Quest choice: follow the story, a side story or a contract from the quest log.
 - Navigation: compass strip with your ship's direction; zoomable chart map, earned from the cartographer's story or by breaking the Wall. Each world keeps its own chart (the first map tab is named after the world you are in): Asgard, Atlantis and Olympus chart the waters you sail, the ports you walk, the edge of the world as a dashed line and their gate's cliffs once seen.
+- Harpies (Olympus): one nest on a wild shore, rumoured in taverns and on boards. Six circle your ship and swoop to snatch a hand, cargo or food. Shoot a thief within 100 units and the loot comes back. Chain shot is best, swivel guns help; bring down four and the flock flees for good (400 gold, 30 a harpy).
 - Mercenary companies: the Iron Tide (hunts raiders, will not deal with a Distrusted name) and the Black Gull Company (pays for sunk merchantmen) in taverns. Join one for jobs and ranks, or hire a company ship into your fleet for 10 minutes (paid up front, no upkeep).
 - Fleet trade routes: at a shipyard, "Trade run" on one of your own fleet ships lists the other ports you have walked in this world, with the time, the goods each way, your stake, your profit and the raiders' odds. Send her: you pay the stake, she disappears for the run (3-12 min) and comes home beside your ship with stake and profit, or raiders catch her (8-35% by distance, half for Iron Tide members): she limps home with the stake only, or is lost with her cargo while her captain rows home.
 - Raids (land battles, first pass): now and then a raider landing party (3-5) comes ashore at the dock of the port you walk; the guards turn out (and two Iron Tide sell-swords for members), townsfolk run indoors. Help cut them down for 45 gold a raider and a better name there; lose and the town burns.
@@ -976,3 +972,14 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance (Node, 6000 steps on foot in a port at night, round 107 vs round 108 side by side): 20 µs a step both. Build 385.7 -> 388.8 kB (151.2 -> 152.2 kB gzipped), rules and text only.
 - Left on the machine: the Chrome test tab (127.0.0.1:8766) asks to confirm leaving, so it is still open; the server is stopped. Port 8765 was already taken by another process (not started by this run), so it was left alone.
 - Not checked: the "Cutpurses Abroad" reward in Chrome (covered by the scripted test), a cutpurse with a sword in Chrome (fists only), the round 106 shipyard page, sound.
+
+## Round 109: harpies in Olympus
+
+- **Built:** `rules/harpies.js` (nest on the third wild shore, flock, swoops, loot, drop-back, flee), a harpy sprite, rumours and news, debug button "Go: harpy nest". The live flock is not saved. `cyclops.js` now finds three wild shores; the first two (the cyclops lairs) are unchanged.
+- **Bugs fixed while testing:** a thief that got away left the flock for good, so after three escapes four kills were impossible and an empty flock stayed forever (thieves now come back); swivel guns alone cleared the flock in about 20 s (now about 50 s); the sprites filled the screen when passing the camera (scale 2.5 to 1.1, orbit 22 to 15).
+- Tests: 203 pass (7 in `test/harpies.test.mjs`). Scripted captains on 8 seeds: chain shot 15-24 s, round shot with swivel 24-33 s, round shot alone 40-54 s (one of 8 not finished in 240 s), swivel idle about 53 s. Without swivel guns a sailboat or cutter can be sunk by passing raiders during a long fight.
+- Chrome (localhost 127.0.0.1:8137, debug panel): flock appears with its message, swoops and steals rum, swivel guns bring harpies down, the flock flees and pays; about 120 fps. Firing by hand was not confirmed to hit (only one chain shot left the guns from tool key taps; scripted captains cover it).
+- Performance: game step in Olympus and the lair search unchanged against round 108 (Node, side by side). Build 389.0 -> 394.1 kB (+1.7 kB gzipped).
+- **Defaults chosen:** one flock per Olympus world; the captain is never taken; escaped loot is gone.
+- Left alone: a flock hangs frozen if you step ashore beside the nest; reloading mid-fight loses loot already snatched; a harpy passing right by the camera still looks large.
+- Left on the machine: two Chrome test tabs on localhost:8137 ask to confirm leaving, so they are still open; close them by hand. The test save there was restored and the server stopped.
