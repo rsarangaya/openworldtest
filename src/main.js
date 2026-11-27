@@ -1,3 +1,4 @@
+import { RAID_HP, DEF_HP } from './rules/raid.js';
 import { COMPANIONS } from './rules/sidequests.js';
 // Entry point: game loop, input, cameras, and the bridge between the rules (rules/*), the generator (gen/*) and the renderer.
 import { createRenderer } from './render/gpu.js';
@@ -227,7 +228,7 @@ function render(t) {
       const kb = (q, x, z) => { const a = q ? s.t - q.hit : 9; if (!(a < 0.28)) return [x, z, 1]; const f = Math.sin((a / 0.28) * Math.PI), dx = x - px, dz = z - pz, d = Math.hypot(dx, dz) || 1; return [x + (dx / d) * 0.5 * f, z + (dz / d) * 0.5 * f, 1 - 0.14 * f]; }; // a hit person is knocked back and squashes
       const hpBar = (id, kind, x, y, z) => { const q = s.npcs?.[id]; if (q && !q.dead && s.t - q.hit < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((q.hp / npcMax(kind)) * 10)))), x, y + 2.9, z, 0.5); };
       for (const n of islandTown(isl).npcs) if (npcAlive(s, n.id)) { const [kx, kz, ks] = kb(s.npcs?.[n.id], n.x, n.z); bb(sprites.person(n.kind, n.seed, 'down', 0), kx, n.y, kz, sprites.PERSON_SCALE * ks); hpBar(n.id, n.kind, n.x, n.y, n.z); } // shopkeepers face you and stand still
-      for (const f of townsfolk(isl)) { if (!npcAlive(s, `v${isl.id}:${f.seed}`)) continue; // villagers stroll round the plaza; the sprite shows the way they walk relative to the camera
+      if (s.raid?.isl !== isl.id) for (const f of townsfolk(isl)) { if (!npcAlive(s, `v${isl.id}:${f.seed}`)) continue; // villagers stroll round the plaza; the sprite shows the way they walk relative to the camera
         const tt = s ? s.t : t, an = f.a0 + tt * f.speed, sg = Math.sign(f.speed), vx = -Math.sin(an) * sg, vz = Math.cos(an) * sg, fwd = vx * Math.cos(cam.yaw) + vz * Math.sin(cam.yaw), rgt = -vx * Math.sin(cam.yaw) + vz * Math.cos(cam.yaw);
         const dir = Math.abs(fwd) >= Math.abs(rgt) ? (fwd > 0 ? 'up' : 'down') : rgt > 0 ? 'right' : 'left';
         const vx2 = f.cx + Math.cos(an) * f.rad, vz2 = f.cz + Math.sin(an) * f.rad;
@@ -246,6 +247,11 @@ function render(t) {
       for (const g of s.guards) if (g.isl === isl.id) { // a guard lunges at you when it strikes and flinches when you hit it
         const la = s.t - (g.atk ?? -9), fa = s.t - (g.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
         bb(sprites.person('warden', g.seed, 'down', atkFrame(g, Math.hypot(g.x - s.foot.x, g.z - s.foot.z) < 2.6, 1 + (((g.walk || 0) * 5 | 0) & 1))), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 - fl * 0.12));
+      }
+      if (s.raid?.isl === isl.id) for (const q of [s.raid.foes, s.raid.defs]) for (const o of q) if (o.hp > 0) { // a raid: raiders (smugglers' clothes) and the guards fighting them; each lunges at its target and flinches when hit
+        const la = s.t - (o.atk ?? -9), fa = s.t - (o.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
+        bb(sprites.person(o.kind === 'raider' ? 'smuggler' : o.kind, o.seed, 'down', atkFrame(o, la < 0.6, 1 + (((o.walk || 0) * 1.4 | 0) & 1))), o.x + Math.cos(o.face || 0) * off, o.y, o.z + Math.sin(o.face || 0) * off, sprites.PERSON_SCALE * (1 - fl * 0.12));
+        if (fa < 12) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((o.hp / (o.kind === 'raider' ? RAID_HP : DEF_HP)) * 10)))), o.x, o.y + 2.9, o.z, 0.5);
       }
       const hunt = (w, h, id) => { const fr = 1 + (((h.walk || 0) * 1.4 | 0) & 1), x = h.x, z = h.z, y = h.y ?? groundAt(s, x, z);
         if (h.st === 'sub') bb(sprites.fallen('sailor', w.seed), x, y + 0.05, z, sprites.PERSON_SCALE); else { const la = s.t - (h.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person('sailor', w.seed, 'down', h.st === 'bound' ? 1 : atkFrame(h, Math.hypot(h.x - s.foot.x, h.z - s.foot.z) < 2.6, fr)), x + Math.cos(h.face || 0) * lu * 0.7, y, z + Math.sin(h.face || 0) * lu * 0.7, sprites.PERSON_SCALE); }
