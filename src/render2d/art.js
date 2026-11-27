@@ -446,7 +446,7 @@ export function paintShip(g, p) {
 export const CRIT_BOX = {
   whale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, icewhale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, dolphin: { x0: -2, x1: 2, y0: -1.6, y1: 1.6 }, orca: { x0: -3, x1: 3, y0: -2.4, y1: 2 }, narwhal: { x0: -2.6, x1: 4.2, y0: -2, y1: 2 },
   school: { x0: -1.8, x1: 1.8, y0: -0.7, y1: 0.5 }, flyfish: { x0: -0.8, x1: 0.8, y0: -0.6, y1: 0.5 }, turtle: { x0: -1.1, x1: 1.1, y0: -0.9, y1: 0.5 }, fin: { x0: -1, x1: 1, y0: -1.7, y1: 0.3 }, seal: { x0: -1.1, x1: 1.1, y0: -1.1, y1: 0.7 }, ray: { x0: -1.9, x1: 1.6, y0: -1.3, y1: 0.5 },
-  serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, krarm: { x0: -1.8, x1: 2.4, y0: -7, y1: 0.6 }, krhead: { x0: -3.8, x1: 3.8, y0: -6.2, y1: 0.7 },
+  serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, krarm: { x0: -1.8, x1: 2.4, y0: -7, y1: 0.6 }, krhead: { x0: -3.8, x1: 3.8, y0: -6.2, y1: 0.7 }, cyclops: { x0: -3.4, x1: 3.4, y0: -7.6, y1: 0.2 }, boulder: { x0: -1, x1: 1, y0: -1, y1: 0.9 },
   gull: { x0: -1.6, x1: 1.4, y0: -1.2, y1: 1.1 }, albatross: { x0: -3.1, x1: 3.1, y0: -1.2, y1: 1.2 }, raven: { x0: -1.4, x1: 1.2, y0: -1.1, y1: 1 }, eagle: { x0: -3, x1: 3, y0: -1.4, y1: 1.4 },
 };
 const curve = (...p) => (g) => { g.moveTo(p[0], p[1]); for (let i = 2; i + 3 < p.length; i += 4) g.quadraticCurveTo(p[i], p[i + 1], p[i + 2], p[i + 3]); g.closePath(); };
@@ -514,6 +514,20 @@ export function paintCritter(g, kind, dir, fr) {
       for (const x of [-1.5, 1.5]) { fillPath(g, ell(x, -1.2, 0.62, 0.48), '#ffd84a'); fillPath(g, ell(x, -1.2, 0.5, 0.12), INK); }
       break;
     }
+    case 'cyclops': { // the cyclops: a hulking bald giant in a goatskin, one great eye; frame 1 holds a boulder over his head to throw
+      const skin = [0.82, 0.6, 0.46], hide = [0.5, 0.38, 0.24], dk = mixc(skin, [0, 0, 0], 0.25);
+      for (const x of [-0.9, 0.9]) cel(g, poly(x - 0.55, -3.0, x + 0.55, -3.0, x + 0.5, 0, x - 0.6, 0), dk, { lw: 0.1 }); // legs
+      cel(g, curve(-2.1, -2.6, -2.5, -5.0, -1.2, -5.9, 0, -6.1, 1.2, -5.9, 2.5, -5.0, 2.1, -2.6, 0, -2.2, -2.1, -2.6), skin, { lw: 0.12 }); // a barrel body
+      cel(g, poly(-2.2, -3.6, 2.2, -3.6, 2.0, -2.2, 1.0, -1.7, 0, -2.1, -1.0, -1.7, -2.0, -2.2), hide, { lw: 0.1 }); // goatskin kilt
+      fillPath(g, poly(-1.4, -5.8, 0.6, -3.7, 1.0, -3.7, -1.0, -5.9), rgb(hide)); // the strap
+      cel(g, ell(0, -6.55, 1.0, 0.95), skin, { lw: 0.11 }); // head
+      fillPath(g, ell(0.15, -6.7, 0.48, 0.4), '#f6f2e6'); fillPath(g, ell(0.25, -6.7, 0.22, 0.26), '#c8402a'); fillPath(g, ell(0.27, -6.7, 0.1, 0.12), INK); // the one eye
+      line(g, -0.3, -6.05, 0.6, -6.0, 0.07, INK); // mouth
+      if (fr) { for (const x of [-1.7, 1.7]) cel(g, poly(x * 1.15 - 0.35, -5.3, x * 1.15 + 0.35, -5.3, x * 0.55 + 0.3, -7.3, x * 0.55 - 0.3, -7.3), skin, { lw: 0.1 }); cel(g, ell(0, -7.4, 1.3, 0.75), [0.6, 0.58, 0.54], { lw: 0.1 }); } // arms up, a boulder overhead
+      else for (const x of [-1, 1]) cel(g, poly(x * 2.0, -5.2, x * 2.6, -4.9, x * 2.7, -2.2, x * 2.1, -2.3), skin, { lw: 0.1 }); // arms hanging
+      break;
+    }
+    case 'boulder': cel(g, curve(-0.9, 0.2, -1.0, -0.6, -0.2, -0.95, 0.7, -0.8, 1.0, 0.0, 0.5, 0.85, -0.4, 0.8, -0.9, 0.2), [0.6, 0.58, 0.54], { lw: 0.1 }); fillPath(g, ell(-0.25, -0.3, 0.25, 0.18), rgb([0.48, 0.46, 0.43])); break;
     case 'gull': wingBird(g, { fr, len: 1.35, b: 0.45, body: [0.97, 0.97, 0.98], wing: [0.88, 0.9, 0.93], tips: [0.2, 0.22, 0.26] }); break;
     case 'albatross': wingBird(g, { fr, len: 2.9, b: 0.8, body: [0.97, 0.97, 0.98], wing: [0.95, 0.96, 0.97], tips: [0.12, 0.13, 0.16], beak: [0.95, 0.75, 0.55] }); break;
     case 'raven': wingBird(g, { fr, len: 1.2, b: 0.42, body: [0.1, 0.1, 0.14], wing: [0.14, 0.15, 0.2], beak: [0.25, 0.25, 0.3] }); break;

@@ -29,7 +29,7 @@ export function enterRealm(s, id) {
   const base = (s.baseSeed ||= s.seed), stash = (s.realms ||= {}), out = {};
   for (const k of PER_REALM) out[k] = s[k]; stash[from] = out;
   const to = stash[id]; for (const k of PER_REALM) s[k] = to && to[k] !== undefined ? to[k] : fresh(k);
-  s.prisoner = null; s.realm = id; s.seed = realmSeed(base, id); setSeedTheme(s.seed, id); s.enemies = new Map(); s.shots = []; s.fx = []; s.guards = []; s.foes = []; s.qa = null; s.ward = null; s.ev = null; s.sinking = []; s.deck = null; s.warp = null; s.cine = null; s.auto = false;
+  s.prisoner = null; s.realm = id; s.seed = realmSeed(base, id); setSeedTheme(s.seed, id); s.enemies = new Map(); s.shots = []; s.fx = []; s.guards = []; s.foes = []; s.qa = null; s.ward = null; s.ev = null; s.sinking = []; s.deck = null; s.warp = null; s.cine = null; s.auto = false; s.serpent = s.kraken = s.cyclops = s.draugr = s.dive = null; // a monster or a dive never follows you into another world
   visitRealm(s, id); return true;
 }
 export const isNewRealm = (s, id) => realmState(s, id) === UNKNOWN;
