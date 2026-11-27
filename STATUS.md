@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 76, commit 8f600eb). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 79, commit 6109741). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 105 tests, all passing
-npm run build      # writes index.html (299.3 kB, 117.7 kB gzipped)
+npm test           # 110 tests, all passing
+npm run build      # writes index.html (312.4 kB, 122.1 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -34,6 +34,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard (first pass): Norse names, cold islands, longhouses, viking people, longships, its own animals.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
+- First monster: the sea serpent (three lairs per Terra world, rumoured first).
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
@@ -47,7 +48,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 **Known gaps**
 - Asgard still uses Terra's island generator and layout; no rune stones, aurora, fjord coasts, mead hall, Norse music or its own weak spot.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
-- No day and night, underwater, monsters, mercenary companies or fleet trade routes.
+- No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
 
 The round-by-round history follows (newest at the end).
@@ -605,3 +606,13 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Chrome: the singer story's offer, choice and next step; no page errors. Not seen: the other four events, the companion waiting at the spot (changed after the check).
 - Performance against round 77: unchanged (ground 4.4 ms, step 19 / 47 us). Build 295.2 -> 299.3 kB.
 - Not built from the plan: runaway noble, navy deserter, pickpocket and shieldmaiden companions; rival-crew races at sea; Asgard story versions.
+
+## Round 79 (2026-11-26): the sea serpent, the first monster (pushed, commit 6109741)
+- Three lairs per Terra world in open water (two inside the Wall, one past it), at least 2 km from Port Haven. Notice boards (every other issue) and tavern rumours name the nearest living one with a compass bearing.
+- Sail within 200 units and it rises: circles at 45 units, lunges after 7.5 s to bite (14 hull), dives after 11 s and comes up on another side 5 s later. Shot only hurts it while it is up; chain slows it, fire burns it; the guns aim at it when it is the nearest target. Leave (520 units) and it sinks back and heals. Slain: 650 gold, counts as a kill, towns run a "Serpent slain" story, and the lair stays quiet through saves. No ships spawn in a living serpent's waters. Flat pixel sprites (head opens its jaw on the lunge, three coils, a health bar).
+- Defaults chosen without asking: Terra only (other worlds get their own monsters), 240 health, 650 gold, live serpent state not saved (it rises again on return). Debug panel: "Go: serpent lair".
+- Tests: 110 pass (5 new, including a scripted captain who keeps it abeam and kills it, and one who sits still and gets bitten).
+- Chrome (localhost, real build): the serpent rose with its message, drew correctly beside the ship with its health bar; the built game's own step, driven with held fire and rudder, killed it in about 37 game-seconds with a galleon (hull 397 -> 271), paid 650 gold, and it did not rise again. No console errors.
+- Not checked: firing by real key presses (the Chrome tab was throttled to 10 fps, so a quick key tap fell between frames; game time ran at about a tenth of real time), the sound, a small boat against it.
+- Performance against round 78: game step at sea 0.052 ms, 0.061 ms with the serpent up (Node); build 306.5 -> 312.4 kB (119.7 -> 122.1 kB gzipped). Graphics: two more sprites in the atlas, up to five more billboards while it is up.
+- Left on the machine: a Python web server on port 8765 (not started by this run) is still running.
