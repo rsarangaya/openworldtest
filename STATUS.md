@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 89, commit ba4b52d). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 90, commit 1efe726). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 134 tests, all passing
-npm run build      # writes index.html (330.5 kB, 130.2 kB gzipped)
+npm test           # 137 tests, all passing
+npm run build      # writes index.html (333.0 kB, 131.4 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -31,6 +31,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town, mining town, smugglers' cove, temple town (own colours, landmarks, perk; miners, smugglers and priests in their towns) plus the plain look; tavern keeper menu. An offering at a temple heals you and mends your name there.
+- Day and night: a 20-minute day with short nights; dusk light, a blue night with stars and a moon, lit windows, lamps and ship lights; a clock beside the compass.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
@@ -48,7 +49,8 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
-- No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
+- Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
+- No underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
 The round-by-round history follows (newest at the end).
@@ -741,3 +743,14 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 88 (Node, same machine, same run, 230 ports): island build 1.96 vs 1.97 ms and 2.72 vs 2.73 ms in two runs (no change), game step 0.018-0.021 ms (no change). Build 327.0 -> 330.5 kB (128.9 -> 130.2 kB gzipped).
 - Not checked: the marble snaps to a blue-grey in the palette (reads as grey stone, not white); the shrine was not seen by eye; temples in Asgard; real mouse play.
 - Left on the machine: two Chrome test tabs (127.0.0.1:8772) could not be closed because the game asks to confirm leaving; the server is stopped, so just close them.
+
+## Round 90 (2026-11-27): day and night (pushed, commit 1efe726)
+- **Clock:** `rules/daynight.js`, a pure function of game time. One day is 20 minutes of play; daylight (06:00-18:00) takes 70% of it, so a full night is about 4 minutes. A new game starts at 08:00. The clock moves in quarter-hour steps so light changes in small flat jumps (no crawl). Shown beside the compass (sun or moon sign and the time). Saves keep it (it comes from the game time).
+- **Look:** the sun moves across the sky and sets the light direction; at dawn and dusk the light warms; at night the moon lights the world from the other side, everything turns dark blue (solids, sprites, sea, fog and sky), the sky gets fixed stars (not in the sea's reflection, where waves made them sparkle) and clouds dim. Glass, shop lamps, plaza lamp posts and ship windows and lanterns glow warm at night (marked in the meshes by colour channels raised by 2); the lamp sprite's flame stays bright (partly clear pixels). Indoors (inside a shop) the night is mostly kept out. The hand on screen darkens with the night in four steps.
+- **Debug:** "Time: +3 hours" (an hour offset, saved).
+- Defaults chosen without asking: day length (20 minutes), short nights (30% of the day), start at 08:00, every window lit, indoor night at 35%, no rule changes at night.
+- Tests: 137 pass (3 new: the clock starts at 08:00, moves only in quarter hours, 95 steps a day, nights 15-30% of it, light always from above; a scripted player walks through a whole day by the real game step and sees day, dusk, night and dawn with gold unchanged, and the hour offset survives save and load; town and ship meshes mark glowing colours whole, and only those).
+- Chrome (localhost, real build, debug panel): day unchanged; 17:45 warm dusk with lit windows; 23:45 night in a temple town with stars, lit windows and a glowing plaza lamp; inside a tavern at night (dim, lamp lit); at sea at night with glowing ship windows. No console errors. A first build drew nothing (a shader comment swallowed code); found in Chrome, fixed, rechecked.
+- Performance against round 89 (Node, same machine): island build 1.60-1.71 vs 1.60 ms (noise), game step 0.017 ms (no change); the indoor check costs under 0.001 ms a frame. Chrome CPU 0.9-1.0 ms a frame. Build 330.5 -> 333.0 kB (130.2 -> 131.4 kB gzipped).
+- Not checked: soft and mid looks at night, storms and fog at night, Asgard's aurora at night, GPU time, real mouse play. The moon's glint on the sea is bright.
+- Left on the machine: Chrome test tabs on 127.0.0.1:8772 could not be closed because the game asks to confirm leaving; the server is stopped, so just close them.
