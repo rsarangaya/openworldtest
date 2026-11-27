@@ -16,6 +16,7 @@ import { extraGuards, STYLES, bountyMul, OFFERING, OFFER_WAIT } from '../gen/sty
 import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { stepMercs } from './mercs.js';
+import { stepRoutes } from './routes.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
 import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
 import { cargoCount } from './trade.js';
@@ -392,7 +393,7 @@ export function anchorNear(s, f, i, b) {
 export function stepFleet(s, dt) {
   const fl = s.fleet; if (!fl || !fl.length) return; const p = s.mode === 'ship' && s.ship ? s.ship : null, order = s.fleetOrder || 'follow';
   for (let i = fl.length - 1; i >= 0; i--) {
-    const f = fl[i]; const k = KINDS[f.kind];
+    const f = fl[i]; const k = KINDS[f.kind]; if (f.run) continue; // away on a trade run
     if (f.hp <= 0) { s.sinking.push({ id: f.id, kind: f.kind, seed: f.seed, x: f.x, z: f.z, yaw: f.yaw, speed: f.speed || 0, t0: s.t }); puff(s, 'flash', f.x, 4, f.z, 0.4, { sc: 4 }); fl.splice(i, 1); const c = crewOf(s).find((m) => m.captain === f.id); if (c) { delete c.captain; lose(s, c.id, say); } say(s, 'Your ship ' + f.name + ' goes down with all hands.'); s.events.push({ type: 'sunk' }); continue; }
     if (!p) { f.speed *= 1 - Math.min(1, dt); continue; } // you are ashore: she rides at anchor
     f.cd = Math.max(0, (f.cd || 0) - dt);
@@ -649,12 +650,12 @@ function stepShip(s, inp, dt) {
     e.cd[0] = Math.max(0, e.cd[0] - dt);
     const rel = Math.abs(wrapPi(Math.atan2(dz, dx) - e.yaw));
     if (hostile && dist < CANNON_RANGE && Math.abs(rel - Math.PI / 2) < 0.5 && e.cd[0] <= 0) { fire(s, 'enemy', e, 1, p, kind.dmg); e.cd[0] = CANNON_CD * 1.6; }
-    if (hostile && e.cd[0] <= 0) for (const f of s.fleet) { const fx = f.x - e.x, fz = f.z - e.z; if (Math.hypot(fx, fz) < CANNON_RANGE && Math.abs(Math.abs(wrapPi(Math.atan2(fz, fx) - e.yaw)) - Math.PI / 2) < 0.5) { fire(s, 'enemy', e, 1, f, kind.dmg); e.cd[0] = CANNON_CD * 1.6; break; } }
+    if (hostile && e.cd[0] <= 0) for (const f of s.fleet) { if (f.run) continue; const fx = f.x - e.x, fz = f.z - e.z; if (Math.hypot(fx, fz) < CANNON_RANGE && Math.abs(Math.abs(wrapPi(Math.atan2(fz, fx) - e.yaw)) - Math.PI / 2) < 0.5) { fire(s, 'enemy', e, 1, f, kind.dmg); e.cd[0] = CANNON_CD * 1.6; break; } }
   }
   if (level(s, 'swivel')) { p.sw = Math.max(0, (p.sw || 0) - dt); if (p.sw <= 0) { let te = null, td = SWIVEL_RANGE; for (const e of s.enemies.values()) { const d = Math.hypot(e.x - p.x, e.z - p.z); if (e.hp > 0 && d < td && isHostile(s, e)) { td = d; te = e; } } if (te) { p.sw = SWIVEL_CD; te.hp -= SWIVEL_DMG; te.hitT = s.t; puff(s, 'flash', (te.x + p.x) / 2, 3, (te.z + p.z) / 2, 0.15, { sc: 0.8 }); } } }
   for (const b of s.shots) {
     b.x += b.vx * dt; b.z += b.vz * dt; b.life -= dt;
-    if (b.owner !== 'player' && b.life > 0) for (const f of s.fleet) if (Math.hypot(f.x - b.x, f.z - b.z) < 5) { b.life = 0; b.hit = true; f.hp -= b.dmg; f.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); break; }
+    if (b.owner !== 'player' && b.life > 0) for (const f of s.fleet) if (!f.run && Math.hypot(f.x - b.x, f.z - b.z) < 5) { b.life = 0; b.hit = true; f.hp -= b.dmg; f.hitT = s.t; puff(s, 'flash', b.x, 3.2, b.z, 0.25, { sc: 1.8 }); puff(s, 'smoke', b.x, 3.2, b.z, 1.2, { vy: 2, sc: 1.4 }); break; }
     if (b.owner === 'player') {
       if (b.life > 0 && (shotSerpent(s, b) || shotKraken(s, b) || shotCyclops(s, b) || shotHydra(s, b))) { b.life = 0; b.hit = true; puff(s, 'flash', b.x, 2.5, b.z, 0.25, { sc: 2 }); puff(s, 'splash', b.x, 0.6, b.z, 0.7, { sc: 1.6 }); continue; }
       if (s.bombard && b.life > 0) { const th = townHit(s, b.x, b.z); if (th) { b.life = 0; b.hit = true; bombardTown(s, th.isl, th.b, b.dmg, b.x, b.z); continue; } }
@@ -710,7 +711,7 @@ export function step(s, input, dt = DT) {
     if (a >= SINK_S) s.over = true; return;
   }
   if (s.mode === 'ship') stepShip(s, input, dt); else { stepFoot(s, input, dt); s.wind = windAt(s.t, windGoal(s)); if (s.ship && Math.floor(s.t * 2) !== Math.floor((s.t - dt) * 2)) unstickShip(s); }
-  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepSide(s, dt, G); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) { stepContracts(s, say); stepMercs(s, say); stepEvents(s); } stepGuards(s, dt); updateFx(s, dt);
+  advanceQuests(s, say); stepFleet(s, dt); stepMap(s); stepCrew(s, dt, say); stepTowns(s, dt); stepFoes(s, dt); stepDeck(s, dt); stepSide(s, dt, G); stepHunts(s, dt); stepCine(s, dt); if (Math.floor(s.t) !== Math.floor(s.t - dt)) { stepContracts(s, say); stepMercs(s, say); for (const f of stepRoutes(s, say)) if (s.ship) anchorNear(s, f, fleetOf(s).indexOf(f), s.ship); stepEvents(s); } stepGuards(s, dt); updateFx(s, dt);
   if (Math.floor(s.t) !== Math.floor(s.t - dt)) forgive(s, 1);
   if (s.hull <= 0 && s.ship && s.sunkT === undefined) { s.hull = 0; s.sunkT = s.t; s.sunkSplash = false; s.auto = false; say(s, 'The ship goes down.'); puff(s, 'flash', s.ship.x, 4, s.ship.z, 0.4, { sc: 4 }); for (let q = 0; q < 3; q++) puff(s, 'smoke', s.ship.x + q * 2 - 2, 4, s.ship.z - q + 1, 1.8, { vy: 2.5, sc: 2.4 }); s.events.push({ type: 'sunk' }); }
 }
@@ -828,6 +829,11 @@ export function travelBlock(s) {
 export function travelList(s) {
   const p = hereOf(s), out = [];
   for (const [id, q] of Object.entries(placesOf(s))) { const d = Math.hypot(q.b.x - p.x, q.b.z - p.z); if (d < 60) continue; const time = Math.max(TRAVEL_MIN, d / TRAVEL_SPEED); out.push({ id, name: q.n, dist: d, time, food: Math.ceil(time / 45) }); }
+  return out.sort((a, b) => a.dist - b.dist);
+}
+// the ports you have visited in this world other than isl, for a fleet trade run: { id, name, port, dist } (dist between the two docks)
+export function runPorts(s, isl) {
+  const out = []; for (const [id, q] of Object.entries(placesOf(s))) { if (id === isl.id) continue; const o = sectorIslands(s.seed, sectorOf(q.x), sectorOf(q.z)).find((i) => i.id === id); if (o?.port) out.push({ id, name: o.port.name, port: o.port, dist: Math.hypot(o.port.x - isl.port.x, o.port.z - isl.port.z) }); }
   return out.sort((a, b) => a.dist - b.dist);
 }
 export function travelTo(s, id) {
