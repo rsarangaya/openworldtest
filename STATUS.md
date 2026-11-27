@@ -1,21 +1,21 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns and smugglers' coves are the fourth and fifth kinds of town.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 88, commit 60c482b). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 89, commit ba4b52d). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 132 tests, all passing
-npm run build      # writes index.html (327.0 kB, 128.9 kB gzipped)
+npm test           # 134 tests, all passing
+npm run build      # writes index.html (330.5 kB, 130.2 kB gzipped)
 npm run dev        # unminified build
 ```
 
 Open `index.html` in desktop Chrome or Edge (WebGPU needed). Click the game to capture the mouse; Esc pauses and a second Esc resumes.
 URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (then the ` key opens the test panel). Join them with `&`.
 
-**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
+**Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
 ## Where things stand (2026-11-27)
 
@@ -30,7 +30,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Every port has a real building for each of its people, including a guard station with a cell.
-- Towns: fishing village, trade port, fortress town, mining town, smugglers' cove (own colours, landmarks, perk; miners and smugglers in their towns) plus the plain look; tavern keeper menu.
+- Towns: fishing village, trade port, fortress town, mining town, smugglers' cove, temple town (own colours, landmarks, perk; miners, smugglers and priests in their towns) plus the plain look; tavern keeper menu. An offering at a temple heals you and mends your name there.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
@@ -49,7 +49,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
-- Town types not built: temple; no per-type street layouts; only mining towns and coves have their own clothing.
+- No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
 The round-by-round history follows (newest at the end).
 
@@ -727,3 +727,17 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 87 (Node, same machine, 230 ports): island build 2.18 -> 2.28 ms (the extra placement tries on cramped islands), game step 0.022 ms unchanged. In Chrome: CPU 0.9 ms draw a frame. Build 324.6 -> 327.0 kB (128.1 -> 128.9 kB gzipped).
 - Not checked: the cave's rock reads quite dark and blocky from the front; flowers can grow just in front of a cave or mine mouth; the red sash looks brown after the palette snap; coves in Asgard; real mouse play.
 - Left on the machine: the Chrome test tab (127.0.0.1:8771) could not be closed because the game asks to confirm leaving; its server is stopped, so just close it.
+
+## Round 89 (2026-11-27): temple towns (pushed, commit ba4b52d)
+- **Which towns:** every plain city and one in five fishing towns (the same second seed number as mining towns and coves); villages, trade ports and fortress towns never change, and Port Haven stays plain. 11 of 230 ports over six seeds (about 5%). Every other town is laid out exactly as before (checked against round 88 port by port).
+- **Look:** a pillared temple on a stepped plinth facing the front: four front columns and three down each side, a dark door, a gilt frieze and a gilt sun in the pediment, a terracotta gable roof, a brazier either side of the steps. A wayside shrine: a robed stone figure on a plinth with candles and flowers. Houses in whitewash and terracotta (the odd blue roof). One in three townsfolk are priests: a cream robe to the ankles, a hood open at the face, a red stole, a rope belt and a brass-topped staff (looks only).
+- **Perk:** spice (incense) is always cheap. F on the temple steps: "Make an offering at the temple (20g)": heals you fully and raises the town's opinion by 5; each temple takes one every five minutes; with less than 20 gold it is refused and nothing changes.
+- **Layout fix:** the temple's ground is now reserved before a town's filler houses (temple towns only), because crowded cities left no room: 4 of 9 test towns had a temple before, 11 of 11 after.
+- **Prop fix for every town:** bushes and flowers keep 4 units clear in front of a temple, mine or cave mouth (in Chrome a bush stood between the player and the temple steps). Fronts with a prop in them: 9 of 35 before, 0 of 46 after.
+- **Debug:** "Go: temple town (on foot)".
+- Defaults chosen without asking: which towns become temple towns (plain cities and a fifth of fishing towns, so no trade or fortress town changes kind), the offering's price (20g), its effect (full heal and +5 local standing) and wait (5 minutes, not saved per realm), spice as the cheap good, temples allowed in Asgard as well.
+- Tests: 134 pass (2 new: temple towns only come from plain cities and fishing towns, spice is cheap, temples and shrines only in temple towns, meshes build, a third of people are priests; a scripted player walks from the dock to the plaza, is told "a temple town", is stopped by the temple, sees the offering prompt on the steps, is refused when broke, pays 20 for a full heal and +5 standing, is refused again at once and served after the wait). The mining test now allows the temple change.
+- Chrome (localhost, real build, debug jump, then W held and F pressed as key events): arrival message shown; temple, braziers and steps seen head-on; a priest seen close up (hood, stole, staff); the prompt "F Make an offering at the temple (20g)" appeared at the steps and F took 20 gold and showed the blessing; no console errors. Mouse capture does not work in the automated tab.
+- Performance against round 88 (Node, same machine, same run, 230 ports): island build 1.96 vs 1.97 ms and 2.72 vs 2.73 ms in two runs (no change), game step 0.018-0.021 ms (no change). Build 327.0 -> 330.5 kB (128.9 -> 130.2 kB gzipped).
+- Not checked: the marble snaps to a blue-grey in the palette (reads as grey stone, not white); the shrine was not seen by eye; temples in Asgard; real mouse play.
+- Left on the machine: two Chrome test tabs (127.0.0.1:8772) could not be closed because the game asks to confirm leaving; the server is stopped, so just close them.
