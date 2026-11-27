@@ -2,6 +2,7 @@
 // view = { zoom, x, z }: how far in you are and which world point sits in the middle (see makeView / zoomView / panView).
 import { sectorIslands, WALL_R } from './gen/world.js';
 import { hash } from './gen/rng.js';
+import { chartWrecks } from './rules/salvage.js';
 import { CELL, UNKNOWN, HINTED, worldLayout, grandPoint, mapOf, REALMS } from './rules/map.js';
 
 const INK = '#2b1d12', PAPER = '#d8c08e', PAPER_D = '#c4a874', SEA = '#5d93a6', SEA_L = '#7fb0bd', SKETCH = '#b9a57c', ICE = '#f2f8fb';
@@ -87,6 +88,11 @@ export function drawTerra(ctx, s, size, t = 0, view = makeView()) {
   const used = [];
   ctx.font = '13px Georgia, serif';
   for (const [name, x, y] of named.sort((a, b) => b[3] - a[3])) { const w = ctx.measureText(name).width / 2 + 3; if (used.some((u) => Math.abs(u[0] - x) < u[2] + w && Math.abs(u[1] - y) < 14)) continue; used.push([x, y, w]); label(ctx, name, x, y); }
+  // old wrecks: heard of (a dashed ring roughly where she lies), dived on (her mark and name), stripped (faded and struck through)
+  for (const w of chartWrecks(s)) {
+    if (!w.dives) { const R = 260, a = (hash(seed >>> 0, w.x | 0, 31) % 628) / 100, x = X(w.x + Math.cos(a) * R * 0.55), y = Y(w.z + Math.sin(a) * R * 0.55), r = Math.max(9, R * k); if (!seen(x, y, r)) continue; ctx.setLineDash([4, 3]); ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); ctx.setLineDash([]); label(ctx, '?', x, y + 5, 'bold 13px Georgia, serif'); continue; }
+    const x = X(w.x), y = Y(w.z); if (seen(x, y, 20)) wreckMark(ctx, x, y, w.stripped, view.zoom >= 3 && w.name.replace(/^The /, ''));
+  }
   // your ship (when you are ashore) and you
   if (s.ship && (s.realm || 'terra') === 'terra' && s.mode !== 'ship') { const x = X(s.ship.x), y = Y(s.ship.z); ctx.fillStyle = '#fff3c4'; ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x, y); ctx.lineTo(x - 8, y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e3b73e'; ctx.beginPath(); ctx.moveTo(x - 9, y + 2); ctx.lineTo(x + 9, y + 2); ctx.lineTo(x + 5, y + 7); ctx.lineTo(x - 5, y + 7); ctx.closePath(); ctx.fill(); ctx.stroke(); }
   if ((s.realm || 'terra') === 'terra') marker(ctx, X(where(s).x), Y(where(s).z), where(s).yaw || 0, t);
@@ -94,6 +100,13 @@ export function drawTerra(ctx, s, size, t = 0, view = makeView()) {
   frame(ctx, size); rose(ctx, size - 46, size - 48, 28);
   const unit = [2000, 1000, 500, 250, 100].find((v) => v * k < size * 0.25) || 100, len = unit * k;
   ctx.fillStyle = INK; ctx.fillRect(22, size - 26, len, 3); ctx.fillRect(22, size - 30, 2, 11); ctx.fillRect(20 + len, size - 30, 2, 11); label(ctx, unit >= 1000 ? unit / 1000 + ' km' : unit + ' m', 22 + len / 2, size - 32, '12px Georgia, serif');
+}
+function wreckMark(ctx, x, y, stripped, name) {
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.globalAlpha = stripped ? 0.5 : 1; ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
+  ctx.rotate(-0.35); ctx.beginPath(); ctx.moveTo(-8, -1); ctx.lineTo(8, -1); ctx.lineTo(5, 4); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fillStyle = '#6d5134'; ctx.fill(); ctx.stroke(); // a hull, listing
+  ctx.beginPath(); ctx.moveTo(1, -1); ctx.lineTo(3, -10); ctx.lineTo(-2, -6); ctx.stroke(); ctx.rotate(0.35); // her broken mast
+  if (stripped) { ctx.strokeStyle = '#a3341f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-9, -8); ctx.lineTo(9, 7); ctx.stroke(); }
+  ctx.restore(); if (name) label(ctx, name, x, y + 17, 'italic 11px Georgia, serif');
 }
 function marker(ctx, x, y, yaw, t) {
   ctx.save(); ctx.translate(Math.round(x), Math.round(y));

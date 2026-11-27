@@ -67,3 +67,23 @@ test('no diving with raiders about, in a storm, or with a full hold of cargo; tr
   for (let i = 0; i < 5; i++) tick(s); s.cargo = { rum: s.hold }; const g = s.gold; s.ship.speed = 0; interact(s); for (let i = 0; i < 60 * (DIVE_S + 1); i++) tick(s);
   assert.ok(s.gold > g, s.log.slice(-3).join(" | ")); assert.equal(s.cargo.rum, s.hold); assert.equal(Object.keys(s.cargo).length, 1, 'cargo came up into a full hold');
 });
+
+test('the chart map learns of a wreck from the board, then from the diver, and stays stripped after a save', async () => {
+  const { chartWrecks } = await import('../src/rules/salvage.js');
+  const s = newGame(1717), home = sectorIslands(1717, 0, 0)[0]; let body = null;
+  assert.deepEqual(chartWrecks(s), [], 'a new game already knows of a wreck');
+  for (let n = 0; n < 8 && !body; n++) { s.t = n * ISSUE_LEN + 1; body = newsFor(s, home).items.find((q) => q.head === 'An old wreck')?.body; }
+  const w = wrecks(1717).find((q) => body.includes(q.name.replace(/^The /, '')));
+  let c = chartWrecks(s).find((q) => q.id === w.id); assert.ok(c, 'the rumour did not reach the chart'); assert.equal(c.dives, 0); assert.ok(!c.stripped);
+  assert.equal(chartWrecks(s).length, 1, 'heard of wrecks nobody spoke of');
+  atSea(s, w.x - 200, w.z - 60); assert.ok(reach(s, w) !== null); s.ship.speed = 0;
+  interact(s); for (let i = 0; i < 60 * (DIVE_S + 1); i++) tick(s);
+  assert.equal(chartWrecks(s).find((q) => q.id === w.id).dives, 1);
+  for (let n = 2; n <= DIVES; n++) { interact(s); for (let i = 0; i < 60 * (DIVE_S + 1); i++) tick(s); }
+  c = chartWrecks(deserialize(serialize(s))).find((q) => q.id === w.id); assert.ok(c.stripped, 'not stripped after a save');
+  // the chart draws it all without error (a stand-in canvas that records nothing)
+  const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : k === 'measureText' ? () => ({ width: 10 }) : () => ({ addColorStop() {} })), set: (o, k, v) => ((o[k] = v), true) });
+  globalThis.document = { createElement: () => ({ getContext: () => ctx, width: 0, height: 0 }) };
+  const { drawTerra, makeView } = await import('../src/mapview.js');
+  const v = makeView(); drawTerra(ctx, s, 640, 0, v); v.zoom = 5; v.x = w.x; v.z = w.z; drawTerra(ctx, s, 640, 0, v); delete globalThis.document;
+});
