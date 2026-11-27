@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch. Every world now keeps its own chart map, with its wrecks and its gate.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 102, commit 63dc6ea). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive. At night the shops shut, the tavern rents a bed until dawn, and towns keep a night watch. Every world now keeps its own chart map, with its wrecks and its gate. Wounded, the kraken dives for its den, and your diver finishes it with powder kegs.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 103, commit 10df506). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 168 tests, all passing
-npm run build      # writes index.html (364.6 kB, 143.5 kB gzipped)
+npm test           # 169 tests, all passing
+npm run build      # writes index.html (367.3 kB, 144.5 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 102)
+## Where things stand (2026-11-27, after round 103)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -40,7 +40,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Atlantis's sea gate: white coral cliffs on Atlantis's rim facing Olympus, with a curtain of falling water in the middle. It stays shut ("You know 0 of the 4 pillars it answers to") until you have read four crystal pillars; each pillar tells which way the gate lies and how many more it wants. Then a short scene (letterbox, splashes, "The Sea Gate is open") and sailing on through leads to Olympus. Saved; once open you sail straight through.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last). On each world's chart map a wreck you have heard of is a dashed ring with a "?" roughly where she lies; once dived on she gets her own mark (named when zoomed in), and a stripped wreck is faded and struck through. The two far-out wrecks of each world lie deep, and a swell (rain) makes any dive risky; then the line can foul (the diver comes up empty, the dive does not count) or the diver comes up hurt (half the coins, no cargo, 90 s rest before the next dive). Calm water over a near wreck is safe.
-- Monsters: the sea serpent (three lairs per Terra world), draugr longships (three sea barrows per Asgard world) the kraken (one lair per Atlantis world: it grabs the ship, holds her to a crawl and squeezes; shoot the arms) and the cyclops (two beaches per Olympus world: he throws boulders at where you will be, a foam ring marks each landing; keep moving and shoot him from close in), all rumoured first.
+- Monsters: the sea serpent (three lairs per Terra world), draugr longships (three sea barrows per Asgard world) the kraken (one lair per Atlantis world: it grabs the ship, holds her to a crawl and squeezes; shoot the arms; at half health it dives for its den on the sea floor, where only a diver with a powder keg can reach it, and an arm may throw the diver clear) and the cyclops (two beaches per Olympus world: he throws boulders at where you will be, a foam ring marks each landing; keep moving and shoot him from close in), all rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
@@ -53,7 +53,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
-- Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater yet. Olympus has no gate of its own.
+- Atlantis (round 92, kraken round 94, its den round 103) and Olympus (round 93) have their own look; underwater is only the dive window. Olympus has no gate of its own.
 - Night rules are a first pass (shops shut, a bed, a night watch): no night-only events or night thieves yet. Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, with a small flat dive window but no underwater 3D; no underwater 3D). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
@@ -903,3 +903,14 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance against round 101 (Node, same machine, 15 000 steps at sea in Asgard): 0.067 ms a step either way. Build 364.2 -> 364.6 kB (143.3 -> 143.5 kB gzipped).
 - Not checked: Atlantis and Olympus charts in Chrome (same code path, covered for Asgard), sound, GPU time (game drawing unchanged).
 - Left on the machine: the Chrome test tab (127.0.0.1:8797) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 103 (2026-11-27): the kraken's den, its underwater phase (pushed, commit 10df506)
+- **What:** cut the kraken to half health and it lets go and dives for its den on the sea floor under its lair ("Bubbles rise 110 m to the east: heave to over them and send your diver down with a powder keg."). Bubbles rise there every second; shot cannot reach it any more and it no longer grabs. Heave to over the bubbles and F reads "Send your diver down to the kraken's den with a powder keg". Each keg takes a quarter of its health (two kegs from half), but 30% of the time an arm lashes out and throws the diver clear: no keg set, 30 s to recover. Killed in its den it pays its pearl hoard on top (+300, so 1100 gold). Sail away (480 m) and it heals and starts over, as before. The dive window draws the den: a rock mound with a dark mouth, two blinking gold eyes, an arm swaying out, and the keg once set ("Diver down · the kraken's den · setting the keg").
+- **Code:** `DEN_AT`, `KEG`, `LASH`, `LASH_REST`, `HOARD`, `denHere`, `startDenDive`, `stepDenDive` in `rules/kraken.js`; `diveBlocked` (the shared "can the diver go down" checks) and den support in `diveStage` in `rules/salvage.js`; prompt, F and step hooks in `game.js`; the den drawing in `diveview.js`. Nothing new is saved (the kraken's live state never was).
+- **Defaults chosen (no one to ask):** the den at half health; a keg costs nothing (the diver carries it); kegs ignore the swell (storms still forbid diving); the lash rest is 30 s, not the wreck's 90 s, so the fight keeps moving; the hoard is +300.
+- Tests: 169 pass (the kraken fight test now plays it out: a scripted captain shoots it to half, follows the bubbles, takes in sail, dives with kegs until it dies, sees all three den dive phases and gets the hoard; 1 new: on 6 seeds, shot cannot hurt it in its den, it stays down 10 s, F under way is refused, a dive sets a keg or gets lashed (both happen), nothing of it is saved, and sailing off lets it heal). Bug hunt: 40 seeds of a scripted captain (brigantine or cutter, with or without fire shot, varied weather): 39 killed it (78 kegs set, 25 lashes, 322 dives refused in storms), none sunk; one sat becalmed in a storm until the kraken reset (the storm rule, not a bug).
+- Chrome (localhost, real build, new game warped to Atlantis by script, the kraken set gripping at 330/600 beside the ship, real E/Q and F presses): two broadsides sent it to its den, the arms vanished, bubbles rose and the den prompt showed; F was refused while a hostile Atlantis ship was in range (it kept respawning because the kraken was placed off its real lair; marked sunk by script); then two dives were lashed (the rest was shown and F refused during it), and two kegs killed it: "+1100 gold", slain and saved. The den window drawn as planned. No console errors (tracking started mid-session). CPU 0.13 ms step + 0.67 ms draw at 119 fps.
+- Fixed after the Chrome check: the caption had dropped "the" ("kraken's den").
+- Performance against round 102 (Node, same machine, 15 000 steps at sea near the lair, best of 5): 0.048 vs 0.050 ms a step (noise). Build 364.6 -> 367.3 kB (143.5 -> 144.5 kB gzipped). 3D drawing unchanged.
+- Not checked: sound by ear (the keg uses the cannon boom), the corrected caption by eye (one-line text change, covered by build and tests).
+- Left on the machine: the Chrome test tab (127.0.0.1:8798) asks to confirm leaving, so it is still open; the server is stopped.
