@@ -1,6 +1,6 @@
 // Debug mode for testing: add ?debug to the page address, then press the ` key (under Esc) to open or close the panel. It changes your real save, so use it for testing.
 import { WALL_R, gatePos } from './gen/world.js';
-import { OUTER_EDGE, RUNES_NEEDED, runeGateAngle } from './rules/realm.js';
+import { OUTER_EDGE, gateOf, gateAngleOf } from './rules/realm.js';
 import { REALMS } from './rules/map.js';
 import { KINDS, sectorOf, sectorIslands, islandTown } from './gen/world.js';
 import { groundAt } from './rules/game.js';
@@ -40,7 +40,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: fjord mouth', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const p = s.mode === 'ship' && s.ship ? s.ship : s.foot, cx = sectorOf(p.x), cz = sectorOf(p.z); let best = null;
       for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const isl of sectorIslands(s.seed, cx + i, cz + j)) if (isl.fjords?.[0]?.port && (!best || Math.hypot(isl.x - p.x, isl.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z))) best = isl;
       if (!best) { say(s, 'No fjord port near'); return; } const a = best.port.angle, d = best.r * 1.7; sail(s, best.x + Math.cos(a) * d, best.z + Math.sin(a) * d, a + Math.PI); }],
-    ['Go: rune gate (+runes)', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const a = runeGateAngle(); s.runes ||= []; while (s.runes.length < RUNES_NEEDED) s.runes.push('dbg' + s.runes.length); sail(s, Math.cos(a) * (WALL_R - 260), Math.sin(a) * (WALL_R - 260), a); }],
+    ['Go: world gate (+reads)', (s) => { const g = gateOf(s.realm); if (!g) { say(s, 'Go to Asgard or Atlantis first'); return; } const a = gateAngleOf(s.realm), k = (s[g.key] ||= []); while (k.length < g.need) k.push('dbg' + k.length); sail(s, Math.cos(a) * (WALL_R - 260), Math.sin(a) * (WALL_R - 260), a); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
     ['Go: cyclops lair', (s) => { if (s.realm !== 'olympus') { say(s, 'Go to Olympus first'); return; } const l = cyclopsLairs(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('cyclops')); s.cyclops = null; const a = Math.atan2(l.z - l.cz, l.x - l.cx); sail(s, l.x + Math.cos(a) * 150, l.z + Math.sin(a) * 150, a + Math.PI / 2); }],

@@ -329,7 +329,12 @@ export function islandStructs(isl) {
 
 // ---------------------------------------------------------------- ice wall: a continuous cliff, same height all the way round, banded deep blue to white, with an overhanging snow lip, icicles and rubble at the foot.
 // One stretch (the weak spot, `gateAngle`) is paler and cracked. Once the ram has broken it (`open`) the wall is gone there and the edges are ragged.
-// With `rune` ({ ang, arc }) it is Asgard's rune gate instead: only `arc` either side of `ang`, black stone tapering at the ends, the middle a green veil of runes.
+// With `rune` ({ ang, arc, realm }) it is a world's gate instead: only `arc` either side of `ang`, tapering at the ends: Asgard's black stone with a green veil of runes, or Atlantis's white coral with a curtain of falling water.
+const GATE_PAL = {
+  terra: [[[0.2, 0.44, 0.8], [0.36, 0.62, 0.92], [0.64, 0.84, 0.98], [0.94, 0.98, 1]], [[0.5, 0.82, 0.95], [0.66, 0.9, 0.98], [0.8, 0.95, 1], [0.97, 0.99, 1]]],
+  asgard: [[[0.13, 0.13, 0.17], [0.2, 0.21, 0.26], [0.3, 0.31, 0.37], [0.9, 0.94, 0.98]], [[0.2, 0.62, 0.48], [0.3, 0.78, 0.6], [0.5, 0.9, 0.74], [0.74, 0.98, 0.88]]],
+  atlantis: [[[0.7, 0.5, 0.46], [0.86, 0.68, 0.6], [0.94, 0.86, 0.78], [0.99, 0.97, 0.92]], [[0.36, 0.76, 0.82], [0.5, 0.86, 0.9], [0.7, 0.94, 0.96], [0.9, 0.99, 1]]],
+};
 export function wallMesh(seed, sx, sz, open = false, rune = null) {
   const x0 = sx * SECTOR - 40, x1 = (sx + 1) * SECTOR + 40, z0 = sz * SECTOR - 40, z1 = (sz + 1) * SECTOR + 40;
   const near = Math.hypot(clamp(0, x0, x1), clamp(0, z0, z1)), far = Math.max(Math.hypot(x0, z0), Math.hypot(x1, z0), Math.hypot(x0, z1), Math.hypot(x1, z1));
@@ -337,8 +342,7 @@ export function wallMesh(seed, sx, sz, open = false, rune = null) {
   const m = new Mesh(), da = 22 / WALL_R, g = rune ? rune.ang : gateAngle(seed), WI = WALL_R - 6, WO = WALL_R + 8, F = [0, 0.25, 0.5, 0.8, 1], RAD = [0, 0, 3, 8, 9];
   const gdOf = (a) => Math.abs(((a - g + Math.PI * 3) % TAU) - Math.PI) * WALL_R;
   const H = (a) => { const gd = gdOf(a); let h = 150 + 50 * fbm(seed, a * 260, 5, 3) + 12 * Math.sin(a * 900); if (open && gd < GATE_HALF + 36) h *= 0.12 + 0.88 * clamp((gd - GATE_HALF) / 36, 0, 1) ** 1.5 * (0.7 + 0.6 * fbm(seed, a * 1500, 3, 2)); return rune ? h * (1 - 0.6 * (gd / rune.arc) ** 3) : h; };
-  const BAND = rune ? [[0.13, 0.13, 0.17], [0.2, 0.21, 0.26], [0.3, 0.31, 0.37], [0.9, 0.94, 0.98]] : [[0.2, 0.44, 0.8], [0.36, 0.62, 0.92], [0.64, 0.84, 0.98], [0.94, 0.98, 1]]; // base to top, flat colours
-  const WEAK = rune ? [[0.2, 0.62, 0.48], [0.3, 0.78, 0.6], [0.5, 0.9, 0.74], [0.74, 0.98, 0.88]] : [[0.5, 0.82, 0.95], [0.66, 0.9, 0.98], [0.8, 0.95, 1], [0.97, 0.99, 1]];
+  const [BAND, WEAK] = GATE_PAL[rune ? (rune.realm === 'atlantis' ? 'atlantis' : 'asgard') : 'terra']; // base to top, flat colours: the cliffs, and the weak spot or veil
   const V = (rad, ang, y) => [Math.cos(ang) * rad, y, Math.sin(ang) * rad];
   for (let a = 0, k = 0; a < TAU; a += da, k++) {
     const px = Math.cos(a) * WALL_R, pz = Math.sin(a) * WALL_R;

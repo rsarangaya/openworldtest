@@ -10,9 +10,19 @@ export const CINE_S = 7.5, CINE_BREAK = 2.6; // the breakthrough scene: length, 
 // bearing on the grand map from one world to another (same convention as local angles): which way a world's edge faces its neighbour
 const grandXY = (id) => { const g = realmById(id).grand; return [Math.cos(g.ang) * g.dist, Math.sin(g.ang) * g.dist]; };
 export const bearing = (from, to) => { const a = grandXY(from), b = grandXY(to); return Math.atan2(b[1] - a[1], b[0] - a[0]); };
-// Asgard's rune gate: black cliffs on Asgard's rim (arc: half their length) facing the next world, Olympus, with a veil of runes in the middle that parts once you have read RUNES_NEEDED rune stones
-export const RUNE_GATE = { realm: 'asgard', to: 'olympus', arc: 700 }, RUNES_NEEDED = 4;
-export const runeGateAngle = () => bearing(RUNE_GATE.realm, RUNE_GATE.to);
+// Gates on a world's rim to the next world: cliffs (arc: half their length) facing `to`, with a veil in the middle that parts once you have read `need` of the world's landmarks (s[key]); `flag` keeps it open.
+// Asgard's rune gate (black cliffs, a green veil of runes) and Atlantis's sea gate (white coral cliffs, a curtain of falling water) both lead on to Olympus. `say` holds each gate's words.
+export const GATES = {
+  asgard: { to: 'olympus', arc: 700, need: 4, key: 'runes', flag: 'runeGate', fx: 'flash', name: 'The Rune Gate', say: {
+    shut: (n, k) => `A veil of green light, carved all over with runes. You know ${n} of the ${k} stones it answers to: read more rune stones on Asgard's islands.`, cliff: 'Black cliffs at the edge of the world. In their middle a veil of green light shimmers.',
+    touch: 'The runes you copied glow on the veil, one by one...', open: 'The runes blaze green and the veil parts!', hint: ['stones', 'a gate of runes', 'its veil'] } },
+  atlantis: { to: 'olympus', arc: 700, need: 4, key: 'pillars', flag: 'seaGate', fx: 'splash', name: 'The Sea Gate', say: {
+    shut: (n, k) => `A curtain of falling water, bright with drowned script. You know ${n} of the ${k} pillars it answers to: read more crystal pillars on Atlantis's islands.`, cliff: 'White coral cliffs at the edge of the world. In their middle a curtain of water pours down into the sea.',
+    touch: 'The inscriptions you copied shine through the falling water, one by one...', open: 'The water hangs still in the air and parts like a curtain!', hint: ['pillars', 'a gate of falling water', 'its curtain'] } },
+};
+export const gateOf = (realm) => GATES[realm] || null;
+export const gateAngleOf = (realm) => bearing(realm, GATES[realm].to);
+export const RUNE_GATE = { realm: 'asgard', ...GATES.asgard }, RUNES_NEEDED = GATES.asgard.need, runeGateAngle = () => gateAngleOf('asgard');
 const PER_REALM = ['hunts', 'towns', 'alert', 'guardT', 'npcs', 'jailed', 'newsSeen', 'found', 'dead', 'rep'];
 const fresh = (k) => (k === 'found' || k === 'dead' ? new Set() : k === 'rep' ? { world: 0, local: {} } : {});
 export const realmSeed = (base, id) => (id === 'terra' ? base : ((hash(base, 4001 + [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7), 3) >>> 0) % 900000) + 1000);
