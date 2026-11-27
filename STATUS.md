@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 83, commit 5cbea8c). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 84, commit 4bf6e56). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 120 tests, all passing
-npm run build      # writes index.html (317.0 kB, 124.9 kB gzipped)
+npm test           # 122 tests, all passing
+npm run build      # writes index.html (318.2 kB, 125.4 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -32,7 +32,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
-- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, and two Norse axes (bearded axe, Dane axe) sold only by its smiths.
+- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, and fjord coasts (big ports sit at the head of a fjord).
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
@@ -46,7 +46,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Asgard still uses Terra's island generator and layout; no fjord coasts, Norse music or its own weak spot. Asgard people do not carry axes yet.
+- Asgard has no Norse music or its own weak spot yet; island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
@@ -662,3 +662,15 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Not checked: sound, real mouse play, the second (lower) hand on the Dane axe (it sits below the screen edge, as on the spear).
 - Noticed, left: the Asgard smith was called "Olaf Ivarsdottir" (a man's name with a daughter's surname); the armoury header shows "Standing here: Unknown · Realm: Unknown" in Asgard.
 - Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed because the game asks to confirm leaving; its server is stopped, so just close the tab. Serving used a few lines of plain Node (downloading a server package was blocked).
+
+## Round 84 (2026-11-26): Asgard fjord coasts (pushed, commit 4bf6e56)
+- **Fjords:** every Asgard island of radius 20 or more gets one to three long, narrow, slightly winding inlets cut into its coast (sea carved into the island's own height, so the coast drawing, the map, ship collision and walking all follow it with no new code).
+- **Fjord ports:** an Asgard port on an island of radius 40+ stands at the head of a wide, straight fjord (about 26 units across, widening to the sea) along the port bearing; the dock runs out from the head and the town sits above it. Smaller islands (villages) keep an open-coast harbour; other inlets keep clear of the harbour.
+- **Debug:** new "Go: fjord mouth" puts your ship outside the nearest fjord port, bow pointing in.
+- Defaults chosen without asking: fjord ports only from radius 40 up (on smaller islands the fjord cost the town its guard station: 3 of 145 Asgard ports, back to the 1 that already had none before); inlets on small islands are short; Terra and the Frostwatch island are untouched (own random stream, so no other island, name or town moves).
+- Tests: 122 pass (2 new: on three seeds every big Asgard port's fjord has water at the berth, a walkable dock reaching the head, land on both sides, a clear hull line to open sea, and the town still has its merchant and guard station; a scripted player boards at the head, rows out to open sea and docks back with no hull damage). Extra probe: all 65 big Asgard ports on three seeds rowed out and back, 4-13 s each way, hull 100.
+- Chrome (localhost, real build, debug "Go: fjord mouth"): rowed with O straight up the fjord between snowy cliffs to the pier; "F Dock and go ashore" came up and F put me on the pier; no console errors. I rowed on into the head before pressing F once ("Aground!", hull -3), the same as ramming any pier.
+- Performance against round 83 (Node, same machine): Asgard ground build (coast + town + props) 2.2 -> 2.4 ms per island, once and cached; ship step 0.077 -> 0.093 ms (noise-level); Terra unchanged. Build 317.0 -> 318.2 kB (124.9 -> 125.4 kB gzipped).
+- Not checked: the fjords on the chart map by eye (this save had no Asgard chart yet), sound, real mouse play.
+- Noticed, left: one Asgard village on seed 99 (sector -3,-3) had no guard station already before this round.
+- Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed because the game asks to confirm leaving; its server is stopped, so just close the tab.
