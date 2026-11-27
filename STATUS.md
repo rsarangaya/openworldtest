@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 92, commit e80c733). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 93, commit 135200b). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 143 tests, all passing
-npm run build      # writes index.html (342.0 kB, 134.8 kB gzipped)
+npm test           # 146 tests, all passing
+npm run build      # writes index.html (346.8 kB, 136.7 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27)
+## Where things stand (2026-11-27, after round 93)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -35,6 +35,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Atlantis: its own world in place of the Terra-like stand-in. Warm turquoise sea and a pale sea-green haze, warm islands (tropical, sandbars, a few temperate; no ice rock), white walls with gold and sea-green roofs, sea-Greek island and harbour names ("Thalassa", "Coraia Harbour"), ships like "The Coral Crown", captains like "Ione Pelagos", people in white, sea-green and sky-blue robes with a gold belt and circlet, dolphins, manta rays and turtles, its own music (D lydian, high bell-like notes), and a crystal pillar on each island read with F (twelve inscriptions about the drowned kingdom; counted once, saved, 20 points each).
+- Olympus: its own world in place of the Terra-like stand-in. A deep sunny blue sea under a clear haze; rocky and green islands, the bigger ones with tall pale limestone peaks (up to 1.5x height) and dry olive slopes; marble walls with terracotta and gold roofs; Greek names (islands like "Kerynos", cities like "Thasopolis", ships like "The Bronze Eagle", captains like "Kleon of Myrene"); Olympians in chitons (white, cream, red or blue) with a coloured hem, a gold girdle and sometimes a laurel wreath; dolphins below the cliffs and eagles over the coasts; its own music (D mixolydian, each chord plucked like a lyre); and a marble statue on each island read with F (twelve dedications; counted once, saved in `s.statues`, 20 points each).
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last).
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
@@ -50,7 +51,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
-- Olympus is a map entry and rumours only (it loads a Terra-like stand-in). Atlantis has its own look (round 92) but no monster, nothing underwater and no gate on to another world yet.
+- Atlantis (round 92) and Olympus (round 93) have their own look but no monster, nothing underwater and no gate on to another world yet. Olympus weather is the same mix as elsewhere (not sunnier).
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
@@ -783,3 +784,19 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 91 (Node, same machine): Terra island build 4.14-4.37 vs 4.10-4.13 ms (noise), game step 0.024-0.025 ms (no change); Atlantis island build 3.1 ms. Build 336.5 -> 342.0 kB (132.8 -> 134.8 kB gzipped), mostly names and inscriptions.
 - Not checked: the music by ear, the mantas and the pillar by eye in the browser (both covered by the scripted tests), white walls in shade look slate grey, GPU time.
 - Left on the machine: the Chrome test tab (127.0.0.1:8792) may ask to confirm leaving; the server is stopped.
+
+## Round 93 (2026-11-27): Olympus gets its own world (pushed, commit 135200b)
+- **Look:** in Olympus the sea is a deep sunny blue (deep [0.01, 0.16, 0.42], shallows [0.1, 0.48, 0.72]) under a clear pale-blue haze; no cold tint. A small `WORLD_SEA` table in `main.js` now holds both Atlantis's and Olympus's sea colours. Islands are rocky or temperate; the bigger ones get up to 1.5x height (the extra grows from radius 20 to 50), so islets stay walkable. Their terrain is pale limestone at the top and on steep faces, with dry olive-green slopes (`OL_PAL` in `gen/mesh.js`). Buildings have warm marble walls with terracotta or gold roofs; stalls get white, red, blue and gold awnings.
+- **Names:** islands like "Kerynos", cities "<name>opolis", ships "The Bronze Eagle", "The Wine-Dark"..., captains "<name> of <island>". Wreck rumours come from "a sponge diver".
+- **People:** Olympians (not the player) wear a chiton in white, cream, red or blue with a coloured hem, a gold girdle and, for some, a laurel wreath. Guards keep their uniforms.
+- **Sea life:** dolphins, flying fish, turtles, fish schools, fins and the odd whale; eagles circle the coasts, gulls over open water.
+- **Music:** a fifth style, `olympus`: D mixolydian (I - bVII - IV - I7), each chord plucked up like a lyre at the start of the bar.
+- **Landmark:** a marble statue (a robed figure on a plinth with a laurel wreath and a gold-tipped spear) on each Olympus island. F reads its dedication (twelve lines, `STATUES` in `rules/lore.js`), counted once per island in `s.statues`, 20 points each. The landmark code is now one table (`LANDMARK` in `gen/props.js`, `MARKS` in `rules/game.js`) for rune stones, pillars and statues.
+- **Found by the scripted player:** at 1.45x height for every island, tiny islets became needles and about one in five lost its statue (no level ground). The extra height now grows with island size. It also showed that the first harbour it picked was a village with two people, which is normal (Terra villages have two as well); the test now docks at a town.
+- **Debug:** "World: Olympus".
+- Defaults chosen without asking: no Frostwatch Rock in Olympus; temple towns keep the Greek-style temple (it fits Olympus best of all); weather is not made sunnier (the shared weather is kept); no Olympus monster or gate yet; statues give lore and points only and do not count toward Asgard's rune gate.
+- Tests: 146 pass (3 new: Olympus islands, names, no ice rock, big rocky islands taller than Terra's, at least 85% of islands with one statue, Olympians, Atlantis unchanged; sea life with eagles and no cold-water animals or mantas, the mixolydian chords and lyre plucks; a scripted player sails out of the Outer Sea on Olympus's bearing, crosses over, rows into the nearest town harbour and docks, walks up to a statue, reads it once, and the count survives a save).
+- Chrome (localhost, real build, debug "World: Olympus" then "Go: nearest town plaza"): deep blue sea, tall pale peaks on the horizon, terracotta roofs, an Olympian in a blue chiton with the gold girdle; the debug panel shows realm olympus and music olympus. No console errors. CPU about 1.2 ms a frame in town (0.12 step + 1.11 draw) at 113 fps.
+- Performance against round 92 (Node, same machine): Terra island build 3.18-3.42 vs 3.18-3.19 ms (noise), Olympus 3.34 ms; game step 0.018-0.019 ms (no change). Build 342.0 -> 346.8 kB (134.8 -> 136.7 kB gzipped), mostly names and dedications.
+- Not checked: the statue by eye in the browser (covered by the scripted test; single key taps in Chrome barely move the player), the music by ear, marble walls in shade look grey, GPU time.
+- Left on the machine: the Chrome test tab (127.0.0.1:8792) asks to confirm leaving, so it is still open; the server is stopped.
