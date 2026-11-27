@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 97, commit 0ea6755). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 98, commit 4c2c110). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 160 tests, all passing
-npm run build      # writes index.html (358.2 kB, 140.6 kB gzipped)
+npm test           # 161 tests, all passing
+npm run build      # writes index.html (359.4 kB, 141.0 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 97)
+## Where things stand (2026-11-27, after round 98)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -38,7 +38,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Olympus: its own world in place of the Terra-like stand-in. A deep sunny blue sea under a clear haze; rocky and green islands, the bigger ones with tall pale limestone peaks (up to 1.5x height) and dry olive slopes; marble walls with terracotta and gold roofs; Greek names (islands like "Kerynos", cities like "Thasopolis", ships like "The Bronze Eagle", captains like "Kleon of Myrene"); Olympians in chitons (white, cream, red or blue) with a coloured hem, a gold girdle and sometimes a laurel wreath; dolphins below the cliffs and eagles over the coasts; its own music (D mixolydian, each chord plucked like a lyre); and a marble statue on each island read with F (twelve dedications; counted once, saved in `s.statues`, 20 points each). Olympus can be reached through Asgard's rune gate or Atlantis's sea gate, or from Terra's Outer Sea.
 - Atlantis's sea gate: white coral cliffs on Atlantis's rim facing Olympus, with a curtain of falling water in the middle. It stays shut ("You know 0 of the 4 pillars it answers to") until you have read four crystal pillars; each pillar tells which way the gate lies and how many more it wants. Then a short scene (letterbox, splashes, "The Sea Gate is open") and sailing on through leads to Olympus. Saved; once open you sail straight through.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
-- Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last).
+- Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last). On the Terra chart map a wreck you have heard of is a dashed ring with a "?" roughly where she lies; once dived on she gets her own mark (named when zoomed in), and a stripped wreck is faded and struck through.
 - Monsters: the sea serpent (three lairs per Terra world), draugr longships (three sea barrows per Asgard world) the kraken (one lair per Atlantis world: it grabs the ship, holds her to a crawl and squeezes; shoot the arms) and the cyclops (two beaches per Olympus world: he throws boulders at where you will be, a foam ring marks each landing; keep moving and shoot him from close in), all rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
@@ -54,7 +54,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater yet. Olympus has no gate of its own.
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
-- Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
+- Underwater is a first pass only (diving from the ship, nothing drawn below the surface; only Terra's wrecks are on the chart map, since the other worlds have no local chart yet). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
 The round-by-round history follows (newest at the end).
@@ -851,3 +851,13 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance against round 96: game step unchanged (one string compare per frame); build 358.1 -> 358.2 kB (140.5 -> 140.6 kB gzipped).
 - Not checked: sound by ear, GPU time (drawing unchanged).
 - Left on the machine: the Chrome test tab (127.0.0.1:8792) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 98 (2026-11-27): wrecks on the chart map (pushed, commit 4c2c110)
+- **What:** each Terra wreck you hear of (notice board or tavern rumour) shows on the Terra chart map as a dashed ring with a "?", centred a little off the true spot (a fixed offset, so the ring always covers her). Once you have dived on her the ring becomes her own mark (a listing hull with a broken mast) and her name shows at zoom 3 or more; a stripped wreck is faded and struck through in red. The map's footnote says what the dashed ring means.
+- **Code:** `wreckRumour` records the wreck it names as heard, by setting its count in `s.salvage` to 0 (already saved, so no new state); `chartWrecks(s)` in `rules/salvage.js` lists Terra's heard and dived wrecks; `drawTerra` in `mapview.js` draws them.
+- **Defaults chosen (no one to ask):** ring radius 260 m, centre up to 143 m off; only Terra's wrecks are charted (the other worlds have no local chart); wrecks are drawn on unexplored paper too, since a rumour is knowledge.
+- Tests: 161 pass (1 new in `test/salvage.test.mjs`: a scripted captain reads the board, the chart learns of exactly that wreck, rows there and dives until stripped; the chart state follows each dive and survives a save; `drawTerra` runs without error on a stand-in canvas at two zooms).
+- Chrome (localhost, real build, new game, chart flag on, one wreck heard, one dived once, one stripped, real M key and mouse-wheel zoom): the ring, the mark and the struck-through mark all drawn; zoomed in, "Crimson Compass" labelled under her mark. No console errors.
+- Performance against round 97 (Node, same machine): game step 0.08 ms either way (noise); the map only draws while open, 4 wrecks at most. Build 358.2 -> 359.4 kB (140.6 -> 141.0 kB gzipped).
+- Not checked: reading the rumour in Chrome by walking to a real board (covered by the scripted test), sound by ear, GPU time (game drawing unchanged).
+- Left on the machine: the Chrome test tab (127.0.0.1:8791) asks to confirm leaving, so it is still open; the server is stopped. Ports 8765 and 8766 were already in use by other processes on this machine.
