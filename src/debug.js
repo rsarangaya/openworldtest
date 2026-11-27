@@ -11,6 +11,7 @@ import { weatherForce, KINDS_W } from './rules/weather.js';
 import { lairs } from './rules/serpent.js';
 import { krakenLairs } from './rules/kraken.js';
 import { cyclopsLairs } from './rules/cyclops.js';
+import { hydraLairs } from './rules/hydra.js';
 import { barrows } from './rules/draugr.js';
 import { wrecks } from './rules/salvage.js';
 import { hourAt, clockText } from './rules/daynight.js';
@@ -43,6 +44,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: world gate (+reads)', (s) => { const g = gateOf(s.realm); if (!g) { say(s, 'Go to Asgard or Atlantis first'); return; } const a = gateAngleOf(s.realm), k = (s[g.key] ||= []); while (k.length < g.need) k.push('dbg' + k.length); sail(s, Math.cos(a) * (WALL_R - 260), Math.sin(a) * (WALL_R - 260), a); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
+    ['Go: hydra lair', (s) => { if (s.realm !== 'olympus') { say(s, 'Go to Olympus first'); return; } const l = hydraLairs(s.seed)[0]; s.slain = (s.slain || []).filter((q) => q !== l.id); s.hydra = null; s.ammo.fire = Math.max(s.ammo.fire, 12); sail(s, l.x - 230, l.z, 0); }],
     ['Go: cyclops lair', (s) => { if (s.realm !== 'olympus') { say(s, 'Go to Olympus first'); return; } const l = cyclopsLairs(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('cyclops')); s.cyclops = null; const a = Math.atan2(l.z - l.cz, l.x - l.cx); sail(s, l.x + Math.cos(a) * 150, l.z + Math.sin(a) * 150, a + Math.PI / 2); }],
     ['Go: kraken lair', (s) => { if (s.realm !== 'atlantis') { say(s, 'Go to Atlantis first'); return; } const l = krakenLairs(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('kraken')); s.kraken = null; sail(s, l.x - 200, l.z, 0); }],
     ['Go: wreck', (s) => { const w = wrecks(s.seed, s.realm && s.realm !== 'terra' ? s.realm : '')[0]; s.salvage = {}; s.dive = null; sail(s, w.x - 14, w.z, 0); s.ship.sail = 0; }],
