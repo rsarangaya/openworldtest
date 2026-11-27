@@ -28,7 +28,7 @@ test('the clock: morning start, quarter-hour steps, short nights, a sun or moon 
 
 test('a scripted player lives through a day: dusk, night, dawn; the game rules do not care', () => {
   const s = newGame(1717), seen = new Set(), gold0 = s.gold;
-  s.input = { fwd: true, run: true }; // walks about town on the real step
+  s.input = { fwd: true, run: true }; s.thiefT = 1e9; // walks about town on the real step (no cutpurse: thief.test.mjs covers those)
   for (let i = 0; i < Math.ceil(DAY / DT) + 10; i++) {
     step(s, s.input);
     const h = hourAt(s.t, s.dayOff), L = lightAt(h);

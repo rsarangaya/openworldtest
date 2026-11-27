@@ -18,6 +18,7 @@ import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { stepMercs } from './mercs.js';
 import { stepRoutes } from './routes.js';
 import { stepRaid, raidRoll, startRaid as beginRaid, hitRaider } from './raid.js';
+import { stepThief, thiefRoll, startThief as beginThief, hitThief } from './thief.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
 import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
 import { cargoCount } from './trade.js';
@@ -442,6 +443,7 @@ function swing(s) {
   }
   for (const t of board(s)) { const h = s.hunts[t.id]; if (t.kind !== 'foot' || !h || h.x === undefined || (h.st !== 'free' && h.st !== 'sub')) continue; const dx = h.x - f.x, dz = h.z - f.z, d = Math.hypot(dx, dz); if (d < w.reach && d < bd && (dx * fx + dz * fz) / (d || 1) > w.cone * 0.6) { hitTarget(s, t, h, w.dmg, islandsAt(s, f.x, f.z).find((i) => i.id === t.island.id)); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; } }
   if (hitRaider(s, w, f, fx, fz, H)) { s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; }
+  if (hitThief(s, w, f, fx, fz, H)) { s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; }
   if (s.deck && !s.deck.won) for (const d of s.deck.defs) { if (d.st !== 'free') continue; const dx = d.x - f.x, dz = d.z - f.z, dd = Math.hypot(dx, dz); if (dd < w.reach && dd < bd && (dx * fx + dz * fz) / (dd || 1) > w.cone * 0.6) { hitDefender(s, d, w.dmg); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); return; } }
   for (const g of s.guards) { const dx = g.x - f.x, dz = g.z - f.z, d = Math.hypot(dx, dz); if (d < w.reach && d < bd && (dx * fx + dz * fz) / (d || 1) > w.cone * 0.6) { bd = d; g.hp -= w.dmg; g.hitT = s.t; spray(s, g.x, g.y + 1.3, g.z, 4); s.events.push({ type: 'slash', hit: true, w: s.weapon, swing: true }); if (g.hp <= 0) { deed(s, 'killWarden', g.isl, 0.5); s.bountyGold += 150; s.bounty = Math.max(s.bounty, 1); say(s, 'You cut down a guard.'); s.events.push({ type: 'kill' }); } return; } }
   if (swingSide(s, G)) return;
@@ -688,14 +690,17 @@ const G = { ship: (s, q, kind, name, at) => { // a story ship, put in open water
   near: (s, x, z, r) => { const y0 = groundAt(s, x, z); for (let d = r; d < r + 8; d += 0.6) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, y = groundAt(s, px, pz); if (y >= 0.8 && Math.abs(y - y0) < 1.6 && roomy(s, px, pz)) return { x: px, z: pz, y }; } return null; }, // dry land beside a point
   spot: (s, isl, seed) => { const pl = isl.port ? islandTown(isl).plaza : isl.landing || isl, r = rngFor(seed, 77); for (let k = 0; k < 120; k++) { const a = r() * TAU, d = (isl.port ? 8 : 4) + r() * (isl.port ? 12 : 10), x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, y = groundAt(s, x, z); if (y >= 0.8 && roomy(s, x, z)) return { x, z, y }; } const p = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 3, 26); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; } };
 // land battles (raid.js): a landing party now and then in the port you walk, fought beside the town's guards
-const H = { say, spray, walk: walkToward, ground: groundAt, near: (s, x, z, r) => G.near(s, x, z, r), station: (isl) => stationOf(isl) || islandTown(isl).plaza,
+const H = { say, spray, walk: walkToward, ground: groundAt, ev: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id); return isl && eventFor(s, isl); }, near: (s, x, z, r) => G.near(s, x, z, r), station: (isl) => stationOf(isl) || islandTown(isl).plaza,
   round: (s, o, tg) => { const p = freeSpotNear(s, tg.x, tg.z, o.x, o.z, 2.2, 6); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; },
   burn: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id), mx = TOWN_MAX[isl?.tier] || 100, t = ((s.towns ||= {})[id] ||= { hp: mx, max: mx, t: s.t }); t.hp = Math.min(t.hp, mx * 0.3); t.t = s.t; t.plundered = true; } };
 export const startRaid = (s, isl) => beginRaid(s, isl, H);
+export const startThief = (s, isl) => beginThief(s, isl, H);
 function stepRaids(s, dt) {
   const f = s.foot, here = s.mode === 'foot' ? islandsAt(s, f.x, f.z).find((i) => i.port && Math.hypot(i.x - f.x, i.z - f.z) < i.r * 1.3) : null;
   if (s.raid) stepRaid(s, dt, here || null, H);
-  else if (here && Math.floor(s.t / 30) !== Math.floor((s.t - dt) / 30) && raidRoll(s, here, !s.deck && !s.dive && !s.cine && !s.guards.length && !s.foes.length && !s.qa?.some((a) => a.awake) && !wantedHere(s, here) && townState(s, here.id) < 2 && !(s.jailUntil > s.t))) beginRaid(s, here, H);
+  if (s.thief) stepThief(s, dt, here || null, H);
+  else if (here && !s.raid && Math.floor(s.t / 20) !== Math.floor((s.t - dt) / 20) && thiefRoll(s, here, !s.deck && !s.dive && !s.cine && !s.guards.length && !s.foes.length && !(s.jailUntil > s.t), eventFor(s, here))) beginThief(s, here, H);
+  if (!s.raid && here && Math.floor(s.t / 30) !== Math.floor((s.t - dt) / 30) && raidRoll(s, here, !s.thief && !s.deck && !s.dive && !s.cine && !s.guards.length && !s.foes.length && !s.qa?.some((a) => a.awake) && !wantedHere(s, here) && townState(s, here.id) < 2 && !(s.jailUntil > s.t))) beginRaid(s, here, H);
 }
 export const sideOffersFor = (s, isl) => sideOffers(s, isl, G);
 export const takeSide = (s, offer) => acceptSide(s, offer, G);
@@ -833,7 +838,7 @@ export function travelBlock(s) {
   if (s.deck) return 'Not in the middle of a boarding.';
   if (s.mode === 'foot' && !onPier(s)) return 'Walk back to your ship or to a pier to set off.';
   for (const e of s.enemies.values()) if (KINDS[e.kind].hostile && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) < 260 && (KINDS[e.kind].hostile === true || s.bounty)) return 'Enemy ships are too close.';
-  if (s.guards?.length || s.foes?.length || s.raid || s.qa?.some((a) => a.awake)) return 'Not while someone is after you.';
+  if (s.guards?.length || s.foes?.length || s.raid || s.thief || s.qa?.some((a) => a.awake)) return 'Not while someone is after you.';
   if (s.sinking?.length || s.sunkT !== undefined) return 'Not now.';
   return null;
 }

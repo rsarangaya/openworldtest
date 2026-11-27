@@ -3,7 +3,7 @@ import { WALL_R, gatePos } from './gen/world.js';
 import { OUTER_EDGE, gateOf, gateAngleOf } from './rules/realm.js';
 import { REALMS } from './rules/map.js';
 import { KINDS, sectorOf, sectorIslands, islandTown } from './gen/world.js';
-import { groundAt, startRaid } from './rules/game.js';
+import { groundAt, startRaid, startThief } from './rules/game.js';
 import { SHIPS } from './rules/ships.js';
 import { MAX_FOOD } from './rules/trade.js';
 import { PARTS } from './rules/parts.js';
@@ -58,6 +58,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
       if (!best) { say(s, 'No ' + name + ' nearby'); return; } const d = best.port.dock, m = islandTown(best).marks.find((q) => q.k === mk), pl = islandTown(best).plaza, x = m ? m.x : d.x1, z = m ? m.z + m.d / 2 + 7 : d.z1; needShip(s); Object.assign(s.ship, { x: best.port.berth.x, z: best.port.berth.z, yaw: best.port.berth.yaw, speed: 0 });
       const yaw = m ? -Math.PI / 2 : Math.atan2(pl.z - z, pl.x - x); s.ship.yaw = yaw; s.enemies.clear(); teleport(); s.ship.yaw = best.port.berth.yaw; s.mode = 'foot'; s.foot = { x, z, y: groundAt(s, x, z), yaw, vy: 0 }; }]), // teleport turns the view to the ship's heading
     ['Raid this port (on foot)', (s) => { const f = s.foot, isl = s.mode === 'foot' && sectorIslands(s.seed, sectorOf(f.x), sectorOf(f.z)).concat(...[[-1, 0], [1, 0], [0, -1], [0, 1]].map(([i, j]) => sectorIslands(s.seed, sectorOf(f.x) + i, sectorOf(f.z) + j))).find((q) => q.port && Math.hypot(q.x - f.x, q.z - f.z) < q.r * 1.3); if (!isl || !startRaid(s, isl)) say(s, 'Walk in a port first (no raid already on)'); }],
+    ['Cutpurse here (on foot)', (s) => { const f = s.foot, isl = s.mode === 'foot' && sectorIslands(s.seed, sectorOf(f.x), sectorOf(f.z)).concat(...[[-1, 0], [1, 0], [0, -1], [0, 1]].map(([i, j]) => sectorIslands(s.seed, sectorOf(f.x) + i, sectorOf(f.z) + j))).find((q) => q.port && Math.hypot(q.x - f.x, q.z - f.z) < q.r * 1.3); if (!isl || !startThief(s, isl)) say(s, 'Walk in a port first (a purse to steal)'); }],
     ['Spawn raider', (s) => spawn(s, 'raider')],
     ['Spawn navy', (s) => spawn(s, 'navy')],
     ['Clear enemies', (s) => { s.enemies.clear(); s.guards = []; s.foes = []; }],

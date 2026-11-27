@@ -2,6 +2,7 @@
 // food: provision price, buy: goods price multiplier, folk: extra people in the plaza, smoke: a building smoulders, hook: a side-quest template.
 import { rngFor, pick } from '../gen/rng.js';
 import { issueOf } from './news.js';
+import { isNight, nowHour } from './daynight.js';
 
 export const EVENTS = {
   festival: { name: 'Lantern Festival', line: 'Lanterns, music and free fish. Provisions are going cheap while it lasts.', food: 2, folk: 6 },
@@ -20,11 +21,13 @@ export const EVENTS = {
   song: { name: 'A Singer without a Song', line: 'A tavern singer sits dry-eyed over an empty case, asking for a strong arm.', hook: 'singer' },
   swords: { name: 'A Stranger with a Sword', line: 'A disgraced swordswoman has been drinking alone and asking after one man.', hook: 'swordswoman' },
   charts: { name: 'A Stranger with Charts', line: 'An old cartographer is looking for someone with young legs and a sharp blade.', hook: 'cartographer' },
+  cutpurses: { name: 'Cutpurses Abroad', line: 'A ring of cutpurses works the lanes after dark. Keep a hand on your purse: the watch pays 30 gold for each one brought down.', night: true, thief: true }, // night only
 };
-const KEYS = Object.keys(EVENTS);
+const KEYS = Object.keys(EVENTS).filter((k) => !EVENTS[k].night);
 
 export function eventFor(s, isl) {
   if (!isl?.port) return null;
+  if (isNight(nowHour(s)) && rngFor(isl.seed, 9900 + issueOf(s))() < 0.3) return { key: 'cutpurses', ...EVENTS.cutpurses }; // some nights belong to the cutpurses
   const r = rngFor(isl.seed, 9700 + issueOf(s));
   if (r() < 0.45) return null;
   const key = pick(r, KEYS); return { key, ...EVENTS[key] };
