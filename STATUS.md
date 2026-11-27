@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 91, commit c50e5de). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 92, commit e80c733). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 140 tests, all passing
-npm run build      # writes index.html (336.5 kB, 132.8 kB gzipped)
+npm test           # 143 tests, all passing
+npm run build      # writes index.html (342.0 kB, 134.8 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -34,6 +34,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Day and night: a 20-minute day with short nights; dusk light, a blue night with stars and a moon, lit windows, lamps and ship lights; a clock beside the compass.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
+- Atlantis: its own world in place of the Terra-like stand-in. Warm turquoise sea and a pale sea-green haze, warm islands (tropical, sandbars, a few temperate; no ice rock), white walls with gold and sea-green roofs, sea-Greek island and harbour names ("Thalassa", "Coraia Harbour"), ships like "The Coral Crown", captains like "Ione Pelagos", people in white, sea-green and sky-blue robes with a gold belt and circlet, dolphins, manta rays and turtles, its own music (D lydian, high bell-like notes), and a crystal pillar on each island read with F (twelve inscriptions about the drowned kingdom; counted once, saved, 20 points each).
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last).
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
@@ -49,7 +50,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
-- Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
+- Olympus is a map entry and rumours only (it loads a Terra-like stand-in). Atlantis has its own look (round 92) but no monster, nothing underwater and no gate on to another world yet.
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
@@ -766,3 +767,19 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 90 (Node, same machine): sea step plus prompt 0.045-0.047 ms vs 0.044-0.046 ms (noise). Build 333.0 -> 336.5 kB (131.4 -> 132.8 kB gzipped). Graphics: up to 16 more billboards near wrecks, sprites already in the atlas.
 - Not checked: the splash sound, the tavern line by eye, wrecks in Asgard by eye, GPU time.
 - Left on the machine: the Chrome test tab (127.0.0.1:8781) could not be closed because the game asks to confirm leaving; the server is stopped, so just close it.
+
+## Round 92 (2026-11-27): Atlantis gets its own world (pushed, commit e80c733)
+- **Look:** in Atlantis the sea is a warm turquoise (deep [0.01, 0.3, 0.36], shallows [0.16, 0.74, 0.68]) under a pale sea-green haze, and the cold tint is off everywhere. Islands are tropical, sandbar or temperate. Buildings have white walls with gold or sea-green roofs (`AT_WALL`, `AT_ROOF` in `gen/mesh.js`, over any town type's colours). Market stalls get sea-green, gold and blue awnings.
+- **Names:** `gen/names.js` has an Atlantis vocabulary: islands like "Thalassa" or "Delion", harbours "<name> Harbour", ships "The Sea Pearl", "The Trident"..., captains "<first name> <house>". Wrecks in Atlantis use these names, and the wreck rumour comes from "a pearl diver".
+- **People:** Atlanteans (not the player) wear white, sea-green, sky-blue or cream robes (guards and wardens keep their uniforms), light trousers, a gold belt and a gold circlet with a sea-glass bead.
+- **Sea life:** dolphins, manta rays (new sprite: both wing tips out of the water, beating), turtles, flying fish, fish schools and the odd whale; gulls and albatrosses.
+- **Music:** a fourth style, `atlantis`: D lydian, swaying between I and II, the melody an octave up on sine notes with a long ring.
+- **Landmark:** a crystal pillar (white fluted marble, a gold ring that stays lit at night, a sea-glass crystal on top) on fairly level ground of each Atlantis island, sandbars included. F reads its inscription (twelve lines, `PILLARS` in `rules/lore.js`), counted once per island in `s.pillars` (saved), 20 points each. Pillars do not count toward Asgard's rune gate.
+- **Fix found by the scripted player:** removing the ice rock from Atlantis made `questWorld` crash on entering it (it expected the Frostwatch target in every world). The frost target is now optional and the quest compass skips a missing target.
+- **Debug:** "World: Atlantis" and "Go: nearest town plaza" (puts you on foot in the nearest town's square, any world).
+- Defaults chosen without asking: no Frostwatch Rock in Atlantis (an ice rock in a warm sea looked wrong; this moves that one sector's islands for anyone who visited the old stand-in); temple towns in Atlantis keep the Greek-style temple (it suits); no Atlantis monster, gate or underwater part yet; pillars give lore and points only.
+- Tests: 143 pass (3 new: Atlantis islands, names, no ice rock, people, about 90% of islands with exactly one pillar, Asgard and Terra unchanged; sea life without cold-water animals and the lydian music; a scripted player sails out of the Outer Sea on Atlantis's bearing, crosses over, rows into the nearest harbour and docks, walks up to a pillar, reads it once, and the count survives a save).
+- Chrome (localhost, real build, debug "World: Atlantis" then sailing by keys and "Go: nearest town plaza"): turquoise sea, gold and sea-green roofs (the gold first read as brown after shading, so it was brightened), an Atlantean in a white robe with gold belt and circlet. No console errors. CPU 0.88 ms a frame (0.09 step + 0.79 draw) at 120 fps.
+- Performance against round 91 (Node, same machine): Terra island build 4.14-4.37 vs 4.10-4.13 ms (noise), game step 0.024-0.025 ms (no change); Atlantis island build 3.1 ms. Build 336.5 -> 342.0 kB (132.8 -> 134.8 kB gzipped), mostly names and inscriptions.
+- Not checked: the music by ear, the mantas and the pillar by eye in the browser (both covered by the scripted tests), white walls in shade look slate grey, GPU time.
+- Left on the machine: the Chrome test tab (127.0.0.1:8792) may ask to confirm leaving; the server is stopped.
