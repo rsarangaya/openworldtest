@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 84, commit 4bf6e56). Work in progress: players are asked for feedback.
+Last updated: 2026-11-26. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a first pass.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 85, commit 3e3f78b). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 122 tests, all passing
-npm run build      # writes index.html (318.2 kB, 125.4 kB gzipped)
+npm test           # 124 tests, all passing
+npm run build      # writes index.html (319.8 kB, 126.2 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -32,13 +32,13 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
-- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, and fjord coasts (big ports sit at the head of a fjord).
+- Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths,, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall).
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Monsters: the sea serpent (three lairs per Terra world) and draugr longships (three sea barrows per Asgard world), both rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
-- Sound (never heard by me).
+- Sound (never heard by me), including the new Asgard and mead-hall music.
 - In the running game: walking up to a rune stone by real key presses (it was placed next to the stone by script), the aurora's look in fog, snow and storms, story fights, event crowds, leaving a jail cell, the map, fortress towns, the trade-port crane, the new town jails, Asgard towns.
 - Soft and mid looks, storms and a weak graphics card since the speed-up (round 75).
 - The "Your call" pop-up after really digging up a cache (it was triggered directly in Chrome).
@@ -46,7 +46,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Difficulty, pacing and the economy over a full playthrough.
 
 **Known gaps**
-- Asgard has no Norse music or its own weak spot yet; island layout otherwise follows Terra's. Asgard people do not carry axes yet.
+- Asgard has no weak spot of its own yet; island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
 - Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
@@ -674,3 +674,15 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Not checked: the fjords on the chart map by eye (this save had no Asgard chart yet), sound, real mouse play.
 - Noticed, left: one Asgard village on seed 99 (sector -3,-3) had no guard station already before this round.
 - Left on the machine: the Chrome test tab (127.0.0.1:8777) could not be closed because the game asks to confirm leaving; its server is stopped, so just close the tab.
+
+## Round 85 (2026-11-26): Norse music and the mead-hall tune (pushed, commit 3e3f78b)
+- **Asgard music:** in Asgard (at sea and ashore) the calm D major music gives way to D minor chords over a low D-and-A drone, sparser plucked notes from the minor pentatonic, and now and then (about one bar in three) a soft two-note horn call.
+- **Mead-hall tune:** standing inside a mead hall, the music switches to a quicker lyre tune in D dorian over a frame drum in a lilting 6/8 (a heavy beat and two light ones), with a drone that moves between D and C. It changes at the next bar (at most 4-8 s), and the music bus is a little louder in the hall. Terra's music is unchanged.
+- **How it works:** each style is a pure list of notes per bar (`barNotes` in `src/audio.js`); the sound scene (crowd, Asgard, in the hall) moved from `main.js` to `soundScene` in `src/rules/meadhall.js`, so a scripted player can check them.
+- **Debug:** the info line shows the music playing now ("music terra / norse / hall"); "Go: armoury" became two buttons, armoury and mead hall.
+- Defaults chosen without asking: everything is generated (no sample files, no new assets); Asgard keeps the same tempo as Terra (8 s bars) and the hall runs at 4 s bars; Asgard's plucks stay in D minor on every chord (Terra's still follow each chord's root, as before).
+- Tests: 124 pass (2 new: a scripted player hears Terra music at the start, Asgard music at sea and outside a hall, the hall tune after walking in through the door with the game's own collision, Asgard music again after walking out, Terra again back home; 64 bars of each style stay in range, in key (Asgard and hall), with no clicking envelopes, a steady six-beat drum in the hall and the low drone in Asgard).
+- Chrome (localhost, real build, debug "World: Asgard" then "Go: mead hall"): the info line read "music norse" at sea and at the hall door, "music hall" after holding W through the door (hearth and feast tables in view), "norse" again after holding S back out, and "terra" after "World: Terra". No console errors. CPU 0.15-0.17 ms step + 0.9 ms draw.
+- Performance against round 84 (Node, same machine): the per-frame sound scene costs about 0.5 us more (1.7 us with the island lookup); building one bar about 0.4 us every 4-8 s. Build 318.2 -> 319.8 kB (125.4 -> 126.2 kB gzipped). No graphics change.
+- Not checked: **the music itself by ear** (I cannot hear it; the notes are checked, the sound is not), real mouse play (the key taps of the browser tool barely move you, so walking used held key events).
+- Left on the machine: the Chrome test tab (127.0.0.1:8137) could not be closed because the game asks to confirm leaving; its server is stopped, so just close the tab.
