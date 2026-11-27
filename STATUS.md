@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 86, commit af797b9). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns are the fourth kind of town.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 87, commit 0d97f0f). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 128 tests, all passing
-npm run build      # writes index.html (321.9 kB, 127.0 kB gzipped)
+npm test           # 130 tests, all passing
+npm run build      # writes index.html (324.6 kB, 128.1 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -30,7 +30,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Every port has a real building for each of its people, including a guard station with a cell.
-- Towns: fishing village, trade port, fortress town (own colours, landmarks, perk) plus the plain look; tavern keeper menu.
+- Towns: fishing village, trade port, fortress town, mining town (own colours, landmarks, perk; miners in mining towns) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
@@ -49,7 +49,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
-- Town types not built: mining, smugglers, temple; no per-type street layouts or clothing.
+- Town types not built: smugglers, temple; no per-type street layouts; only mining towns have their own clothing.
 
 The round-by-round history follows (newest at the end).
 
@@ -700,3 +700,17 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 85 (Node, same machine): Asgard ship step 79.5 -> 73.1 us (noise); one Terra wall sector 0.85 -> 0.78 ms (unchanged code path). Build 319.8 -> 321.9 kB (126.2 -> 127.0 kB gzipped). Graphics: a few hundred extra triangles near the gate only.
 - Not checked: the sounds of the scene (it reuses the Wall's crack and boom), CPU time in Chrome for this round, real mouse play.
 - Left on the machine: two Chrome test tabs (127.0.0.1:8791) could not be closed because the game asks to confirm leaving; the server is stopped, so just close them.
+
+## Round 87 (2026-11-27): mining towns (pushed, commit 0d97f0f)
+- **Which towns:** four in five plain villages and towns are now mining towns, picked by a second seed number, so every fishing, trade and fortress town of an existing world keeps its kind (cities never become mining towns; Port Haven stays plain). About 9% of ports (41 of 471 over six seeds).
+- **Look:** a mine mouth cut into a heap of rock (timber frame, black adit, rails running out, a lamp by the door, rock lumps), and an ore cart on a run of rails heaped with ore. Houses in weathered timber with sooty slate roofs. Two in three of the townsfolk dress as miners: leather cap with a candle lamp, strap across the chest, a pick held upright (looks only: to the rules they are still villagers).
+- **Perk (said on arrival, on the notice board and in the tavern's "this town" page):** "Iron from the hill: cannon sell cheap and hull repairs cost half, but food is dear." Cannon is always the cheap good; repairs cost 1 gold a point instead of 2 (the market button shows the price); provisions cost 7 instead of 5.
+- **Placement:** the mine may stand up the hill and a little closer to the houses than other landmarks; it finds room in about 85% of mining towns (the rest, small crowded villages, get the cart only).
+- **Debug:** "Go: mining town (on foot)" puts you in front of the nearest mine mouth, facing it.
+- Defaults chosen without asking: the mining share (80% of plain non-city towns), the prices (cannon cheap, repairs half, food 7), miners as a look over villagers rather than a new kind of person (keeps rules, saves and fights unchanged), no new goods (iron ore was skipped: it would need a new cargo type everywhere).
+- **Fixed while testing:** the first wall colours turned almost black in shade, and the rock's shaded side snapped to a flat dark purple; both lightened.
+- Tests: 130 pass (2 new: mining towns only replace plain non-city towns, each has a landmark, most a mine, meshes build; a scripted player walks from the dock to the plaza by the game's own collision, is told "a mining town", is stopped by the rock heap, and pays 35 for 5 provisions, 40 for 40 hull points (80 elsewhere) and less for cannon than in other towns).
+- Chrome (localhost, real build, debug jump): arrival message shown; dark-timber houses and slate roofs; miners with caps and picks walking the plaza; the mine mouth seen head-on, and walking into it with W stops at its face. Miner sprites also checked drawn large from the source (front, side, back).
+- Performance against round 86 (Node, same machine): island build 2.1 ms per island and game step 0.025 ms, both unchanged. Build 321.9 -> 324.6 kB (127.0 -> 128.1 kB gzipped).
+- Not checked: the market and repair buttons in the real panel (prices are checked through the rules), mining towns in Asgard (they can occur there, with Norse houses and people), real mouse play.
+- Left on the machine: two Chrome test tabs (127.0.0.1:8766 and 8767) could not be closed because the game asks to confirm leaving; their servers are stopped, so just close them. Something else was already listening on 127.0.0.1:8765 before this run; it was left alone.
