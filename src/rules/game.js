@@ -12,7 +12,7 @@ import { stepContracts, offers as contractOffers, accept as acceptContract, sett
 import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S, bearing, RUNE_GATE, RUNES_NEEDED, runeGateAngle } from './realm.js';
 import { REALMS } from './map.js';
 import { clearWorldCaches } from '../gen/world.js';
-import { extraGuards, STYLES, bountyMul } from '../gen/style.js';
+import { extraGuards, STYLES, bountyMul, OFFERING, OFFER_WAIT } from '../gen/style.js';
 import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
@@ -732,6 +732,16 @@ export function readRune(s, isl) {
   const seen = (s.runes ||= []), fresh = !seen.includes(isl.id); if (fresh) { seen.push(isl.id); s.score += 20; }
   return { type: 'npc', npc: { name: 'Rune stone', kind: isl.name }, lines: [runeLine(isl), `${fresh ? 'You copy the runes into your log.' : 'You have read this stone before.'} Rune stones read: ${seen.length}.`, ...(s.flags.runeGate ? [] : [gateHint(s, isl)])], panel: null };
 }
+// a temple town's temple within reach of its steps (the island), or null
+const nearTemple = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.style === 'temple') for (const m of islandTown(i).marks) if (m.k === 'temple' && Math.abs(s.foot.x - m.x) < m.w / 2 + 2.5 && Math.abs(s.foot.z - m.z) < m.d / 2 + 2.5) return i; return null; };
+// an offering on the temple steps: OFFERING gold heals you fully and raises your name in this town; each temple takes one every OFFER_WAIT seconds
+export function offer(s, isl) {
+  const when = (s.offered ||= {})[isl.id], npc = { name: 'Temple', kind: isl.port?.name || isl.name };
+  if (when !== undefined && s.t - when < OFFER_WAIT && s.t >= when) return { type: 'npc', npc, lines: ['The priests have taken your offering already today. Smoke from it still curls above the braziers.'], panel: null };
+  if (s.gold < OFFERING) return { type: 'npc', npc, lines: [`An offering here is ${OFFERING} gold. You do not have it.`], panel: null };
+  s.gold -= OFFERING; s.offered[isl.id] = s.t; s.hp = s.maxHp; addLocalRep(s, isl.id, 5); s.events.push({ type: 'coin' });
+  return { type: 'npc', npc, lines: ['You lay the coins on the altar. A priest burns a pinch of incense and murmurs a blessing.', 'Your wounds no longer ache, and the town thinks a little better of you.'], panel: null };
+}
 const nearTreasure = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.treasure && !s.found.has(i.id) && Math.hypot(i.treasure.x - s.foot.x, i.treasure.z - s.foot.z) < 5) return i; return null; };
 export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
 
@@ -745,6 +755,7 @@ export function prompt(s) {
   for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
   if (nearRune(s)) return 'F  Read the rune stone';
+  if (nearTemple(s)) return `F  Make an offering at the temple (${OFFERING}g)`;
   if (nearTreasure(s)) return 'F  Dig';
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) return 'F  Board your ship';
   return null;
@@ -763,6 +774,7 @@ export function interact(s) {
   if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; const dl = dialog(s, n), tip = learn(s, n, isl); if (tip) dl.lines = [...dl.lines, tip]; return { type: 'npc', npc: n, island: isl, ...dl }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
   const rn = nearRune(s); if (rn) return readRune(s, rn);
+  const tp = nearTemple(s); if (tp) return offer(s, tp);
   const t = nearTreasure(s);
   if (t) { s.found.add(t.id); s.gold += t.treasure.gold; s.score += t.treasure.gold; say(s, `Buried treasure! ${t.treasure.gold} gold.`); s.events.push({ type: 'coin' }); return { type: 'dig' }; }
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) { s.mode = 'ship'; s.ship.speed = 0; s.ship.trim = bestTrim(s.ship.yaw, s.wind, 0); say(s, 'Aboard! W lets the sail out; Z and C swing the boom.'); return { type: 'board' }; }

@@ -19,7 +19,7 @@ import { quantize } from './render/palette.js';
 import { CINE_S, RUNE_GATE, runeGateAngle } from './rules/realm.js';
 import { soundScene as sceneOf } from './rules/meadhall.js';
 import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
-import { isMiner, isSmuggler } from './gen/style.js';
+import { isMiner, isSmuggler, isPriest } from './gen/style.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
 import { board, byId } from './rules/hunt.js';
 import { travelTo, warpNow, handIn, grapple, DECK_Y, fighterOf, toggleBombard, cycleOrder } from './rules/game.js';
@@ -219,7 +219,7 @@ function render(t) {
         const dir = Math.abs(fwd) >= Math.abs(rgt) ? (fwd > 0 ? 'up' : 'down') : rgt > 0 ? 'right' : 'left';
         const vx2 = f.cx + Math.cos(an) * f.rad, vz2 = f.cz + Math.sin(an) * f.rad;
         const [kx, kz, ks] = kb(s.npcs?.[`v${isl.id}:${f.seed}`], vx2, vz2);
-        bb(sprites.person(isMiner(isl, f.seed) ? 'miner' : isSmuggler(isl, f.seed) ? 'smuggler' : 'villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
+        bb(sprites.person(isMiner(isl, f.seed) ? 'miner' : isSmuggler(isl, f.seed) ? 'smuggler' : isPriest(isl, f.seed) ? 'priest' : 'villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
       }
       for (const o of s.foes) if (o.isl === isl.id) { const la = s.t - (o.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person(o.kind, o.seed, 'down', atkFrame(o, Math.hypot(o.x - s.foot.x, o.z - s.foot.z) < 2.6, 1 + (((o.walk || 0) * 1.4 | 0) & 1))), o.x + Math.cos(o.face || 0) * lu * 0.7, o.y, o.z + Math.sin(o.face || 0) * lu * 0.7, sprites.PERSON_SCALE); hpBar(o.id, o.kind, o.x, o.y, o.z); } // a hidden fighter, now revealed
       for (const a of s.qa || []) if (a.isl === isl.id) { // people in your stories: a speaker, a mark to search, or a gang

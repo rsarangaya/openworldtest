@@ -71,6 +71,7 @@ function gen(seed, sx, sz) {
       isl.port.cheap = pick(nr, GOODS); isl.port.dear = pick(nr, GOODS.filter((g) => g !== isl.port.cheap));
       isl.style = isl.port.style = home ? 'plain' : frost ? 'fortress' : styleOf(isl.tier, (hash(seed, sx, sz, 900 + out.length) >>> 0) % 1000 / 1000, (hash(seed, sx, sz, 950 + out.length) >>> 0) % 1000 / 1000);
       if (isl.style === 'mining') { isl.port.cheap = 'cannon'; if (isl.port.dear === 'cannon') isl.port.dear = 'rum'; } // the foundry by the mine casts guns
+      else if (isl.style === 'temple') { isl.port.cheap = 'spice'; if (isl.port.dear === 'spice') isl.port.dear = 'cannon'; } // incense for the temple
       else if (isl.style === 'smuggler') { isl.port.cheap = 'rum'; if (isl.port.dear === 'rum') isl.port.dear = 'silk'; } // run in past the customs men
     } else if (rad >= 14 && r() < 0.6) {
       const ang = r() * TAU;
@@ -227,7 +228,7 @@ export function islandTown(isl) {
   if (isl.quest === 'warden') kinds.push('warden');
   if (isl.tier !== 'village' || isl.port.home) kinds.push('smith'); // the armoury: weapons are bought here
   kinds.push('guard'); // the guard station: a real building with a barred jail cell inside (placed last so it never takes a quest giver's spot)
-  const buildings = [], npcs = [];
+  const buildings = [], npcs = [], pre = []; // pre: a landmark placed before the houses (a temple town's temple, which a crowded city would leave no room for)
   // a spot is good when the ground is land, gently sloped, clear of the dock, the plaza and other buildings
   const R = (cx, cz, w, d) => [cx - w / 2, cx + w / 2, cz - d / 2, cz + d / 2], hit = (a, b) => a[0] < b[1] && a[1] > b[0] && a[2] < b[3] && a[3] > b[2];
   const strip = (cx, cz, d) => [cx - 3.2, cx + 3.2, cz + d / 2, cz + d / 2 + 6]; // the approach in front of a (south-facing) door must stay clear
@@ -240,7 +241,7 @@ export function islandTown(isl) {
     const rad = Math.max(w, d) / 2 + gap, mine = R(x, z, w, d);
     if (buildings.some((b) => b.door && hit(mine, strip(b.x, b.z, b.d)))) return null;
     if (shop && buildings.some((b) => hit(strip(x, z, d), R(b.x, b.z, b.w + 1, b.d + 1)))) return null;
-    if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < b.rad + rad)) return null;
+    if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < b.rad + rad) || pre.some((q) => Math.hypot(q.x - x, q.z - z) < Math.max(q.w, q.d) / 2 + rad)) return null;
     return { pad: lift(Math.round(((lo + hi) / 2) * 4) / 4), rad };
   };
   const toward = () => '+z'; // in the 2D view every door faces the viewer (south)
@@ -262,6 +263,13 @@ export function islandTown(isl) {
     const an = (i / kinds.length) * TAU, x = plaza.x + Math.cos(an) * 4, z = plaza.z + Math.sin(an) * 4; // no room: stand in the plaza
     npcs.push({ id: `${isl.id}:${k}`, kind: k, name: captainName(r, isl.theme), x, z, y: plaza.y, island: isl.id, shop: -1, seed: (isl.seed + i * 7919) >>> 0 });
   });
+  const place = (k, w, d) => { for (let tries = 0; tries < 330; tries++) {
+    const an = r() * TAU, hill = k === 'mine' || k === 'cave', last = tries >= 240, ring = last ? 10 + r() * 4 + (tries - 240) * 0.12 : 13 + r() * 8 + tries * (hill ? 0.1 : 0.14), x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false, last ? 1.2 : hill ? 2 : 3.8, hill); // a mine may sit closer to the houses and up the hill, but not far out; on a cramped island a last pass tries closer in
+    if (!sp || marks.some((q) => Math.hypot(q.x - x, q.z - z) < (Math.max(q.w, q.d) + Math.max(w, d)) / 2 + 2.5) || buildings.some((b) => b.door && Math.abs(b.x - x) < (b.w + w) / 2 + 1 && z > b.z && z - b.z < (b.d + d) / 2 + 6)) continue;
+    const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); return m;
+  } return null; };
+  const marks = [], first = isl.style === 'temple' ? LANDMARKS.temple[0] : null;
+  if (first) { const m = place(...first); if (m) pre.push(m); }
   const want = { village: 4, town: 9, city: 22 }[isl.tier] + kinds.length, span = isl.tier === 'city' ? 50 : isl.tier === 'town' ? 32 : 20;
   for (let tries = 0; buildings.length < want && tries < 300; tries++) {
     const ring = 12 + r() * span, an = r() * TAU, big = isl.tier === 'city' && r() < 0.3, w = range(r, 4.5, 6.5) * (big ? 1.4 : 1), d = range(r, 4.5, 6.5) * (big ? 1.4 : 1);
@@ -271,12 +279,7 @@ export function islandTown(isl) {
     b.solids = solidsOf(b); buildings.push(b);
   }
   // the landmarks of this kind of town, on level open ground clear of every building and of each other
-  const marks = [];
-  for (const [k, w, d] of LANDMARKS[isl.style] || []) for (let tries = 0; tries < 330; tries++) {
-    const an = r() * TAU, hill = k === 'mine' || k === 'cave', last = tries >= 240, ring = last ? 10 + r() * 4 + (tries - 240) * 0.12 : 13 + r() * 8 + tries * (hill ? 0.1 : 0.14), x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false, last ? 1.2 : hill ? 2 : 3.8, hill); // a mine may sit closer to the houses and up the hill, but not far out; on a cramped island a last pass tries closer in
-    if (!sp || marks.some((q) => Math.hypot(q.x - x, q.z - z) < (Math.max(q.w, q.d) + Math.max(w, d)) / 2 + 2.5) || buildings.some((b) => b.door && Math.abs(b.x - x) < (b.w + w) / 2 + 1 && z > b.z && z - b.z < (b.d + d) / 2 + 6)) continue;
-    const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); break;
-  }
+  marks.push(...pre); for (const lm of LANDMARKS[isl.style] || []) if (lm !== first) { const m = place(...lm); if (m) marks.push(m); }
   const box = [plaza.x - 14.5, plaza.x + 14.5, plaza.z - 14.5, plaza.z + 14.5]; // the plaza and its blend, then every building's terrace
   for (const b of buildings) { const ex = b.w / 2 + 5.2, ez = b.d / 2 + 5.2; box[0] = Math.min(box[0], b.x - ex); box[1] = Math.max(box[1], b.x + ex); box[2] = Math.min(box[2], b.z - ez); box[3] = Math.max(box[3], b.z + ez); }
   t = { buildings, npcs, plaza, marks, box };
