@@ -336,7 +336,7 @@ export function createUI() {
   // layered stories on offer in this town: on the notice board and from the tavern keeper
   const storiesFor = (s, isl) => {
     const offs = sideOffersFor(s, isl);
-    return { offs, html: `<p><b class=gold>Troubles</b> <small>(${sideOf(s).length}/${MAX_SIDE} stories)</small></p>` + (offs.length ? '<table>' + offs.map((o, i) => `<tr><td><b>${esc(o.title)}</b><br><small>${esc(o.text)}</small></td><td class=n><button class=small data-q=${i}>Help · ~${o.pay}g</button></td></tr>`).join('') + '</table>' : '<p class=hint>Nobody needs anything just now.</p>') };
+    return { offs, html: `<p><b class=gold>Troubles</b> <small>(${sideOf(s).length}/${MAX_SIDE} stories)</small></p>` + (offs.length ? '<table>' + offs.map((o, i) => `<tr><td><b>${esc(o.title)}</b><br><small>${esc(o.text)}</small></td><td class=n><button class=small data-q=${i} ${o.stake && s.gold < o.stake ? 'disabled' : ''}>${o.stake ? `Take the bet · ${o.stake}g` : `Help · ~${o.pay}g`}</button></td></tr>`).join('') + '</table>' : '<p class=hint>Nobody needs anything just now.</p>') };
   };
   const jobClick = (s, offs, key) => { const kind = key.slice(0, 1), id = key.slice(2); if (kind === 'a') { const o = offs.find((q) => q.id === id); if (o) signContract(s, o); } else dropContract(s, id); };
   // the town notice board

@@ -11,7 +11,7 @@ import { addLocal, addWorld, shunned } from './rep.js';
 import { crewOf, capacity, aboard, ROLES } from './crew.js';
 import { weaponOf } from './weapons.js';
 
-export const MAX_SIDE = 3;
+export const MAX_SIDE = 3, RACE_STAKE = 60, RIVAL_SPEED = 10, RACE_SLACK = 40; // a rival makes RIVAL_SPEED along the straight line (she rounds islands too); SLACK covers her leaving harbour and your walk to the judge
 export const COMPANIONS = {
   swordswoman: { title: 'Disgraced swordswoman', kind: 'sailor', hp: 90, dmg: 9, role: 'gunner', town: ['Watch the alleys here.', 'I drank in a town like this for a year. Never again.'], fight: ['Stay on my left!', 'Mine. You take the rest.'], won: ['Not bad. Do not let it go to your head.'] },
   cartographer: { title: 'Old cartographer', kind: 'merchant', hp: 45, dmg: 3, role: 'navigator', town: ['This coast is drawn wrong on every chart I own.', 'Slow down. My knees are older than this town.'], fight: ['I draw maps, I do not do this!'], won: ['Is it over? Good. Where was I?'] },
@@ -83,6 +83,12 @@ const T = {
       fight: { kind: 'fight', at: 'b', n: 2, goal: 'Take the harp.', say: 'The harp is yours, one string short.', rep: -6, to: 'after' },
       after: { kind: 'talk', at: 'b', who: c.third, goal: 'Give the singer the harp.', lines: ['Oh, there you are, old girl. I owe you a song and a share of my winnings.'], opts: [{ t: 'Sing for my crew', hire: 'singer', gold: c.pay, say: '"Is there rum? Then yes."' }, { t: 'Farewell', gold: c.pay, rep: 4, say: 'You hear the tune for an hour afterwards.' }] },
     }) },
+  // a rival crew's wager (PLAN item 3): their ship against yours to another port. The clock is how long she takes; dock and find the harbour judge first.
+  race: { title: 'The Race', need: 'b', ship: true, stake: RACE_STAKE, pay: 2 * RACE_STAKE + 90, ask: (c) => `Captain ${c.rival} of ${c.crew} bets ${RACE_STAKE} gold a side that ${c.rship} reaches ${c.b} before you. The harbour judge there keeps the purse.`,
+    steps: (c) => ({
+      start: { kind: 'talk', at: 'b', who: c.other, secs: c.rsecs, late: { say: `${c.rship} is already tied up at ${c.b}, and ${c.crew} jeer from the quay. They keep your stake.` }, goal: `Race ${c.rship} to ${c.b} and find the harbour judge, ${c.other}.`, lines: [`Before ${c.rship}? So you are! ${c.crew} will be sour for a month.`],
+        opts: [{ t: 'Take the purse', gold: c.pay, rep: 4, world: 1, say: 'The quay cheers. Word of the race goes round.' }, { t: 'Stand the losers a round', gold: c.pay - 30, rep: 10, world: 2, say: `${c.crew} drink to you, grudgingly. Even rivals tell this one kindly.` }] },
+    }) },
   // short jobs that town events post
   wedding: { title: 'The Missing Groom', need: 'a', pay: 150, ask: (c) => `The groom rowed off toward ${c.a} at dawn. ${c.giver} wants him found.`, steps: (c) => ({
     start: { kind: 'talk', at: 'a', who: c.third, goal: `Find the groom on ${c.a}.`, lines: ['I am not running from her. I am running from her mother. ...Must I go back?'], opts: [{ t: 'Walk him back', to: 'back' }, { t: 'Let him go', to: 'gone' }] },
@@ -115,8 +121,8 @@ const place = (i) => ({ id: i.id, name: nameOf(i), x: i.x, z: i.z });
 
 // the words and places of one quest
 function ctxOf(s, q) {
-  const r = rngFor(q.seed, 11), crews = rivalCrews(s.seed);
-  return { giver: captainName(r), other: captainName(r), third: captainName(r), crew: pick(r, crews).name, twist: r() < 0.5, pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + Math.hypot(q.b.x - q.from.x, q.b.z - q.from.z) / 5) : 0, home: q.from.name, a: q.a?.name, b: q.b?.name };
+  const r = rngFor(q.seed, 11), crews = rivalCrews(s.seed), giver = captainName(r), other = captainName(r), third = captainName(r), cr = pick(r, crews), d = q.b ? Math.hypot(q.b.x - q.from.x, q.b.z - q.from.z) : 0;
+  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, twist: r() < 0.5, pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), home: q.from.name, a: q.a?.name, b: q.b?.name };
 }
 export const stepOf = (s, q) => T[q.tpl].steps(ctxOf(s, q))[q.step];
 export const titleOf = (q) => T[q.tpl].title;
@@ -128,6 +134,7 @@ export const placeOf = (s, q) => { const at = stepOf(s, q).at; return at === 'ho
 export function sideOffers(s, isl, g) {
   if (!isl?.port) return [];
   const issue = issueOf(s), ev = eventFor(s, isl), list = [...(ev?.hook ? [ev.hook] : []), STORY[hash(isl.seed >>> 0, issue, 31) % STORY.length]];
+  if (hash(isl.seed >>> 0, issue, 53) % 3 === 0) list.push('race'); // a rival crew is in port about one issue in three
   if (isl.port.home && !s.flags.chart && !s.flags.crossed && !list.includes('cartographer')) list.unshift('cartographer');
   const near = g.nearby(s, isl.x, isl.z, 3).filter((i) => i.id !== isl.id).sort((p, q) => Math.hypot(p.x - isl.x, p.z - isl.z) - Math.hypot(q.x - isl.x, q.z - isl.z));
   const wild = near.filter((i) => !i.port && i.landing).slice(0, 5), ports = near.filter((i) => i.port).slice(0, 4), out = [];
@@ -137,15 +144,16 @@ export function sideOffers(s, isl, g) {
     const q = { id, tpl, seed, realm: realm(s), step: 'start', from: place(isl) };
     if (t.need.includes('a')) q.a = place(wild[seed % wild.length]);
     if (t.need.includes('b')) q.b = place(ports[(seed >>> 3) % ports.length]);
-    out.push({ q, title: t.title, text: t.ask(ctxOf(s, q)), pay: t.pay });
+    out.push({ q, title: t.title, text: t.ask(ctxOf(s, q)), pay: t.pay, stake: t.stake });
   });
   return out;
 }
 export function acceptSide(s, offer, g) {
   if (sideOf(s).length >= MAX_SIDE) { g.say(s, `You already have ${MAX_SIDE} troubles on your hands.`); return false; }
   if (shunned(s, offer.q.from.id)) { g.say(s, 'Nobody here will trust you with their troubles.'); return false; }
-  const j = T[offer.q.tpl].join;
+  const j = T[offer.q.tpl].join, stake = T[offer.q.tpl].stake;
   if (j && s.comp) { g.say(s, 'You already have company.'); return false; }
+  if (stake) { if (s.gold < stake) { g.say(s, `The wager is ${stake} gold a side.`); return false; } s.gold -= stake; }
   const q = { ...offer.q }; clock(s, q); sideOf(s).push(q); s.tracked = q.id; s.qa = null; g.say(s, `New story: ${offer.title}. ${goalOf(s, q)}`);
   if (j) join(s, j, ctxOf(s, offer.q).third, offer.q, g);
   return true;
