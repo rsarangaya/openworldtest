@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 94, commit 16d531c). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 95, commit aabdb5d). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 151 tests, all passing
-npm run build      # writes index.html (351.4 kB, 138.2 kB gzipped)
+npm test           # 157 tests, all passing
+npm run build      # writes index.html (357.0 kB, 140.1 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 94)
+## Where things stand (2026-11-27, after round 95)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -38,7 +38,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Olympus: its own world in place of the Terra-like stand-in. A deep sunny blue sea under a clear haze; rocky and green islands, the bigger ones with tall pale limestone peaks (up to 1.5x height) and dry olive slopes; marble walls with terracotta and gold roofs; Greek names (islands like "Kerynos", cities like "Thasopolis", ships like "The Bronze Eagle", captains like "Kleon of Myrene"); Olympians in chitons (white, cream, red or blue) with a coloured hem, a gold girdle and sometimes a laurel wreath; dolphins below the cliffs and eagles over the coasts; its own music (D mixolydian, each chord plucked like a lyre); and a marble statue on each island read with F (twelve dedications; counted once, saved in `s.statues`, 20 points each).
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
 - Wrecks and salvage: four old wrecks per world in open water, rumoured with a bearing, marked by floating barrels and crates; heave to above one and press F to send a diver down (three dives each, the strongbox last).
-- Monsters: the sea serpent (three lairs per Terra world), draugr longships (three sea barrows per Asgard world) and the kraken (one lair per Atlantis world: it grabs the ship, holds her to a crawl and squeezes; shoot the arms), all rumoured first.
+- Monsters: the sea serpent (three lairs per Terra world), draugr longships (three sea barrows per Asgard world) the kraken (one lair per Atlantis world: it grabs the ship, holds her to a crawl and squeezes; shoot the arms) and the cyclops (two beaches per Olympus world: he throws boulders at where you will be, a foam ring marks each landing; keep moving and shoot him from close in), all rumoured first.
 - Tools: AFK mode, debug panel, CPU time in the panel.
 
 **Not verified by a person or by eye**
@@ -51,7 +51,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
-- Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; Olympus has no monster yet, there is nothing underwater and no gate on to another world yet. Olympus weather is the same mix as elsewhere (not sunnier).
+- Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater and no gate on to another world yet. Olympus weather is the same mix as elsewhere (not sunnier).
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
@@ -815,3 +815,18 @@ Atlantis's monster, its surface phase (`rules/kraken.js`, about 60 lines, built 
 - Performance against round 93 (Node, same machine): game step 0.041-0.043 ms either way (no change), 0.06 ms with the kraken holding on and both broadsides firing. Build 346.8 -> 351.4 kB (136.7 -> 138.2 kB gzipped).
 - Not checked: the kraken in storms or fog, sound by ear, GPU time, the rumour on a real notice board by eye.
 - Left on the machine: the Chrome test tab (127.0.0.1:8792) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 95 (2026-11-27): the cyclops in Olympus (pushed, commit aabdb5d)
+Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the serpent's `compassWord`).
+- **Where:** two lairs per Olympus world, each on the beach of one of the two biggest wild islands (no town, radius 34+, 0.3-0.85 of the world radius, at least 1500 apart), just up the sand on a seeded bearing. Ships are not put within 300 of him. Notice boards (the monster slot) and Olympus taverns (every other five minutes) name his island and give a bearing.
+- **The fight:** within 420 units he is drawn standing on his beach; within 260 he stands up and throws a boulder every 4 s at where the ship will be (85% lead on her course and speed, a few units of scatter), flight 1.8 s + distance/140. A ring of 12 foam sprites (radius 12) marks the landing spot; inside it when it lands: hull -12. Shot within 10 units of him hurts: fire x1.4 plus burning, round x1, chain x0.5; shooting a sleeping giant wakes him. 360 hit points; slain: +750 gold, a "Cyclops slain" headline, `s.slain` (saved). Sail more than 520 away and he sits down and heals. He only throws at ships (on foot nobody wakes him).
+- **Balance (scripted captain who runs in to about 55 units, sails back and forth along the shore firing whichever broadside bears, and swerves out of rings; seeds 1717, 7, 42):** sailboat sinks every time (65-140 s); cutter wins narrowly (ends on 20-104 of 140 hull, about 3 min); brigantine wins on 135-236 of 240 (2-2.5 min); galleon wins on 174-337 of 400 (about 1-2 min). Most boulders are dodged (e.g. 40 of 43). Hove to under his beach, a ship takes 4+ hits in 30 s. First tuning (16 per boulder, 420 hp) sank cutters and brigantines too often; eased.
+- **Art:** a flat pixel giant (bald, one big red-irised eye, goatskin kilt and strap; frame 1 arms up with a boulder overhead, shown in the 0.9 s before each throw), a grey boulder sprite drawn along its arc, the foam ring, a health bar over his head.
+- **Found in play and fixed:** a kraken holding the ship in Atlantis (from the loaded save) came along when the debug panel switched to Olympus: nothing cleared live monsters on a world change. `enterRealm` now clears the serpent, kraken, cyclops, draugr pack and any dive (new test).
+- **Debug:** "Go: cyclops lair" (in Olympus: 150 units off his beach).
+- Defaults chosen without asking: two lairs per world (the plan said one or two); killed rather than "driven off" (no separate retreat state); he does not react to a player on foot; boulders use the existing splash and hit sounds and the "monster" sound when he stands.
+- Tests: 157 pass (6 new: two lairs on big wild islands, none in other worlds; the rumour names his island and a bearing; a ship hove to is pounded; a moving captain dodges most boulders, kills him, is paid, and he stays dead through a save; he heals when you leave, fire beats chain; monsters do not follow you into another world).
+- Chrome (localhost, real build, Continue on the saved game in Olympus, debug "Galleon" then "Go: cyclops lair"): the giant stands on the beach of Athesos with his health bar, raises the boulder before each throw, a boulder is seen in flight and the foam ring round the ship, "A boulder smashes into her deck!" when hove to (400 -> 148 hull). Broadsides by held keys (E) brought him down: "The cyclops topples into the surf, slain! +750 gold", gold 500 -> 1250, `slain` holds cyclops0. No console errors. CPU about 1.1 ms a frame (0.19 step + 0.91 draw) at 120 fps. Single key taps from the test tool are too short to fire the guns; holding the key works.
+- Performance against round 94 (Node, same machine): open-sea game step 0.040-0.042 ms either way (noise), 0.06 ms with him throwing and both broadsides firing; finding the lairs once per world 3-8 ms (cached). Build 351.4 -> 357.0 kB (138.2 -> 140.1 kB gzipped).
+- Not checked: sound by ear, GPU time, the rumour on a real notice board by eye, the ring in fog or storms.
+- Left on the machine: two Chrome test tabs (127.0.0.1:8792) ask to confirm leaving, so they are still open; the server is stopped.
