@@ -10,6 +10,7 @@ import { PARTS } from './rules/parts.js';
 import { weatherForce, KINDS_W } from './rules/weather.js';
 import { lairs } from './rules/serpent.js';
 import { barrows } from './rules/draugr.js';
+import { wrecks } from './rules/salvage.js';
 import { hourAt, clockText } from './rules/daynight.js';
 
 export const debugEnabled = () => /[?&]debug\b/.test(location.search);
@@ -35,6 +36,7 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Go: rune gate (+runes)', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const a = runeGateAngle(); s.runes ||= []; while (s.runes.length < RUNES_NEEDED) s.runes.push('dbg' + s.runes.length); sail(s, Math.cos(a) * (WALL_R - 260), Math.sin(a) * (WALL_R - 260), a); }],
     ['World: Terra', (s) => { needShip(s); s.mode = 'ship'; warp('terra'); }],
     ['Go: serpent lair', (s) => { const l = lairs(s.baseSeed || s.seed)[0]; s.slain = []; s.serpent = null; sail(s, l.x - 230, l.z, 0); }],
+    ['Go: wreck', (s) => { const w = wrecks(s.seed, s.realm === 'asgard' ? 'asgard' : '')[0]; s.salvage = {}; s.dive = null; sail(s, w.x - 14, w.z, 0); s.ship.sail = 0; }],
     ['Go: draugr barrow', (s) => { if (s.realm !== 'asgard') { say(s, 'Go to Asgard first'); return; } const b = barrows(s.seed)[0]; s.slain = (s.slain || []).filter((q) => !q.startsWith('barrow')); s.draugr = null; sail(s, b.x - 260, b.z, 0); }],
     ...[['armoury', 'smith'], ['mead hall', 'tavern']].map(([name, kind]) => ['Go: ' + name + ' (on foot)', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; let best = null, bd = 1e9; // in front of the nearest such door, facing in
       for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) { const b = islandTown(isl).buildings.find((q) => q.kind === kind); if (b) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < bd) { bd = d; best = [isl, b]; } } }

@@ -14,6 +14,7 @@ import { createDebug, debugEnabled } from './debug.js';
 import { warpText } from './rules/realm.js';
 import { lifeAt, clearLife } from './rules/life.js';
 import { serpentParts, LUNGE_AT } from './rules/serpent.js';
+import { wrecksNear } from './rules/salvage.js';
 import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
 import { quantize } from './render/palette.js';
 import { CINE_S, RUNE_GATE, runeGateAngle } from './rules/realm.js';
@@ -189,6 +190,7 @@ function render(t) {
       const L = lifeAt(s.realm || 'terra', s.seed, t, cam.x, cam.z, LIFE, s.mode === 'ship' && s.ship ? s.ship : null), rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
       let wd = 1e9, bd = 1e9, bk = 'gull'; for (const c of L) { const d = Math.hypot(c.x - cam.x, c.z - cam.z); if (c.air) { if (d < bd) { bd = d; bk = c.kind; } } else if (c.kind === 'whale' || c.kind === 'icewhale' || c.kind === 'orca' || c.kind === 'narwhal') wd = Math.min(wd, d); } audio.critters({ whale: wd, bird: bd, birdKind: bk });
       const sm = s.serpent; if (sm && sm.up) { for (const q of serpentParts(sm, t)) bb(sprites.critter(q.k, Math.cos(sm.yaw) * rx + Math.sin(sm.yaw) * rz >= 0 ? 'R' : 'L', q.k === 'serhead' && s.t - sm.t0 > LUNGE_AT ? 1 : 0), q.x, q.y + wave(q.x, q.z, t), q.z, 2.3 * (q.s || 1)); const dd = Math.hypot(sm.x - cam.x, sm.z - cam.z); if (dd < 300) bb(sprites.hp(Math.max(0, Math.min(10, Math.ceil((sm.hp / sm.maxHp) * 10))), true), sm.x, 17 + wave(sm.x, sm.z, t), sm.z, Math.max(1, Math.min(3.2, dd / 40))); } // the sea serpent: head and coils, and its health
+      for (const w of wrecksNear(s, cam.x, cam.z, 450)) for (let i = 0; i < 4; i++) { const x = w.x + Math.cos(i * 1.9) * (3 + i * 2.2), z = w.z + Math.sin(i * 1.9) * (3 + i * 2.2); bb(sprites.prop({ k: i % 2 ? 'barrel' : 'crate', v: i }, 0), x, wave(x, z, t + i) - 0.35, z, 1.4); } // an old wreck: barrels and crates still bob over her
       for (const c of L) bb(sprites.critter(c.kind, c.dx * rx + c.dz * rz >= 0 ? 'R' : 'L', c.fr), c.x, c.y + (c.air ? 0 : wave(c.x, c.z, t)), c.z, c.air ? 2.4 : 2);
     }
     for (const e of s.enemies.values()) {
@@ -417,7 +419,7 @@ function advance(dt, maxSteps) {
       if (ev.type === 'cannon') audio.boom(1 / (1 + Math.hypot(ev.x - (s.ship?.x || 0), ev.z - (s.ship?.z || 0)) / 60));
       else if (ev.type === 'slash') { audio.slash(ev.hit); ui.slash(ev.w, ev.hit); } else if (ev.type === 'kill') audio.boom(0.25); else if (ev.type === 'grapple') { view.yaw = ev.yaw; view.pitch = 0; audio.boom(0.5); } else if (ev.type === 'won') { audio.quest(); phase = 'panel'; unlock(); ui.prize(s, () => { phase = 'play'; lock(); saveGame(s); }); } else if (ev.type === 'arrest') { view.yaw = s.foot.yaw = ev.yaw; view.pitch = 0; mouseDown = false; keys.clear(); }
       else if (ev.type === 'cine') { ui.cine(true); audio.boom(0.8); audio.crack(); } else if (ev.type === 'break') { ui.flash(); rebuildWall(); audio.iceBreak(); } else if (ev.type === 'banner') { ui.cine(false); ui.banner(ev.text, ev.sub, 4200); audio.quest(); saveGame(s); } else if (ev.type === 'warp') startWarp(ev.to);
-      else if (ev.type === 'serpent') audio.boom(0.55);
+      else if (ev.type === 'serpent') audio.boom(0.55); else if (ev.type === 'splash') audio.splash(1);
       else if (ev.type === 'hit') { audio.hit(); if (s.mode === 'foot') ui.hurt(); } else if (ev.type === 'coin' || ev.type === 'sunk') audio.coin(); else if (ev.type === 'quest') { audio.quest(); saveGame(s); } else if (ev.type === 'choice') { phase = 'panel'; unlock(); ui.choice(() => { phase = 'play'; lock(); }); }
     }
     s.events.length = 0;

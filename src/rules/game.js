@@ -28,6 +28,7 @@ import { townsfolk, folkPos } from '../gen/world.js';
 import { eventFor } from './events.js';
 import { stepSerpent, shotSerpent, nearLair, compassWord } from './serpent.js';
 import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
+import { wreckHere, startDive, stepDive, divesLeft, DIVE_S } from './salvage.js';
 import { runeLine } from './lore.js';
 import { stepSide, sideShip, swingSide, nearActor, useActor, sideOffers, acceptSide, chooseSide, abandonSide } from './sidequests.js';
 
@@ -493,6 +494,8 @@ function manageEnemies(s) {
   for (const [id, e] of s.enemies) if (!e.gen && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) > 1200) s.enemies.delete(id); // story-spawned ships do not pile up behind you
 }
 const isHostile = (s, e) => { const h = KINDS[e.kind].hostile; return h === true || (h === 'bounty' && s.bounty > 0) || (e.hunter && s.bountyGold > 0); };
+// a hostile ship (or the serpent, up) within r of your ship: no diving then
+const foeNear = (s, r) => !!s.serpent || [...s.enemies.values()].some((e) => isHostile(s, e) && Math.hypot(e.x - s.ship.x, e.z - s.ship.z) < r);
 // the navy hunts a bad record, but not right away: from HUNT_AT gold of bounty, hunters appear round you (more and more as the record worsens) and vanish when it is cleared
 export const HUNT_AT = 300, HUNT_RANGE = 650;
 export const hunterCount = (s) => ((s.bountyGold || 0) >= HUNT_AT ? Math.min(4, 1 + Math.floor((s.bountyGold - HUNT_AT) / 300)) : 0);
@@ -562,7 +565,7 @@ function stepWeather(s) { const w = weatherNow(s); setRough(roughOf(w)); if (s.w
 function stepShip(s, inp, dt) {
   const p = s.ship, gate = gatePos(s.baseSeed || s.seed);
   s.wind = windAt(s.t, windGoal(s)); const wx = weatherNow(s); s.wind = { dir: s.wind.dir + gust(wx, s.t), speed: Math.min(1.35, s.wind.speed * windMul(wx)) }; // storms blow harder and swing about
-  if (s.cine) inp = {}; // the breakthrough scene drives the ship
+  if (s.cine || s.dive) inp = {}; // the breakthrough scene drives the ship; a diver down holds her still
   let rudder = inp.rudder || 0, sailIn = inp.sail || 0;
   if (s.cine) { rudder = Math.max(-1, Math.min(1, wrapPi(s.cine.ang - p.yaw) * 2.5)); sailIn = 1; p.sail = 1; s.row = false; s.auto = false; }
   if (s.auto) { if (rudder || sailIn || inp.trim) { s.auto = false; say(s, 'Autosail off: you have the helm.'); } else { const a = autoSail(s, p); rudder = a.rudder; sailIn = 1; p.trim = bestTrim(p.yaw, s.wind, p.trim); } }
@@ -622,7 +625,7 @@ function stepShip(s, inp, dt) {
   manageEnemies(s);
   let near = null, nd = 1e9;
   for (const e of s.enemies.values()) { const dd = Math.hypot(e.x - p.x, e.z - p.z); if (dd < nd) { nd = dd; near = e; } }
-  stepDraugr(s, dt, say, puff); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; // the guns lay for the serpent when it is the nearest thing up
+  stepDraugr(s, dt, say, puff); stepDive(s, dt, say, puff, foeNear); const sp = stepSerpent(s, dt, say, puff); if (sp && Math.hypot(sp.x - p.x, sp.z - p.z) < nd) near = sp; // the guns lay for the serpent when it is the nearest thing up
   for (const [side, key, i] of [[-1, 'fireL', 0], [1, 'fireR', 1]]) if (inp[key] && p.cd[i] <= 0) { const sh = shotNow(s); if (sh !== 'round') { ammoOf(s)[sh]--; if (!ammoOf(s)[sh]) say(s, AMMO[sh].name + ' is spent: back to round shot.'); } fire(s, 'player', p, side, near || { x: p.x, z: p.z }, cls.dmg * gunMul(s) * AMMO[sh].dmg, sh); p.cd[i] = CANNON_CD * cls.cd * reloadMul(s); }
   for (const e of s.enemies.values()) {
     const dx = p.x - e.x, dz = p.z - e.z, dist = Math.hypot(dx, dz), kind = KINDS[e.kind], hostile = isHostile(s, e), chase = hostile && dist < (e.hunter ? HUNT_RANGE : 240);
@@ -747,7 +750,7 @@ export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
 
 // what pressing F would do right now (for the on-screen prompt)
 export function prompt(s) {
-  if (s.mode === 'ship') { const g = nearestShip(s); return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
+  if (s.mode === 'ship') { if (s.dive) return `Your diver is down... ${Math.max(1, Math.ceil(DIVE_S - (s.t - s.dive.t0)))} s`; const g = nearestShip(s), wk = !g && !findLand(s) && wreckHere(s); if (wk) return `F  Dive on the wreck of the ${wk.name.replace(/^The /, '')} (${divesLeft(s, wk)} dive${divesLeft(s, wk) > 1 ? 's' : ''} left)`; return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
   if (s.deck && !nearSub(s)) return s.deck.won ? 'F  Decide the ship\'s fate' : 'F  Cut the grapples and retreat';
   const sb = nearSub(s); if (sb) return s.prisoner ? 'You are already holding a prisoner' : `F  Bind ${sb.name} (${sb.crime})`;
   const qa = nearActor(s); if (qa) return qa.kind === 'find' ? 'F  Search here' : `F  Speak with ${qa.name}`;
@@ -765,7 +768,8 @@ export function interact(s) {
   if (s.over || s.ending) return { type: 'none' };
   if (s.deck && !nearSub(s)) return s.deck.won ? { type: 'prize' } : retreat(s);
   if (s.mode === 'ship') {
-    const l = findLand(s); if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
+    const l = findLand(s), wk = !l && wreckHere(s); if (wk) { startDive(s, wk, say, weatherNow(s).storm > 0.6, foeNear); return { type: s.dive ? 'dive' : 'none' }; }
+    if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
     unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, 'Ashore.'); return { type: 'ashore' };
   }
   const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
