@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 96, commit a06799e). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 97, commit 0ea6755). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 159 tests, all passing
-npm run build      # writes index.html (358.1 kB, 140.5 kB gzipped)
+npm test           # 160 tests, all passing
+npm run build      # writes index.html (358.2 kB, 140.6 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 96)
+## Where things stand (2026-11-27, after round 97)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -32,7 +32,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Every port has a real building for each of its people, including a guard station with a cell.
 - Towns: fishing village, trade port, fortress town, mining town, smugglers' cove, temple town (own colours, landmarks, perk; miners, smugglers and priests in their towns) plus the plain look; tavern keeper menu. An offering at a temple heals you and mends your name there.
 - Day and night: a 20-minute day with short nights; dusk light, a blue night with stars and a moon, lit windows, lamps and ship lights; a clock beside the compass.
-- World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
+- World life: weather (Olympus sunnier, cold places snowy), sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Atlantis: its own world in place of the Terra-like stand-in. Warm turquoise sea and a pale sea-green haze, warm islands (tropical, sandbars, a few temperate; no ice rock), white walls with gold and sea-green roofs, sea-Greek island and harbour names ("Thalassa", "Coraia Harbour"), ships like "The Coral Crown", captains like "Ione Pelagos", people in white, sea-green and sky-blue robes with a gold belt and circlet, dolphins, manta rays and turtles, its own music (D lydian, high bell-like notes), and a crystal pillar on each island read with F (twelve inscriptions about the drowned kingdom; counted once, saved, 20 points each).
 - Olympus: its own world in place of the Terra-like stand-in. A deep sunny blue sea under a clear haze; rocky and green islands, the bigger ones with tall pale limestone peaks (up to 1.5x height) and dry olive slopes; marble walls with terracotta and gold roofs; Greek names (islands like "Kerynos", cities like "Thasopolis", ships like "The Bronze Eagle", captains like "Kleon of Myrene"); Olympians in chitons (white, cream, red or blue) with a coloured hem, a gold girdle and sometimes a laurel wreath; dolphins below the cliffs and eagles over the coasts; its own music (D mixolydian, each chord plucked like a lyre); and a marble statue on each island read with F (twelve dedications; counted once, saved in `s.statues`, 20 points each). Olympus can be reached through Asgard's rune gate or Atlantis's sea gate, or from Terra's Outer Sea.
@@ -52,7 +52,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Known gaps**
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
-- Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater yet. Olympus has no gate of its own. Olympus weather is the same mix as elsewhere (not sunnier).
+- Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater yet. Olympus has no gate of its own.
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
 - Underwater is a first pass only (diving from the ship, nothing drawn below the surface; the wrecks are not on the chart map). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
@@ -841,3 +841,13 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance against round 95 (Node, same machine): game step in open sea and near the rim in Atlantis, Asgard and Olympus 0.03-0.065 ms, the same either way (noise). Build 357.0 -> 358.1 kB (140.1 -> 140.5 kB gzipped).
 - Not checked: sound by ear, GPU time, the coral cliffs in fog or storms. In the shade the coral cliffs read pale grey rather than pink.
 - Left on the machine: two Chrome test tabs (127.0.0.1:8792) ask to confirm leaving, so they are still open; the server is stopped.
+
+## Round 97 (2026-11-27): sunny Olympus weather (pushed, commit 0ea6755)
+- **What:** Olympus has its own weather mix: long clear spells, a few cloudy or rainy ones, rare storms, almost no fog, never snow. Counted over 3 seeds x 598 spells: Olympus 71% clear, 4% storm, 0.6% fog (Terra 49% clear, 8% storm, 8% fog).
+- **Code:** `rules/weather.js` now takes a clime ('mild', 'cold', 'sunny') in place of a cold flag; `climeOf(realm, x, z, wallR)` picks it (Olympus sunny, Asgard and the waters near the Wall cold, the rest mild). One small table row; no saving needed (weather is still a pure function of seed and time).
+- **Defaults chosen (no one to ask):** odds clear 72, cloudy 17, rain 7, storm 3, fog 1 (out of 100). Atlantis keeps the mild mix.
+- Tests: 160 pass (1 new in `test/olympus.test.mjs`: a scripted player sails from the Outer Sea through the rim into Olympus and the weather is counted there against Terra and Asgard over 598 spells, then half an hour of real sailing in Olympus never snows or calls out snow).
+- Chrome (localhost, real build, Continue on the saved game in Olympus, debug "Skip 10 minutes" x20): Clear, Clear, Cloudy, Clear, Clear, Storm, Cloudy, then a long clear run, then Cloudy and Rain; no fog or snow; rain draws fine. No console errors. CPU about 1.1 ms a frame (0.20 step + 0.91 draw) at 120 fps.
+- Performance against round 96: game step unchanged (one string compare per frame); build 358.1 -> 358.2 kB (140.5 -> 140.6 kB gzipped).
+- Not checked: sound by ear, GPU time (drawing unchanged).
+- Left on the machine: the Chrome test tab (127.0.0.1:8792) asks to confirm leaving, so it is still open; the server is stopped.
