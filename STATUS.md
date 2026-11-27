@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns are the fourth kind of town.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 87, commit 0d97f0f). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns and smugglers' coves are the fourth and fifth kinds of town.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 88, commit 60c482b). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 130 tests, all passing
-npm run build      # writes index.html (324.6 kB, 128.1 kB gzipped)
+npm test           # 132 tests, all passing
+npm run build      # writes index.html (327.0 kB, 128.9 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -30,7 +30,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Jobs and law: contracts (notice boards and taverns), bounty missions, reputation, guards, jail, navy hunters. Guard stations fly a flag.
 - Ships: five-point sail model, oars, classes, parts, special shot, boarding, crew, fleets.
 - Every port has a real building for each of its people, including a guard station with a cell.
-- Towns: fishing village, trade port, fortress town, mining town (own colours, landmarks, perk; miners in mining towns) plus the plain look; tavern keeper menu.
+- Towns: fishing village, trade port, fortress town, mining town, smugglers' cove (own colours, landmarks, perk; miners and smugglers in their towns) plus the plain look; tavern keeper menu.
 - World life: weather, sea animals and birds per world, wakes and bow spray, Asgard rumours from the start.
 - Asgard: Norse names, cold islands, longhouses, viking people, longships, its own animals, a rune stone with lore on each island, an aurora in the sky, a mead hall (feast and skald's songs) in place of each tavern, two Norse axes (bearded axe, Dane axe) sold only by its smiths, fjord coasts (big ports sit at the head of a fjord), and its own music (D minor with a drone and horn calls; a lyre and drum tune inside the mead hall), and a rune gate on its rim: black cliffs facing Olympus with a green veil that parts (short scene) once you have read four rune stones; sailing on through leads to Olympus.
 - Speed (one machine): CPU about 0.8 ms a frame; GPU about 2.4-3.5 ms at 270p and 3.6-5 ms at 720p.
@@ -49,7 +49,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis and Olympus are map entries and rumours only (they currently load a Terra-like stand-in).
 - No day and night, underwater, monsters beyond the serpent, mercenary companies or fleet trade routes.
-- Town types not built: smugglers, temple; no per-type street layouts; only mining towns have their own clothing.
+- Town types not built: temple; no per-type street layouts; only mining towns and coves have their own clothing.
 
 The round-by-round history follows (newest at the end).
 
@@ -714,3 +714,16 @@ Finishing "A Lost Cache" opens a short pop-up: go straight to the rim, or explor
 - Performance against round 86 (Node, same machine): island build 2.1 ms per island and game step 0.025 ms, both unchanged. Build 321.9 -> 324.6 kB (127.0 -> 128.1 kB gzipped).
 - Not checked: the market and repair buttons in the real panel (prices are checked through the rules), mining towns in Asgard (they can occur there, with Norse houses and people), real mouse play.
 - Left on the machine: two Chrome test tabs (127.0.0.1:8766 and 8767) could not be closed because the game asks to confirm leaving; their servers are stopped, so just close them. Something else was already listening on 127.0.0.1:8765 before this run; it was left alone.
+
+## Round 88 (2026-11-27): smugglers' coves (pushed, commit 60c482b)
+- **Which towns:** the plain villages and towns that did not become mining towns (one in five) and one in four fishing villages are now smugglers' coves, picked by the same second seed number; cities, trade ports and fortress towns never change, and Port Haven stays plain. About 7% of ports (15 of 230 over six seeds).
+- **Look:** a cave mouth in a heap of rock up the hill (a ragged black mouth, rum kegs and crates outside, a lamp by the door) and a stash of contraband under a tarred tarp on four poles (crates, kegs, a hanging lantern). Houses in tarred planks with mossy thatch and old sailcloth roofs. Half the townsfolk dress as smugglers: dark headscarf knotted at the back, red sash, long dark coat, a shuttered lantern in hand (looks only).
+- **Perk (said on arrival, on the notice board and in the tavern's page):** "No questions asked: rum is cheap, guards are few, and the fence clears a bounty for half its gold." Rum is always the cheap good; one guard fewer (like fishing villages); in the merchant's Trade panel a wanted player sees "Have the fence clear your bounty (151g of 301g)" instead of the usual button. Guard stations and arrest fines still take the full bounty.
+- **Placement fix for every town kind:** a landmark that found no room in its 240 tries now gets 90 more, closer in and with a smaller gap. Towns that already had their landmarks are unchanged. Coves with a cave: 4 -> 6 of 9 in the test worlds; fishing villages with no landmark at all: 7 -> 0 of 38. Some small coves still get only the stash, or nothing.
+- **Debug:** "Go: smugglers' cove (on foot)" (shares code with the mining-town jump).
+- Defaults chosen without asking: which towns become coves (the rest of the plain non-city towns plus a quarter of fishing villages, so no fortress or trade port changes kind), the fence at half price in the market panel (not in the guard station), smugglers as a look over villagers (rules, saves and fights unchanged), no contraband goods or smuggling runs yet.
+- Tests: 132 pass (2 new: coves only come from plain or fishing villages and plain towns, rum is the cheap good, caves only in coves, meshes build, half the people are smugglers; a scripted player walks from the dock to the plaza by the game's own collision, is told "a smugglers' cove", is stopped by the stash, clears a 301 bounty for 151 at the fence (301 at a guard), pays part of a bounty when short of gold, and finds rum cheaper than elsewhere). The mining test now allows the cove change.
+- Chrome (localhost, real build, debug jump): arrival message shown; cave mouth with kegs and crate seen head-on; the stash seen from the front; a townsperson in headscarf and sash in the plaza; the merchant's Trade panel showed the fence button (151g of 301g) and clicking it took 151 gold and cleared the bounty; rum marked cheap; no console errors. Keyboard did not reach the game in the automated tab (no mouse capture), so the player was placed by script.
+- Performance against round 87 (Node, same machine, 230 ports): island build 2.18 -> 2.28 ms (the extra placement tries on cramped islands), game step 0.022 ms unchanged. In Chrome: CPU 0.9 ms draw a frame. Build 324.6 -> 327.0 kB (128.1 -> 128.9 kB gzipped).
+- Not checked: the cave's rock reads quite dark and blocky from the front; flowers can grow just in front of a cave or mine mouth; the red sash looks brown after the palette snap; coves in Asgard; real mouse play.
+- Left on the machine: the Chrome test tab (127.0.0.1:8771) could not be closed because the game asks to confirm leaving; its server is stopped, so just close it.
