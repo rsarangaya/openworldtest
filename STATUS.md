@@ -1,14 +1,14 @@
 # Status
 
-Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 99, commit 2163df3). Work in progress: players are asked for feedback.
+Last updated: 2026-11-27. **Free-roam sailing game: first person on land, third person at sea, pixel-art look. The story takes you to the Wall; breaking it opens pure open-world play, with other worlds across the Outer Sea. Asgard has a second pass, with its own rune gate on to Olympus. Mining towns, smugglers' coves and temple towns are the fourth to sixth kinds of town. Day turns to night and back. Old wrecks can be dived for salvage. Atlantis is its own world: a turquoise sea, white-and-gold towns and crystal pillars. Olympus is its own world too: tall pale peaks, marble towns and marble statues. A kraken waits in Atlantis, and a boulder-throwing cyclops in Olympus. Atlantis has its own gate on to Olympus: a curtain of falling water that parts once you have read four crystal pillars. Olympus is sunny: mostly clear skies, rare storms, never snow. Wrecks you hear of show on the chart map, and a dive on a deep wreck or in a swell can go wrong. While a diver is down, a small pixel window shows the dive.** Pushed and live: https://rsarangaya.github.io/openworldtest/ (up to round 100, commit c49a8bb). Work in progress: players are asked for feedback.
 
 ## Run it
 
 ```powershell
 cd open-world-test
 npm install        # once
-npm test           # 162 tests, all passing
-npm run build      # writes index.html (360.5 kB, 141.5 kB gzipped)
+npm test           # 165 tests, all passing
+npm run build      # writes index.html (363.4 kB, 142.9 kB gzipped)
 npm run dev        # unminified build
 ```
 
@@ -17,7 +17,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 
 **Controls.** On foot: WASD move, Shift run, Space jump, F talk / read notice board or rune stone / make an offering at a temple / bind a beaten outlaw / board ship, Q or left click attack, 1-5 weapons (4 again: next axe), Tab quest log (pick the quest to follow), M map (from the cartographer's story or after the Wall; Fast travel tab after the Wall), P AFK mode. At sea: A/D steer, W/S sails, Z/C boom, R sail straight, O oars, Q/E cannons, 1-3 round/chain/fire shot, F dock / dive on a wreck, G grapple a ship alongside, B bombard towns on/off, T fleet orders, M map, P AFK.
 
-## Where things stand (2026-11-27, after round 99)
+## Where things stand (2026-11-27, after round 100)
 
 **In the game**
 - Start: a welcome message and a one-page tutorial on a new game.
@@ -54,7 +54,7 @@ URL options: `?look=soft` (smooth colours, 720p), `?look=mid` (540p), `?debug` (
 - Asgard's island layout otherwise follows Terra's. Asgard people do not carry axes yet.
 - Atlantis (round 92, kraken round 94) and Olympus (round 93) have their own look; there is nothing underwater yet. Olympus has no gate of its own.
 - Day and night is looks only: no rule changes at night yet (no night watch, closed shops or night-only events). Indoors at night is a dim grey.
-- Underwater is a first pass only (diving from the ship, nothing drawn below the surface; only Terra's wrecks are on the chart map, since the other worlds have no local chart yet). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
+- Underwater is a first pass only (diving from the ship, with a small flat dive window but no underwater 3D; only Terra's wrecks are on the chart map, since the other worlds have no local chart yet). No monsters beyond the serpent and draugr, mercenary companies or fleet trade routes.
 - No per-type street layouts; only mining towns, coves and temple towns have their own clothing. Asgard towns can be temple towns too (same Greek-style temple; a Norse hof would suit better).
 
 The round-by-round history follows (newest at the end).
@@ -871,3 +871,14 @@ Olympus's monster (`rules/cyclops.js`, about 75 lines; rumour wording via the se
 - Performance against round 98 (Node, same machine, 15 000 steps sailing near a wreck with F presses): 0.061 ms a step either way. Build 359.4 -> 360.5 kB (141.0 -> 141.5 kB gzipped).
 - Not checked: a dive in real rain in Chrome (the swell input is covered by the scripted test), sound by ear, GPU time (drawing unchanged).
 - Left on the machine: the Chrome test tab (127.0.0.1:8793) asks to confirm leaving, so it is still open; the server is stopped.
+
+## Round 100 (2026-11-27): a dive view, and the kraken gets its own lair (pushed, commit c49a8bb)
+- **What:** while a diver is down, a small window at the top right (under the wind panel) shows the dive as flat pixel art: the ship's hull at the surface, four flat bands of water darkening with depth, still light shafts, the sea floor with weed swaying in steps, the wreck half sunk in the sand (tilt, holes and a snapped mast picked from her name), and the diver on the line going down, searching along the hull and coming back up, with bubbles and a few fish. The caption reads "Diver down · the Grey Kestrel · searching the wreck". The strongbox shows (gold) on the last dive only. Each world has its own water, floor and fish colours (Terra blue and sand, Asgard slate and grey stones, Atlantis sea-green and pale sand, Olympus deep blue and brown); deep wrecks and night are one shade darker. Closes when the diver surfaces or is hauled up.
+- **Bug fixed (found by the scripted player):** `seaSpots` cached by seed and salt only, and the kraken and the wrecks used the same salt, so in Atlantis one list served both: the kraken's "lair" sat on a wreck (any dive there was broken off when it rose), or there was only one wreck, whichever was asked for first. The cache key now includes the name, and the kraken has its own salt (9300), so its lair moves to its own spot. A save that killed the kraken under the old, wrong id would see it again.
+- **Code:** new `src/diveview.js` (one 2D canvas, 112x64 pixels shown at 336x192, palette colours only, drawn only while a diver is down); `diveStage(s)` in `rules/salvage.js` gives the wreck, the phase (down 0-40%, search 40-75%, up) and the depth; one call in `main.js` after the HUD update.
+- **Defaults chosen (no one to ask):** the window sits top right; the dive length is unchanged (6 s); no new 3D meshes.
+- Tests: 165 pass (3 new in `test/diveview.test.mjs`: a scripted captain dives a Terra and an Atlantis wreck three times each through the real rules, the view goes down, search, up and closes; the strongbox shows only on the last dive; the kraken's lair is its own and away from all four wrecks whichever is asked for first).
+- Chrome (localhost, real build, new game, ship placed over the Grey Kestrel, real F presses): all three phases seen with the right captions; coins and a cannon came up, then the strongbox; the window closed after each dive.
+- Performance against round 99 (Chrome, same machine): CPU about 0.83-0.87 ms a frame, diving or not (noise). Build 360.5 -> 363.4 kB (141.5 -> 142.9 kB gzipped).
+- Not checked: the Atlantis, Asgard and Olympus colours by eye (covered by the test only), night, soft and mid looks, sound by ear.
+- Left on the machine: the Chrome test tab (127.0.0.1:8137) asks to confirm leaving, so it is still open; the server is stopped.
