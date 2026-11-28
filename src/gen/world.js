@@ -264,7 +264,7 @@ export function islandTown(isl) {
     const rad = Math.max(w, d) / 2 + gap, mine = R(x, z, w, d);
     if (buildings.some((b) => b.door && hit(mine, strip(b.x, b.z, b.d)))) return null;
     if (shop && buildings.some((b) => hit(strip(x, z, d), R(b.x, b.z, b.w + 1, b.d + 1)))) return null;
-    if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < b.rad + rad) || pre.some((q) => Math.hypot(q.x - x, q.z - z) < Math.max(q.w, q.d) / 2 + rad)) return null;
+    if (buildings.some((b) => Math.hypot(b.x - x, b.z - z) < b.rad + rad || (Math.abs(b.x - x) < (b.w + w) / 2 + 2.6 && Math.abs(b.z - z) < (b.d + d) / 2 + 2.6)) || pre.some((q) => Math.hypot(q.x - x, q.z - z) < Math.max(q.w, q.d) / 2 + rad)) return null; // and never so close that the level ground round two houses overlaps
     return { pad: lift(Math.round(((lo + hi) / 2) * 4) / 4), rad };
   };
   const toward = () => '+z'; // in the 2D view every door faces the viewer (south)
@@ -294,19 +294,63 @@ export function islandTown(isl) {
   const marks = [], first = isl.style === 'temple' ? LANDMARKS.temple[0] : null;
   if (first) { const m = place(...first); if (m) pre.push(m); }
   const want = { village: 4, town: 9, city: 22 }[isl.tier] + kinds.length, span = isl.tier === 'city' ? 50 : isl.tier === 'town' ? 32 : 20;
-  for (let tries = 0; buildings.length < want && tries < 300; tries++) {
-    const ring = 12 + r() * span, an = r() * TAU, big = isl.tier === 'city' && r() < 0.3, w = range(r, 4.5, 6.5) * (big ? 1.4 : 1), d = range(r, 4.5, 6.5) * (big ? 1.4 : 1);
-    const x = plaza.x + Math.cos(an) * ring, z = plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false);
+  const lanes = streets(isl, plaza, pre[0]), huddle = isl.style === 'smuggler'; // the houses' street plan by kind of town (null: scattered round the plaza)
+  for (let tries = 0, ci = 0; buildings.length < want && tries < 300; tries++) {
+    const c = lanes && lanes[ci++]; // once the plan is used up (or will not fit), the rest scatter as in a plain town
+    const ring = c ? 0 : 12 + r() * span * (huddle ? 0.75 : 1), an = c ? 0 : r() * TAU, big = isl.tier === 'city' && r() < 0.3, w = range(r, 4.5, 6.5) * (big ? 1.4 : 1), d = range(r, 4.5, 6.5) * (big ? 1.4 : 1);
+    const x = c ? c[0] : plaza.x + Math.cos(an) * ring, z = c ? c[1] : plaza.z + Math.sin(an) * ring, sp = spot(x, z, w, d, false, c ? 1.6 : huddle ? 2.2 : 3.8); // a smugglers' cove huddles in narrow lanes
     if (!sp) continue;
     const b = { x, z, w, d, h: range(r, 3, 4.2) * (big ? 2.2 : isl.tier === 'city' ? 1.35 : 1), pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: null, face: toward(x, z), kind: null };
     b.solids = solidsOf(b); buildings.push(b);
   }
   // the landmarks of this kind of town, on level open ground clear of every building and of each other
   marks.push(...pre); for (const lm of LANDMARKS[isl.style] || []) if (lm !== first) { const m = place(...lm); if (m) marks.push(m); }
+  if (isl.style === 'fortress') marks.push(...townWall(isl, plaza, buildings, marks));
   const box = [plaza.x - 14.5, plaza.x + 14.5, plaza.z - 14.5, plaza.z + 14.5]; // the plaza and its blend, then every building's terrace
   for (const b of buildings) { const ex = b.w / 2 + 5.2, ez = b.d / 2 + 5.2; box[0] = Math.min(box[0], b.x - ex); box[1] = Math.max(box[1], b.x + ex); box[2] = Math.min(box[2], b.z - ez); box[3] = Math.max(box[3], b.z + ez); }
   t = { buildings, npcs, plaza, marks, box };
   townCache.set(isl.seed, t); return t;
+}
+// Street plans: where a town's houses go, as a list of spots tried in order (spot() still rejects water, slopes, shops' doorways).
+// A fishing village is strung along the shore either side of the dock, a trade port is a grid of blocks round its plaza, a fortress
+// town is rings of houses inside its wall, a temple town lines an avenue from the plaza to its temple, a mining town climbs one
+// street up the hill. Plain towns (and smugglers' coves, which huddle) keep the scatter.
+function streets(isl, P, temple) {
+  const a = isl.port.angle, ca = Math.cos(a), sa = Math.sin(a), out = [], st = isl.style, n = { village: 3, town: 5, city: 7 }[isl.tier];
+  if (st === 'fishing') { // two rows following the coastline: one just above the beach, one behind it
+    for (let k = 1; k <= n + 3; k++) for (const s of [1, -1]) { const an = a + (s * k * 9.5) / Math.max(isl.port.shore, 20);
+      let rad = isl.r * 1.3; while (rad > 4 && baseHeight(isl, isl.x + Math.cos(an) * rad, isl.z + Math.sin(an) * rad) < 1.6) rad -= 1.5;
+      for (const back of [4.5, 13]) out.push([isl.x + Math.cos(an) * (rad - back), isl.z + Math.sin(an) * (rad - back)]); }
+  } else if (st === 'trade') { // a grid of blocks on world axes, streets about 5 wide between them, nearest first
+    const L = [13, 25, 37, 49, 61].slice(0, n - 1), g = [...L.map((v) => -v), 0, ...L];
+    for (const i of g) for (const j of g) if (i || j) out.push([P.x + i, P.z + j]);
+    out.sort((p, q) => Math.hypot(p[0] - P.x, p[1] - P.z) - Math.hypot(q[0] - P.x, q[1] - P.z));
+  } else if (st === 'fortress') { // rings of houses round the plaza, a lane between each ring
+    for (let i = 0; i < n - 1; i++) { const R = 15 + i * 11, m = Math.floor((TAU * R) / 12); for (let k = 0; k < m; k++) { const an = a + ((k + (i % 2) * 0.5) / m) * TAU; out.push([P.x + Math.cos(an) * R, P.z + Math.sin(an) * R]); } }
+  } else if (st === 'temple' || st === 'mining') { // one street, houses on both sides: towards the temple, or straight up the hill
+    let dx = -ca, dz = -sa; if (temple) { const l = Math.hypot(temple.x - P.x, temple.z - P.z) || 1; dx = (temple.x - P.x) / l; dz = (temple.z - P.z) / l; }
+    for (let k = 0; k < n * 3; k++) { const s = st === 'mining' ? 13 + k * 8 : (13 + (k >> 1) * 8) * (k % 2 ? -1 : 1); for (const side of [1, -1]) out.push([P.x + dx * s - dz * side * 8.5, P.z + dz * s + dx * side * 8.5]); } // the temple's avenue runs on past the plaza too
+  } else return null;
+  return out;
+}
+// a fortress town's curtain wall: a ring of stone blocks beyond its houses, open where the road runs down to the dock and at three
+// more gates, stopping at the water and around anything already standing (a shop out past the ring breaks the wall, never the other way)
+function townWall(isl, P, buildings, marks) {
+  let top = 0; for (const b of buildings) top = Math.max(top, Math.hypot(b.x - P.x, b.z - P.z) + Math.max(b.w, b.d) / 2); top += 6;
+  const a = isl.port.angle, S = 2.4, dock = isl.port.dock, road = { x0: P.x, z0: P.z, x1: dock.x1, z1: dock.z1 };
+  const ring = (R) => { const out = [], m = Math.ceil((TAU * R) / 2.2); let land = 0;
+    for (let k = 0; k < m; k++) {
+      const an = (k / m) * TAU, x = P.x + Math.cos(an) * R, z = P.z + Math.sin(an) * R, off = Math.abs(((an - a + Math.PI / 4) % (Math.PI / 2) + Math.PI / 2) % (Math.PI / 2) - Math.PI / 4) * R; // off: along the wall to the nearest of the four gates
+      let lo = 1e9, hi = -1e9; for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const h = baseHeight(isl, x + u * 1.2, z + v * 1.2); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+      if (lo < 1) continue; land++;
+      if (off < 3 || segDist(x, z, road) < 4 || dockDist(isl, x, z) < 5 || hi - lo > 2.5 || hi > isl.h * 0.8) continue;
+      if (buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + S / 2 + 0.8 && Math.abs(b.z - z) < b.d / 2 + S / 2 + (b.door ? 7 : 0.8)) || marks.some((q) => Math.abs(q.x - x) < q.w / 2 + S / 2 + 1.5 && Math.abs(q.z - z) < q.d / 2 + S / 2 + 1.5)) continue;
+      const w = { k: 'wall', x, z, w: S, d: S, pad: lift(lo), h: lift(hi) - lift(lo), v: k & 1 }; w.solids = markSolids(w); out.push(w);
+    }
+    return { out, ok: land / m >= 0.45 && out.length >= 12 }; };
+  // the widest ring that still stands mostly on land (a town on a point of the coast walls in its inner rings, the rest is outside the walls)
+  let best = []; for (const R of [top, 64.5, 53.5, 42.5, 31.5].filter((v, i) => i === 0 || v < top)) { const g = ring(R); if (g.ok) return g.out; if (g.out.length > best.length) best = g.out; }
+  return best;
 }
 // the kinds of hamlet, weighted per world [terra, asgard, atlantis, olympus], picked by a hash of the island so nothing else moves
 const HAMLET_KINDS = { farm: [4, 2, 2, 3], fishing: [3, 4, 4, 2], shepherd: [2, 3, 0, 4], woods: [2, 4, 1, 1], hermit: [1, 1, 1, 2], light: [1, 1, 2, 1], ruin: [1, 1, 2, 3] };

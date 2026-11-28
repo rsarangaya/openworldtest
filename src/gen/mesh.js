@@ -121,7 +121,7 @@ const STYLE_LOOK = {
   smuggler: { wall: [[0.5, 0.42, 0.34], [0.44, 0.48, 0.46], [0.56, 0.46, 0.36]], roof: [[0.42, 0.44, 0.3], [0.36, 0.36, 0.38], [0.5, 0.38, 0.28]] }, // tarred planks, mossy thatch and old sailcloth
   temple: { wall: [[0.95, 0.93, 0.86], [0.92, 0.84, 0.7], [0.88, 0.9, 0.92]], roof: [[0.72, 0.36, 0.22], [0.66, 0.42, 0.26], [0.26, 0.4, 0.62]] }, // whitewash, terracotta and the odd blue dome-paint
 };
-function landmark(m, k, x, y, z, w, d, seed) {
+function landmark(m, k, x, y, z, w, d, seed, h = 0) {
   const wood = [0.42, 0.29, 0.18], dark = [0.24, 0.17, 0.11], stone = [0.55, 0.55, 0.6], cloth = [0.75, 0.18, 0.14];
   if (k === 'rack') { // drying racks hung with fish
     for (const s of [-1, 0, 1]) m.box(x + s * (w / 2 - 0.15), y + 1.3, z, 0.18, 2.6, 0.18, wood);
@@ -150,6 +150,8 @@ function landmark(m, k, x, y, z, w, d, seed) {
   } else if (k === 'crane') { // a loading crane
     m.box(x, y + 0.4, z, 2.4, 0.8, 2.4, stone, 0.15); m.box(x, y + 3.6, z, 0.4, 6, 0.4, wood); m.box(x + 1.4, y + 6.5, z, 3.6, 0.3, 0.3, wood); m.box(x - 0.7, y + 5.7, z, 1.4, 0.2, 0.2, dark);
     m.line([x + 3, y + 6.4, z], [x + 3, y + 3, z], 0.08, [0.7, 0.62, 0.44]); m.box(x + 3, y + 2.5, z, 1, 1, 1, [0.66, 0.46, 0.26], 0.2);
+  } else if (k === 'wall') { // one stone block of a fortress town's curtain wall; every other block carries a merlon
+    y += h; m.box(x, y + 1.3 - h / 2, z, w, 2.6 + h, d, stone, 0.15); m.box(x, y + 2.68, z, w + 0.1, 0.16, d + 0.1, [0.48, 0.48, 0.53]); if (seed & 1) m.box(x, y + 3.2, z, w * 0.55, 0.9, d * 0.55, stone); // h: the slope under the block, so its top stands clear of the high side
   } else if (k === 'tower') { // a watchtower with battlements and the town banner
     m.box(x, y + 5, z, w - 0.8, 10, d - 0.8, stone, 0.2); m.box(x, y + 10.4, z, w, 0.8, d, [0.48, 0.48, 0.53]);
     for (let i = 0; i < 3; i++) for (const s of [-1, 1]) { m.box(x - w / 2 + 0.5 + i * (w / 2 - 0.5), y + 11.4, z + s * (d / 2 - 0.3), 0.9, 1.2, 0.6, stone); m.box(x + s * (w / 2 - 0.3), y + 11.4, z - d / 2 + 0.5 + i * (d / 2 - 0.5), 0.6, 1.2, 0.9, stone); }
@@ -359,7 +361,7 @@ export function* islandGroundSteps(isl) {
 export function islandStructs(isl) {
   const m = new Mesh(), town = islandTown(isl);
   for (const b of town.buildings) building(m, isl, b);
-  for (const q of town.marks || []) { m.box(q.x, q.pad - 1.2, q.z, q.w, 2.4, q.d, [0.46, 0.43, 0.38]); landmark(m, q.k === 'temple' && isl.theme === 'asgard' ? 'hof' : q.k, q.x, q.pad, q.z, q.w, q.d, isl.seed); } // each stands on its own footing
+  for (const q of town.marks || []) { m.box(q.x, q.pad - 1.2, q.z, q.w, 2.4, q.d, [0.46, 0.43, 0.38]); landmark(m, q.k === 'temple' && isl.theme === 'asgard' ? 'hof' : q.k, q.x, q.pad, q.z, q.w, q.d, q.k === 'wall' ? q.v : isl.seed, q.h); } // each stands on its own footing
   if (isl.port) { // dock: planks, pilings, lanterns, crates, barrels, rope
     const d = isl.port.dock, len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), n = Math.ceil(len / 2) + 1, ux = (d.x1 - d.x0) / len, uz = (d.z1 - d.z0) / len, rr = rngFor(isl.seed, 12);
     for (let k = 0; k < n; k++) {

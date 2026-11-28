@@ -101,7 +101,7 @@ const blockedByThings = (s, x, z) => {
   return false;
 };
 const blocked = (s, x, z) => {
-  if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const m of islandTown(i).marks || []) for (const w of m.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true;
+  if (blockedByThings(s, x, z)) return true; for (const i of islandsAt(s, x, z)) for (const m of islandTown(i).marks || []) if (Math.abs(m.x - x) < m.w / 2 + PAD + 0.5 && Math.abs(m.z - z) < m.d / 2 + PAD + 0.5) for (const w of m.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true;
   for (const i of islandsAt(s, x, z)) for (const b of islandTown(i).buildings) if (Math.abs(b.x - x) < b.w / 2 + PAD + 0.5 && Math.abs(b.z - z) < b.d / 2 + PAD + 0.5) { for (const w of b.solids) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; if (b.bars) for (const w of b.bars) if (x > w[0] - PAD && x < w[1] + PAD && z > w[2] - PAD && z < w[3] + PAD) return true; const gt = b.jail && s.jailUntil > s.t ? b.jail.gate : null; if (gt && x > gt[0] - PAD && x < gt[1] + PAD && z > gt[2] - PAD && z < gt[3] + PAD) return true; } return false; };
 // ships are long: test the bow, the stern and the beam against the land, not just the centre point (that let hulls and masts sit inside islands)
 const HULL = { trader: [8, 3.5], navy: [12, 2.5], raider: [10, 2.2], ghost: [12, 3], draugr: [12, 2.6] };

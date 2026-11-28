@@ -172,8 +172,10 @@ test('the player picks the quest to follow: story, side story or contract', () =
   s.tracked = c.id; assert.equal(deserialize(serialize(s)).tracked, c.id);
   s.tracked = 'gone'; assert.equal(trackedQuest(s).id, 'main');
 });
-test('no town is given a loose curtain wall', () => {
-  const s = newGame(); for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (const i of sectorIslands(s.seed, x, z)) assert.ok(!islandTown(i).marks.some((m) => m.k === 'wall'));
+test('no town is given a loose curtain wall: only a fortress town has one, a ring round its plaza', () => {
+  const s = newGame(); for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (const i of sectorIslands(s.seed, x, z)) { const t = islandTown(i), w = t.marks.filter((m) => m.k === 'wall');
+    if (i.style !== 'fortress') { assert.equal(w.length, 0); continue; }
+    const R = w.map((m) => Math.hypot(m.x - t.plaza.x, m.z - t.plaza.z)); assert.ok(R.every((v) => Math.abs(v - R[0]) < 0.01), 'one ring'); }
 });
 
 test('every port has a real building for each of its people, a guard station with a cell, and a notice board', () => {
