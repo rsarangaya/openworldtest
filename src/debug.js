@@ -16,6 +16,8 @@ import { harpyNest } from './rules/harpies.js';
 import { barrows } from './rules/draugr.js';
 import { wrecks } from './rules/salvage.js';
 import { hourAt, clockText } from './rules/daynight.js';
+import { eventFor } from './rules/events.js';
+import { ISSUE_LEN } from './rules/news.js';
 
 export const debugEnabled = () => /[?&]debug\b/.test(location.search);
 
@@ -62,6 +64,11 @@ export function createDebug({ get, teleport, warp, say, info }) {
     ['Raid this port (on foot)', (s) => { const f = s.foot, isl = s.mode === 'foot' && sectorIslands(s.seed, sectorOf(f.x), sectorOf(f.z)).concat(...[[-1, 0], [1, 0], [0, -1], [0, 1]].map(([i, j]) => sectorIslands(s.seed, sectorOf(f.x) + i, sectorOf(f.z) + j))).find((q) => q.port && Math.hypot(q.x - f.x, q.z - f.z) < q.r * 1.3); if (!isl || !startRaid(s, isl)) say(s, 'Walk in a port first (no raid already on)'); }],
     ['House door at night (on foot)', (s) => { const f = s.foot; if (s.mode !== 'foot') { say(s, 'Go ashore in a town first'); return; } let best = null, bd = 1e9; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const isl of sectorIslands(s.seed, sectorOf(f.x) + i, sectorOf(f.z) + j)) if (isl.port) for (const b of islandTown(isl).buildings) { if (b.kind || b.door) continue; const d = Math.hypot(b.x - f.x, b.z - f.z); if (d < bd) { bd = d; best = b; } }
       if (!best) { say(s, 'No town near'); return; } s.dayOff = ((s.dayOff || 0) + 22 - hourAt(s.t, s.dayOff) + 24) % 24; const x = best.x, z = best.z + best.d / 2 + 1; Object.assign(f, { x, z, y: groundAt(s, x, z), yaw: -Math.PI / 2, vy: 0 }); say(s, 'Time ' + clockText(hourAt(s.t, s.dayOff)) + ', at a house door'); }],
+    ['Go: smugglers landing tonight (on foot)', (s) => { const p = s.mode === 'ship' && s.ship ? s.ship : s.foot; // the clock to 22:00 and on through the notice issues until a port near you posts "Lanterns on the Beach"; you stand in its plaza
+      for (let n = 0; n < 40; n++, s.t += ISSUE_LEN) { s.dayOff = ((s.dayOff || 0) + 22 - hourAt(s.t, s.dayOff) + 24) % 24;
+        for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) for (const isl of sectorIslands(s.seed, sectorOf(p.x) + i, sectorOf(p.z) + j)) if (isl.port?.berth && eventFor(s, isl)?.key === 'landing') {
+          const pl = islandTown(isl).plaza; needShip(s); Object.assign(s.ship, { x: isl.port.berth.x, z: isl.port.berth.z, yaw: isl.port.berth.yaw, speed: 0 }); s.enemies.clear(); teleport(); s.mode = 'foot'; s.foot = { x: pl.x + 2, z: pl.z + 2, y: groundAt(s, pl.x + 2, pl.z + 2), yaw: 0, vy: 0 }; say(s, isl.port.name + ': ask in the tavern or at the board (Troubles)'); return; } }
+      say(s, 'No landing found nearby'); }],
     ['Cutpurse here (on foot)', (s) => { const f = s.foot, isl = s.mode === 'foot' && sectorIslands(s.seed, sectorOf(f.x), sectorOf(f.z)).concat(...[[-1, 0], [1, 0], [0, -1], [0, 1]].map(([i, j]) => sectorIslands(s.seed, sectorOf(f.x) + i, sectorOf(f.z) + j))).find((q) => q.port && Math.hypot(q.x - f.x, q.z - f.z) < q.r * 1.3); if (!isl || !startThief(s, isl)) say(s, 'Walk in a port first (a purse to steal)'); }],
     ['Spawn raider', (s) => spawn(s, 'raider')],
     ['Spawn navy', (s) => spawn(s, 'navy')],

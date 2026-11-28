@@ -10,6 +10,8 @@ import { eventFor } from './events.js';
 import { addLocal, addWorld, shunned } from './rep.js';
 import { crewOf, capacity, aboard, ROLES } from './crew.js';
 import { weaponOf } from './weapons.js';
+import { nowHour, OPEN_AT, DAY } from './daynight.js';
+import { cargoCount } from './trade.js';
 
 export const MAX_SIDE = 3, RACE_STAKE = 60, RIVAL_SPEED = 10, RACE_SLACK = 40; // a rival makes RIVAL_SPEED along the straight line (she rounds islands too); SLACK covers her leaving harbour and your walk to the judge
 export const COMPANIONS = {
@@ -152,7 +154,16 @@ const T = {
   smugglers: { title: 'Run Them Down', need: 'a', ship: true, pay: 220, ask: (c) => `Smugglers are loading off ${c.a}. The council wants their ship taken.`, steps: (c) => ({ start: { kind: 'board', at: 'a', ship: 'raider', name: 'Quiet Gull', goal: `Board the Quiet Gull off ${c.a}.`, say: 'Her hold is full of untaxed goods. The council pays gladly.', lost: 'She goes down with the evidence. The council pays nothing.', gold: c.pay, rep: 10, world: 3 } }) },
   child: { title: 'The Missing Child', need: 'a', pay: 140, ask: (c) => `A child took a skiff toward ${c.a} and has not come back.`, steps: (c) => ({ start: { kind: 'find', at: 'a', goal: `Search for the child on ${c.a}.`, say: 'A small shoe, then a small voice from under the rocks. "Are you cross with me?"', to: 'back' }, back: { kind: 'talk', at: 'home', who: c.giver, lead: true, small: true, goal: `Bring the child home to ${c.giver}.`, lines: ['Oh, you foolish, wonderful thing. Thank you. Thank you.'], opts: [{ t: 'Take the reward', gold: c.pay, rep: 10 }, { t: 'Refuse any payment', rep: 22, world: 3 }] } }) },
   blockade: { title: 'Break the Blockade', need: 'a', pay: 250, ask: (c) => `The gang strangling the harbour camps on ${c.a}.`, steps: (c) => ({ start: { kind: 'fight', at: 'a', n: 4, boss: true, goal: `Clear the blockaders' camp on ${c.a}.`, say: 'Their boats burn on the beach.', gold: c.pay, rep: 14, world: 3 } }) },
+  // a night-only job ("Lanterns on the Beach"): smugglers land a cargo on a wild shore, and the deadline is dawn. Buy in, take a bribe, or break them for the watch.
+  landing: { title: 'Lanterns on the Beach', need: 'a', ship: true, pay: 140, ask: (c) => `Lanterns blink on ${c.a}: smugglers are landing a cargo that pays no dues. ${c.giver} of the night watch pays if it is stopped before dawn.`, steps: (c) => ({
+    start: { kind: 'talk', at: 'a', who: c.other, secs: c.dawn, late: { say: `The sky greys over ${c.a}. The smugglers' boats are gone, and the beach is only a beach.` }, goal: `Catch the smugglers landing on ${c.a} before dawn.`, lines: ['Easy, friend. You are not the watch: I can tell by the boots.', `Spice straight off the boat, at a third of what ${c.home} pays. Or you never saw us.`],
+      opts: [{ t: `Buy ${LANDING_GOODS[1]} crates of ${LANDING_GOODS[0]} (${LANDING_COST} gold)`, cost: LANDING_COST, goods: LANDING_GOODS, rep: -3, say: 'Crates go into your boat in the dark. Nobody counts them.' }, { t: 'Draw your weapon', to: 'fight' }, { t: 'Take 40 gold to forget them', gold: 40, rep: -6, say: 'A purse is pressed into your hand. The lanterns go out one by one.' }] },
+    fight: { kind: 'fight', at: 'a', n: 3, goal: `Break the smugglers on the beach of ${c.a}.`, say: 'The last smuggler swims for the boats. The crates stay on the sand for the watch.', to: 'back' },
+    back: { kind: 'talk', at: 'home', who: c.giver, goal: `Tell ${c.giver} of the night watch in ${c.home}.`, lines: ['On the beach, all of it? We will have the crates in by noon. The watch pays its debts.'], opts: [{ t: 'Take the reward', gold: c.pay, rep: 8, world: 1 }] },
+  }) },
 };
+export const LANDING_GOODS = ['spice', 3], LANDING_COST = 70;
+const dawnIn = (s) => Math.max(60, Math.round((((OPEN_AT - nowHour(s)) % 24 + 24) % 24) * ((DAY * 0.3) / 12))); // seconds of play until 06:00 (a night hour is 30 s), never under a minute
 const STORY = ['heirloom', 'brother', 'map', 'debt', 'cargo', 'ghost'];
 
 const done = (s) => (s.sdone ||= {});
@@ -164,7 +175,7 @@ const place = (i) => ({ id: i.id, name: nameOf(i), x: i.x, z: i.z });
 // the words and places of one quest
 function ctxOf(s, q) {
   const r = rngFor(q.seed, 11), w = q.realm || realm(s), crews = rivalCrews(s.seed), giver = captainName(r, w), other = captainName(r, w), third = captainName(r, w), cr = pick(r, crews), d = q.b ? Math.hypot(q.b.x - q.from.x, q.b.z - q.from.z) : 0;
-  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, rkind: ['raider', 'trader', 'navy'][cr.id], twist: r() < 0.5, maid: maidName(r), pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), home: q.from.name, a: q.a?.name, b: q.b?.name };
+  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, rkind: ['raider', 'trader', 'navy'][cr.id], twist: r() < 0.5, maid: maidName(r), pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), dawn: dawnIn(s), home: q.from.name, a: q.a?.name, b: q.b?.name };
 }
 export const stepOf = (s, q) => T[q.tpl].steps(ctxOf(s, q))[q.step];
 export const titleOf = (q) => T[q.tpl].title;
@@ -236,7 +247,9 @@ function advance(s, q, o, to, g) {
 export function chooseSide(s, id, i, g) {
   const q = sideOf(s).find((v) => v.id === id); if (!q) return false;
   const st = stepOf(s, q), o = st.opts?.[i]; if (!o) return false;
+  if (o.goods && (s.hold || 0) - cargoCount(s) < o.goods[1]) { g.say(s, `There is no room in the hold for ${o.goods[1]} crates.`); return false; }
   if (o.cost) { if (s.gold < o.cost) { g.say(s, `You do not have ${o.cost} gold.`); return false; } s.gold -= o.cost; }
+  if (o.goods) s.cargo[o.goods[0]] = (s.cargo[o.goods[0]] || 0) + o.goods[1];
   const berth = !!s.ship && aboard(s).length < capacity(s);
   if (o.say && (!o.hire || berth)) g.say(s, o.say); // the yes-line only when there is a berth for them
   if (o.join) join(s, o.join, ctxOf(s, q)[T[q.tpl].hero || 'third'], q, g);
