@@ -8,12 +8,13 @@ import { QUESTS, currentQuest, questText } from './rules/quests.js';
 import { asgardLine } from './rules/lore.js';
 import { isHall, feast, feastReady, songFor, FEAST_PRICE } from './rules/meadhall.js';
 import { STYLES } from './gen/style.js';
-import { GOODS } from './gen/world.js';
+import { GOODS, islandTown, HAMLET_SAY } from './gen/world.js';
+import { buyHamletFood, buyHamletGood, hamletRumour } from './rules/hamlet.js';
 import { WEAPONS, armoryOf, owns } from './rules/weapons.js';
 import { quantize, SOFT } from './render/palette.js';
 import { buyWeapon, equip } from './rules/weapons.js';
 import { foodCost, weaponMul, repairCost, bountyMul } from './gen/style.js';
-import { travelList, travelBlock, trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, signContract, settleBoard, dropContract, anchorNear, runPorts } from './rules/game.js';
+import { travelList, travelBlock, trimInfo, payBounty, handIn, prizeInfo, finishBoarding, contractsFor, hamletFor, signContract, settleBoard, dropContract, anchorNear, runPorts } from './rules/game.js';
 import { runQuote, sendRun, canRun } from './rules/routes.js';
 import { active as contractList, describe as contractText, quote as quoteContract, MAX_ACTIVE } from './rules/contracts.js';
 import { board, byId, lead, rankOf, payBonus } from './rules/hunt.js';
@@ -185,10 +186,30 @@ export function createUI() {
     const close = () => { on('panel', false); ctx.onClose?.(); };
     const head = `<div class=npc>${esc(res.npc.name)} · ${esc(res.npc.role || res.npc.kind)}</div>`;
     const talk = () => {
-      el.innerHTML = `<div class=box>${head}<p>${esc(res.lines[i])}</p><button id=pN>${i < res.lines.length - 1 ? 'Continue' : res.panel ? 'Trade' : 'Farewell'}</button></div>`;
-      $('pN').onclick = () => { if (++i < res.lines.length) talk(); else if (res.panel) shop(); else close(); };
+      el.innerHTML = `<div class=box>${head}<p>${esc(res.lines[i])}</p><button id=pN>${i < res.lines.length - 1 ? 'Continue' : res.panel === 'hamlet' ? 'Trade and talk' : res.panel ? 'Trade' : 'Farewell'}</button></div>`;
+      $('pN').onclick = () => { if (++i < res.lines.length) talk(); else if (res.panel === 'hamlet') hamlet(); else if (res.panel) shop(); else close(); };
     };
     const port = ctx.island?.port;
+    // a hamlet (rules/hamlet.js): a few provisions, a little of what they make, a rumour, and now and then a small job to the nearest port
+    let hamMsg = '';
+    const hamlet = () => {
+      const isl = ctx.island, kind = islandTown(isl).kind, o = hamletFor(s, isl), w = HAMLET_SAY[kind];
+      let h = `<div class=box>${head}<h2>${esc(w[0].toUpperCase() + w.slice(1).replace(/,.*/, ''))}</h2><div>Gold: <b class=gold>${Math.round(s.gold)}</b></div>${hamMsg ? `<p>${esc(hamMsg)}</p>` : ''}`;
+      h += o.food ? `<p>Provisions (${o.fp}g each, ${o.food} to spare): you have <b>${s.food}</b>/${MAX_FOOD} <button class=small data-h=f1>+1</button><button class=small data-h=f5>+5</button></p>` : '<p>They have no provisions to spare.</p>';
+      if (o.good) h += `<p>${o.good[0].toUpperCase() + o.good.slice(1)} (${o.gp}g a crate, ${o.n} left) · you have ${s.cargo[o.good] || 0} · hold ${cargoCount(s)}/${s.hold} <button class=small data-h=g1 ${o.n ? '' : 'disabled'}>Buy 1</button></p>`;
+      h += '<p><button class=small data-h=rum>Any news?</button></p>';
+      if (o.job) h += `<p><b class=gold>A small job</b><br>${esc(o.job.text)} <small>${Math.round(o.job.window / 60)} min</small> <button class=small data-h=job>${quoteContract(s, o.job)}g · Take it</button></p>`;
+      el.innerHTML = h + '<p><button id=pC>Farewell</button></p></div>';
+      $('pC').onclick = close;
+      el.querySelectorAll('[data-h]').forEach((b) => (b.onclick = () => {
+        const a = b.dataset.h; hamMsg = '';
+        if (a === 'f1' || a === 'f5') { if (buyHamletFood(s, isl, kind, a === 'f1' ? 1 : 5)) ctx.audio?.coin(); }
+        else if (a === 'g1') { if (buyHamletGood(s, isl, kind, 1)) ctx.audio?.coin(); }
+        else if (a === 'rum') hamMsg = hamletRumour(s, isl, kind);
+        else if (a === 'job' && signContract(s, o.job)) hamMsg = `Done. They will expect it at ${o.job.to.name}; you are paid at its notice board or tavern.`;
+        ctx.onChange?.(); hamlet();
+      }));
+    };
     // the tavern keeper: a menu of everything a tavern offers, each choice with a way back
     let tavPage = null, rumours = 0, songs = 0; const hall = isHall(ctx.island);
     const page = (title, body, extra = '') => {

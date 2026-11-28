@@ -11,7 +11,7 @@ export const MAX_ACTIVE = 3, OFFERS = 3;
 const five = (v) => Math.round(v / 5) * 5;
 export const payMult = (s, id) => 1 + Math.max(-0.2, Math.min(0.2, localRep(s, id) / 500));
 export const active = (s) => (s.contracts = Array.isArray(s.contracts) ? s.contracts : []);
-const done = (s) => (s.cdone = s.cdone || {});
+export const done = (s) => (s.cdone = s.cdone || {});
 
 // ports: nearby port islands (not this one). Returns the open offers for this town now.
 export function offers(s, isl, ports) {
@@ -49,6 +49,6 @@ export function abandon(s, id, say) { const i = active(s).findIndex((c) => c.id 
 // once a second: a missed deadline costs standing with the town that posted it
 export function stepContracts(s, say) {
   const a = active(s); if (!a.length) return;
-  for (const c of [...a]) if (s.t > c.due) { a.splice(a.indexOf(c), 1); done(s)[c.id] = 1; deed(s, 'contractFail', c.from); say(s, `Contract failed: ${c.fromName} wanted ${c.type === 'cull' ? 'the raiders sunk' : c.n + ' ' + c.good + ' at ' + c.to.name} by now.`); }
+  for (const c of [...a]) if (s.t > c.due) { a.splice(a.indexOf(c), 1); done(s)[c.id] = 1; deed(s, 'contractFail', c.from); say(s, `Contract failed: ${c.fromName} wanted ${c.type === 'cull' ? 'the raiders sunk' : (c.what || c.n + ' ' + c.good) + ' at ' + c.to.name} by now.`); }
 }
-export const describe = (s, c) => (c.type === 'cull' ? `Sink ${c.n} raiders (${progress(s, c)}/${c.n}), report to ${c.fromName}` : `Deliver ${c.n} ${c.good} to ${c.to.name}`) + ` · ${Math.max(0, Math.round((c.due - s.t) / 60))} min left · ${c.pay}g`;
+export const describe = (s, c) => (c.type === 'cull' ? `Sink ${c.n} raiders (${progress(s, c)}/${c.n}), report to ${c.fromName}` : `Deliver ${c.what || c.n + ' ' + c.good} to ${c.to.name}`) + ` · ${Math.max(0, Math.round((c.due - s.t) / 60))} min left · ${c.pay}g`;

@@ -8,6 +8,7 @@ import { deed, forgive, shunned, localRep, addLocal as addLocalRep, addWorld } f
 import { board, byId, SUBDUED_AT, payBonus, rankOf } from './hunt.js';
 import { shipParams } from '../gen/mesh.js';
 import { explore, visit, learn, mapOf } from './map.js';
+import { hamletOffer } from './hamlet.js';
 import { stepContracts, offers as contractOffers, accept as acceptContract, settle as settleContracts, abandon as abandonContract, active as activeContracts, progress as contractProgress } from './contracts.js';
 import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S, bearing, gateOf, gateAngleOf } from './realm.js';
 import { REALMS } from './map.js';
@@ -818,6 +819,7 @@ export function interact(s) {
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) { s.mode = 'ship'; s.ship.speed = 0; s.ship.trim = bestTrim(s.ship.yaw, s.wind, 0); say(s, 'Aboard! W lets the sail out; Z and C swing the boom.'); return { type: 'board' }; }
   return { type: 'none' };
 }
+export const hamletFor = (s, isl) => hamletOffer(s, isl, islandTown(isl).kind, nearbyIslands(s, isl.x, isl.z, 3).filter((i) => i.port)); // what a hamlet offers (rules/hamlet.js)
 export const contractsFor = (s, isl) => contractOffers(s, isl, nearbyIslands(s, isl.x, isl.z, 3).filter((i) => i.port && i.id !== isl.id));
 export const signContract = (s, o) => acceptContract(s, o, say);
 export const settleBoard = (s, isl) => settleContracts(s, isl, say);
