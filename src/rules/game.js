@@ -13,7 +13,7 @@ import { stepContracts, offers as contractOffers, accept as acceptContract, sett
 import { realmOf, enterRealm, destinationAt, OUTER_EDGE, EDGE_HINT, RIM_EXIT, CINE_S, CINE_BREAK, WARP_S, bearing, gateOf, gateAngleOf } from './realm.js';
 import { REALMS } from './map.js';
 import { clearWorldCaches } from '../gen/world.js';
-import { extraGuards, STYLES, bountyMul, OFFERING, OFFER_WAIT } from '../gen/style.js';
+import { extraGuards, STYLES, bountyMul, OFFERING, OFFER_WAIT, isHof } from '../gen/style.js';
 import { clearHuntCaches } from './hunt.js';
 import { fleetOf, cycleOrder, canKeep, addPrize } from './fleet.js';
 import { stepMercs } from './mercs.js';
@@ -775,11 +775,11 @@ export function readRune(s, isl) {
 const nearTemple = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.style === 'temple') for (const m of islandTown(i).marks) if (m.k === 'temple' && Math.abs(s.foot.x - m.x) < m.w / 2 + 2.5 && Math.abs(s.foot.z - m.z) < m.d / 2 + 2.5) return i; return null; };
 // an offering on the temple steps: OFFERING gold heals you fully and raises your name in this town; each temple takes one every OFFER_WAIT seconds
 export function offer(s, isl) {
-  const when = (s.offered ||= {})[isl.id], npc = { name: 'Temple', kind: isl.port?.name || isl.name };
-  if (when !== undefined && s.t - when < OFFER_WAIT && s.t >= when) return { type: 'npc', npc, lines: ['The priests have taken your offering already today. Smoke from it still curls above the braziers.'], panel: null };
+  const when = (s.offered ||= {})[isl.id], hof = isHof(isl), npc = { name: hof ? 'Hof' : 'Temple', kind: isl.port?.name || isl.name };
+  if (when !== undefined && s.t - when < OFFER_WAIT && s.t >= when) return { type: 'npc', npc, lines: [hof ? 'The godi has taken your offering already today. Its smoke still hangs under the hof roof.' : 'The priests have taken your offering already today. Smoke from it still curls above the braziers.'], panel: null };
   if (s.gold < OFFERING) return { type: 'npc', npc, lines: [`An offering here is ${OFFERING} gold. You do not have it.`], panel: null };
   s.gold -= OFFERING; s.offered[isl.id] = s.t; s.hp = s.maxHp; addLocalRep(s, isl.id, 5); s.events.push({ type: 'coin' });
-  return { type: 'npc', npc, lines: ['You lay the coins on the altar. A priest burns a pinch of incense and murmurs a blessing.', 'Your wounds no longer ache, and the town thinks a little better of you.'], panel: null };
+  return { type: 'npc', npc, lines: [hof ? 'You lay the coins on the altar stone. The godi pours mead over it and calls on the gods for you.' : 'You lay the coins on the altar. A priest burns a pinch of incense and murmurs a blessing.', 'Your wounds no longer ache, and the town thinks a little better of you.'], panel: null };
 }
 const nearTreasure = (s) => { for (const i of islandsAt(s, s.foot.x, s.foot.z)) if (i.treasure && !s.found.has(i.id) && Math.hypot(i.treasure.x - s.foot.x, i.treasure.z - s.foot.z) < 5) return i; return null; };
 export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
@@ -794,7 +794,7 @@ export function prompt(s) {
   for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!q.hamlet && !npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
   { const rn = nearRune(s); if (rn) return `F  Read the ${MARKS[rn.theme]?.name.toLowerCase() || 'rune stone'}`; }
-  if (nearTemple(s)) return `F  Make an offering at the temple (${OFFERING}g)`;
+  { const tp = nearTemple(s); if (tp) return `F  Make an offering at the ${isHof(tp) ? 'hof' : 'temple'} (${OFFERING}g)`; }
   if (nearTreasure(s)) return 'F  Dig';
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) return 'F  Board your ship';
   return null;

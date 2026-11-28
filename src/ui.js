@@ -7,7 +7,7 @@ import { sideOffersFor, takeSide, pickSide, dropSide } from './rules/game.js';
 import { QUESTS, currentQuest, questText } from './rules/quests.js';
 import { asgardLine } from './rules/lore.js';
 import { isHall, feast, feastReady, songFor, FEAST_PRICE } from './rules/meadhall.js';
-import { STYLES } from './gen/style.js';
+import { styleText } from './gen/style.js';
 import { GOODS, islandTown, HAMLET_SAY } from './gen/world.js';
 import { buyHamletFood, buyHamletGood, hamletRumour } from './rules/hamlet.js';
 import { WEAPONS, armoryOf, owns } from './rules/weapons.js';
@@ -237,7 +237,7 @@ export function createUI() {
         $('pM').onclick = () => choose('rumour');
       } else if (k === 'next') { const q = currentQuest(s); page('What next', `<p><b class=gold>${esc(q.title)}</b></p><p>${esc(q.hint)}</p>`); }
       else if (k === 'wanted') page('Wanted', '<table>' + board(s).map((w) => `<tr><td><b>${esc(w.name)}</b><br><small>${esc(w.crime)} · ${w.kind === 'ship' ? 'sails ' + esc(w.ship) : 'hiding near ' + esc(w.where)}</small></td><td class=n>${w.reward}g${w.aliveOnly ? '<br><small>alive only</small>' : ''}</td></tr>`).join('') + '</table><p class=hint>Bring them to any guard station to be paid.</p>');
-      else if (k === 'town') { const st = STYLES[ctx.island?.style]; page(esc(port?.name || 'This town'), `<p>${st?.label ? 'A ' + st.label + '. ' + st.perk : 'A harbour like many others.'}</p><p>${port ? `${esc(port.cheap)} is cheap here; ${esc(port.dear)} sells dear.` : ''}</p><p>Your standing here: <b>${port ? tier(localRep(s, port.iid)) : 'Unknown'}</b></p>`); }
+      else if (k === 'town') { const st = styleText(ctx.island); page(esc(port?.name || 'This town'), `<p>${st?.label ? 'A ' + st.label + '. ' + st.perk : 'A harbour like many others.'}</p><p>${port ? `${esc(port.cheap)} is cheap here; ${esc(port.dear)} sells dear.` : ''}</p><p>Your standing here: <b>${port ? tier(localRep(s, port.iid)) : 'Unknown'}</b></p>`); }
     };
     // mercenary companies: join one and take its jobs, or hire one of its ships for a while
     const mercs = (msg = '') => {

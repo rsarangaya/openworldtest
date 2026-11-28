@@ -9,6 +9,9 @@ export const STYLES = {
   smuggler: { label: "smugglers' cove", perk: 'No questions asked: rum is cheap, guards are few, and the fence clears a bounty for half its gold.' },
   temple: { label: 'temple town', perk: 'Pilgrims come for the temple: spice for the incense is cheap, and an offering on its steps heals your wounds and mends your name here.' },
 };
+// a temple town in Asgard keeps a Norse hof instead: the same perk, told in its own words
+export const isHof = (isl) => isl?.style === 'temple' && isl.theme === 'asgard';
+export const styleText = (isl) => (isHof(isl) ? { label: 'hof town', perk: 'Folk come from all the fjords for the hof: spice for the sacred fire is cheap, and an offering at its altar stone heals your wounds and mends your name here.' } : STYLES[isl?.style]);
 // u, u2: numbers 0..1 from the world seed. u2 turns four in five plain villages and towns into mining towns and the rest into smugglers' coves,
 // one in four fishing villages into a cove, and one in five fishing towns into a temple town; plain cities all become temple towns.
 // Trade and fortress towns of an older world keep their kind.

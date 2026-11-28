@@ -182,6 +182,18 @@ function landmark(m, k, x, y, z, w, d, seed) {
     m.tri([x + w / 2, e, z - d / 2], [x, ry - 0.2, z - d / 2], [x - w / 2, e, z - d / 2], dim(mb, 0.9)); m.tri([x - w / 2, e, fz - 0.8], [x, ry - 0.2, fz - 0.8], [x + w / 2, e, fz - 0.8], mb);
     m.box(x, y + 5.6, fz - 0.76, 0.5, 0.5, 0.06, [0.86, 0.68, 0.24]); // a gilt sun in the pediment
     for (const s of [-1, 1]) { m.box(x + s * (w / 2 - 0.5), y + 0.75, fz - 0.4, 0.5, 0.7, 0.5, [0.36, 0.34, 0.34]); m.box(x + s * (w / 2 - 0.5), y + 1.2, fz - 0.4, 0.34, 0.24, 0.34, [1, 0.6, 0.2]); } // braziers
+  } else if (k === 'hof') { // a Norse hof in place of the temple (Asgard): a dark timber hall under a steep shingled roof, dragon heads on crossed gable boards, carved door posts, a stone altar between braziers
+    const tw = [0.36, 0.24, 0.15], sh = [0.3, 0.27, 0.23], gold = [0.85, 0.7, 0.3], hw = w / 2 - 0.7, z0 = z - d / 2 + 0.3, z1 = z + d / 2 - 1.7, fz = z + d / 2, e = y + 3.4, ry = y + 7.4, ex = hw + 0.8;
+    m.box(x, y + 0.2, z - 0.5, w - 0.4, 0.4, d - 1, [0.5, 0.5, 0.52], 0.15); m.box(x, y + 1.9, (z0 + z1) / 2, 2 * hw, 3, z1 - z0, tw, 0.12); // footing, walls
+    for (let i = 0, n = Math.floor((z1 - z0) / 0.9); i < n; i++) for (const sx of [-1, 1]) m.box(x + sx * (hw + 0.03), y + 1.9, z0 + (i + 0.5) * ((z1 - z0) / n), 0.05, 3, 0.07, dark); // plank seams
+    m.quad([x + ex, e - 0.5, z0 - 0.5], [x + ex, e - 0.5, z1 + 0.5], [x, ry, z1 + 0.5], [x, ry, z0 - 0.5], sh); m.quad([x - ex, e - 0.5, z1 + 0.5], [x - ex, e - 0.5, z0 - 0.5], [x, ry, z0 - 0.5], [x, ry, z1 + 0.5], sh); // steep roof
+    m.tri([x - hw, e, z1 + 0.02], [x, ry - 0.4, z1 + 0.02], [x + hw, e, z1 + 0.02], tw); m.tri([x + hw, e, z0 - 0.02], [x, ry - 0.4, z0 - 0.02], [x - hw, e, z0 - 0.02], tw); // gables
+    for (const [ez, f] of [[z1 + 0.55, 1], [z0 - 0.55, -1]]) { for (const q of [-1, 1]) m.line([x + q * ex, e - 0.5, ez], [x - q * 0.5, ry + 0.9, ez], 0.12, dark); // crossed gable boards
+      m.box(x - 0.5, ry + 1.05, ez + f * 0.3, 0.36, 0.36, 0.7, dark); m.box(x - 0.5, ry + 0.86, ez + f * 0.4, 0.26, 0.14, 0.5, gold); m.box(x + 0.5, ry + 1.05, ez - f * 0.15, 0.3, 0.5, 0.3, dark); } // a dragon head on one board, a curled tail on the other
+    m.box(x, ry - 0.1, (z0 + z1) / 2, 0.8, 0.3, 1.2, [0.1, 0.08, 0.07]); m.box(x, y + 1.5, z1 + 0.04, 1.3, 2.2, 0.06, [0.06, 0.05, 0.05]); // smoke hole, door
+    for (const sx of [-1, 1]) m.box(x + sx * 0.9, y + 1.7, z1 + 0.14, 0.32, 2.6, 0.22, [0.55, 0.38, 0.2]); m.box(x, y + 3.1, z1 + 0.14, 2.2, 0.32, 0.24, [0.55, 0.38, 0.2]); m.box(x, y + 3.1, z1 + 0.27, 0.5, 0.22, 0.04, gold); // carved posts and lintel
+    m.box(x, y + 0.5, fz - 0.8, 1.4, 0.6, 0.8, [0.46, 0.46, 0.5], 0.2); m.box(x, y + 0.84, fz - 0.8, 0.5, 0.08, 0.36, [0.6, 0.16, 0.12]); // the altar stone (horg) and its bowl
+    for (const s of [-1, 1]) { m.box(x + s * (w / 2 - 0.6), y + 0.75, fz - 0.5, 0.5, 0.7, 0.5, [0.36, 0.34, 0.34]); m.box(x + s * (w / 2 - 0.6), y + 1.2, fz - 0.5, 0.34, 0.24, 0.34, [1, 0.6, 0.2]); } // braziers
   } else if (k === 'shrine') { // a wayside shrine: a robed figure on a plinth, candles and flowers laid at its feet
     const mb = [0.9, 0.87, 0.8];
     m.box(x, y + 0.4, z, w * 0.7, 0.8, d * 0.7, [0.6, 0.6, 0.62], 0.15); m.box(x, y + 1.6, z, 0.7, 1.6, 0.55, mb); m.box(x, y + 2.15, z + 0.1, 0.9, 0.5, 0.5, dim(mb, 0.94)); m.blob(x, y + 2.65, z, 0.3, mb, 0.9);
@@ -347,7 +359,7 @@ export function* islandGroundSteps(isl) {
 export function islandStructs(isl) {
   const m = new Mesh(), town = islandTown(isl);
   for (const b of town.buildings) building(m, isl, b);
-  for (const q of town.marks || []) { m.box(q.x, q.pad - 1.2, q.z, q.w, 2.4, q.d, [0.46, 0.43, 0.38]); landmark(m, q.k, q.x, q.pad, q.z, q.w, q.d, isl.seed); } // each stands on its own footing
+  for (const q of town.marks || []) { m.box(q.x, q.pad - 1.2, q.z, q.w, 2.4, q.d, [0.46, 0.43, 0.38]); landmark(m, q.k === 'temple' && isl.theme === 'asgard' ? 'hof' : q.k, q.x, q.pad, q.z, q.w, q.d, isl.seed); } // each stands on its own footing
   if (isl.port) { // dock: planks, pilings, lanterns, crates, barrels, rope
     const d = isl.port.dock, len = Math.hypot(d.x1 - d.x0, d.z1 - d.z0), n = Math.ceil(len / 2) + 1, ux = (d.x1 - d.x0) / len, uz = (d.z1 - d.z0) / len, rr = rngFor(isl.seed, 12);
     for (let k = 0; k < n; k++) {
