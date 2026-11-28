@@ -20,6 +20,7 @@ import { stepMercs } from './mercs.js';
 import { stepRoutes } from './routes.js';
 import { stepRaid, raidRoll, startRaid as beginRaid, hitRaider } from './raid.js';
 import { stepThief, thiefRoll, startThief as beginThief, hitThief } from './thief.js';
+import { nearHouse, startBurgle, stepBurgle } from './burglary.js';
 import { crewOf, stepCrew, sailorMul, reloadMul, trimFloor, lose, cheer, ALLY_MAX } from './crew.js';
 import { speedMul, gunMul, rowMul, level, shotNow, ammoOf, AMMO, SWIVEL_RANGE, SWIVEL_DMG, SWIVEL_CD } from './parts.js';
 import { cargoCount } from './trade.js';
@@ -692,7 +693,7 @@ const G = { ship: (s, q, kind, name, at) => { // a story ship, put in open water
   near: (s, x, z, r) => { const y0 = groundAt(s, x, z); for (let d = r; d < r + 8; d += 0.6) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + r, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, y = groundAt(s, px, pz); if (y >= 0.8 && Math.abs(y - y0) < 1.6 && roomy(s, px, pz)) return { x: px, z: pz, y }; } return null; }, // dry land beside a point
   spot: (s, isl, seed) => { const pl = isl.port ? islandTown(isl).plaza : isl.landing || isl, r = rngFor(seed, 77); for (let k = 0; k < 120; k++) { const a = r() * TAU, d = (isl.port ? 8 : 4) + r() * (isl.port ? 12 : 10), x = pl.x + Math.cos(a) * d, z = pl.z + Math.sin(a) * d, y = groundAt(s, x, z); if (y >= 0.8 && roomy(s, x, z)) return { x, z, y }; } const p = freeSpotNear(s, pl.x, pl.z, pl.x, pl.z + 1, 3, 26); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; } };
 // land battles (raid.js): a landing party now and then in the port you walk, fought beside the town's guards
-const H = { say, spray, walk: walkToward, ground: groundAt, kid: quickHands, ev: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id); return isl && eventFor(s, isl); }, near: (s, x, z, r) => G.near(s, x, z, r), station: (isl) => stationOf(isl) || islandTown(isl).plaza, wanted: wantedHere,
+const H = { say, spray, walk: walkToward, ground: groundAt, kid: quickHands, ev: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id); return isl && eventFor(s, isl); }, near: (s, x, z, r) => G.near(s, x, z, r), station: (isl) => stationOf(isl) || islandTown(isl).plaza, wanted: wantedHere, crime,
   round: (s, o, tg) => { const p = freeSpotNear(s, tg.x, tg.z, o.x, o.z, 2.2, 6); return p && { x: p.x, z: p.z, y: groundAt(s, p.x, p.z) }; },
   burn: (s, id) => { const isl = nearbyIslands(s, s.foot.x, s.foot.z, 2).find((i) => i.id === id), mx = TOWN_MAX[isl?.tier] || 100, t = ((s.towns ||= {})[id] ||= { hp: mx, max: mx, t: s.t }); t.hp = Math.min(t.hp, mx * 0.3); t.t = s.t; t.plundered = true; } };
 export const startRaid = (s, isl) => beginRaid(s, isl, H);
@@ -700,6 +701,7 @@ export const startThief = (s, isl) => beginThief(s, isl, H);
 function stepRaids(s, dt) {
   const f = s.foot, here = s.mode === 'foot' ? islandsAt(s, f.x, f.z).find((i) => i.port && Math.hypot(i.x - f.x, i.z - f.z) < i.r * 1.3) : null;
   if (s.raid) stepRaid(s, dt, here || null, H);
+  if (s.burgle) stepBurgle(s, dt, here || null, H);
   if (s.thief) stepThief(s, dt, here || null, H);
   else if (here && !s.raid && Math.floor(s.t / 20) !== Math.floor((s.t - dt) / 20) && thiefRoll(s, here, !s.deck && !s.dive && !s.cine && !s.guards.length && !s.foes.length && !(s.jailUntil > s.t), eventFor(s, here))) beginThief(s, here, H);
   if (!s.raid && here && Math.floor(s.t / 30) !== Math.floor((s.t - dt) / 30) && raidRoll(s, here, !s.thief && !s.deck && !s.dive && !s.cine && !s.guards.length && !s.foes.length && !s.qa?.some((a) => a.awake) && !wantedHere(s, here) && townState(s, here.id) < 2 && !(s.jailUntil > s.t))) beginRaid(s, here, H);
@@ -788,6 +790,7 @@ export const standingOn = (s) => islandsAt(s, s.foot.x, s.foot.z)[0] || null;
 export function prompt(s) {
   if (s.mode === 'ship') { if (s.dive) return `Your diver is down... ${Math.max(1, Math.ceil(DIVE_S - (s.t - s.dive.t0)))} s`; const g = nearestShip(s); if (!g && !findLand(s) && denHere(s)) return s.t < (s.diveRest || 0) ? `Your diver is resting... ${Math.ceil(s.diveRest - s.t)} s` : "F  Send your diver down to the kraken's den with a powder keg"; const wk = !g && !findLand(s) && wreckHere(s); if (wk) return s.t < (s.diveRest || 0) ? `Your diver is resting... ${Math.ceil(s.diveRest - s.t)} s` : `F  Dive on the wreck of the ${wk.name.replace(/^The /, '')} (${wk.deep ? 'deep, ' : ''}${divesLeft(s, wk)} dive${divesLeft(s, wk) > 1 ? 's' : ''} left)`; return g ? `G  Grapple the ${KINDS[g.kind].label.toLowerCase()} ${g.name}${findLand(s) ? '   ·   F  Dock' : ''}` : findLand(s) ? 'F  Dock and go ashore' : null; }
   if (s.deck && !nearSub(s)) return s.deck.won ? 'F  Decide the ship\'s fate' : 'F  Cut the grapples and retreat';
+  if (s.burgle) return `Working the lock... ${Math.max(1, Math.ceil(s.burgle.need - (s.t - s.burgle.t0)))} s`;
   const sb = nearSub(s); if (sb) return s.prisoner ? 'You are already holding a prisoner' : `F  Bind ${sb.name} (${sb.crime})`;
   const qa = nearActor(s); if (qa) return qa.kind === 'find' ? 'F  Search here' : `F  Speak with ${qa.name}`;
   const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.role || n.kind})`;
@@ -795,6 +798,7 @@ export function prompt(s) {
   if (nearBoard(s)) return 'F  Read the notice board';
   { const rn = nearRune(s); if (rn) return `F  Read the ${MARKS[rn.theme]?.name.toLowerCase() || 'rune stone'}`; }
   { const tp = nearTemple(s); if (tp) return `F  Make an offering at the ${isHof(tp) ? 'hof' : 'temple'} (${OFFERING}g)`; }
+  { const hs = nearHouse(s, islandsAt(s, s.foot.x, s.foot.z)); if (hs && !hs.tried) return 'F  Break into the house (a crime if you are seen)'; }
   if (nearTreasure(s)) return 'F  Dig';
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) return 'F  Board your ship';
   return null;
@@ -815,6 +819,7 @@ export function interact(s) {
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
   const rn = nearRune(s); if (rn) return readRune(s, rn);
   const tp = nearTemple(s); if (tp) return offer(s, tp);
+  { const hs = nearHouse(s, islandsAt(s, s.foot.x, s.foot.z)); if (hs) { startBurgle(s, hs, H); return { type: 'none' }; } }
   const t = nearTreasure(s);
   if (t) { s.found.add(t.id); s.gold += t.treasure.gold; s.score += t.treasure.gold; say(s, `Buried treasure! ${t.treasure.gold} gold.`); s.events.push({ type: 'coin' }); return { type: 'dig' }; }
   if (s.ship && onPier(s) && Math.hypot(s.ship.x - s.foot.x, s.ship.z - s.foot.z) < DOCK_RANGE) { s.mode = 'ship'; s.ship.speed = 0; s.ship.trim = bestTrim(s.ship.yaw, s.wind, 0); say(s, 'Aboard! W lets the sail out; Z and C swing the boom.'); return { type: 'board' }; }
