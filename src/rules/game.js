@@ -738,7 +738,7 @@ export function step(s, input, dt = DT) {
 // the nearest point on a pier (dock) within `range` of (x, z), or null: ships dock and passengers board only here
 function dockSpot(s, x, z, range) {
   let best = null;
-  for (const i of islandsAt(s, x, z)) if (!i.port && i.landing) { const l = i.landing, dist = Math.hypot(l.x - x, l.z - z); if (dist <= range + 6 && (!best || dist < best.dist)) best = { x: l.x, z: l.z, y: groundAt(s, l.x, l.z), yaw: Math.atan2(i.z - l.z, i.x - l.x), dist }; }
+  for (const i of islandsAt(s, x, z)) if (!i.port && i.landing) { const l = i.landing, dist = Math.hypot(l.x - x, l.z - z); if (dist <= range + 6 && (!best || dist < best.dist)) best = { x: l.x, z: l.z, y: groundAt(s, l.x, l.z), yaw: Math.atan2(i.z - l.z, i.x - l.x), dist, at: l }; }
   for (const i of islandsAt(s, x, z)) if (i.port) {
     const d = i.port.dock, bx = d.x1 - d.x0, bz = d.z1 - d.z0, t = Math.max(0, Math.min(1, ((x - d.x0) * bx + (z - d.z0) * bz) / (bx * bx + bz * bz || 1))), px = d.x0 + bx * t, pz = d.z0 + bz * t, dist = Math.hypot(px - x, pz - z);
     if (dist <= range && (!best || dist < best.dist)) best = { x: px, z: pz, y: groundAt(s, px, pz), yaw: Math.atan2(bz, bx), dist };
@@ -804,7 +804,7 @@ export function interact(s) {
   if (s.mode === 'ship') {
     const l = findLand(s); if (!l && denHere(s)) { const wx = weatherNow(s); startDenDive(s, say, wx.storm > 0.6, foeNear); return { type: s.dive ? 'dive' : 'none' }; } const wk = !l && wreckHere(s); if (wk) { const wx = weatherNow(s); startDive(s, wk, say, wx.storm > 0.6, foeNear, (roughOf(wx) - 1) / 0.8); return { type: s.dive ? 'dive' : 'none' }; }
     if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
-    unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, 'Ashore.'); return { type: 'ashore' };
+    unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, islandsAt(s, l.x, l.z).some((i) => i.landing === l.at && islandTown(i).yard) ? 'Ashore. A footpath leads up to a hamlet.' : 'Ashore.'); return { type: 'ashore' };
   }
   const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
   const qa = nearActor(s); if (qa) return useActor(s, qa, G);

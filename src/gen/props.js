@@ -11,10 +11,10 @@ export function islandProps(isl) {
 }
 export const LANDMARK = { asgard: 'rune', atlantis: 'pillar', olympus: 'statue' };
 function build(isl) {
-  const out = [], town = islandTown(isl), pl = town.plaza, r = rngFor(isl.seed, 3), placed = [];
+  const out = [], town = islandTown(isl), pl = town.plaza, yd = town.yard, r = rngFor(isl.seed, 3), placed = [];
   const FRONT = { temple: 4, mine: 4, cave: 4 }; // the ground in front of a temple's steps or a mine or cave mouth stays clear of bushes and flowers
   const free = (x, z, pad) => !(town.marks || []).some((b) => Math.abs(b.x - x) < b.w / 2 + pad && z - b.z < b.d / 2 + pad + (FRONT[b.k] || 0) && b.z - z < b.d / 2 + pad) && !town.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + pad && Math.abs(b.z - z) < b.d / 2 + pad + 1.5)
-    && !(pl && Math.hypot(pl.x - x, pl.z - z) < 9 + pad) && dockDist(isl, x, z) > 4 && pathDist(isl, x, z) > 2.2;
+    && !(pl && Math.hypot(pl.x - x, pl.z - z) < 9 + pad) && !(yd && Math.hypot(yd.x - x, yd.z - z) < 5 + pad) && dockDist(isl, x, z) > 4 && pathDist(isl, x, z) > 2.2;
   const scatter = (n, lo, hi, k, pad, ymax = 0.75) => {
     for (let i = 0; i < n; i++) {
       const a = r() * TAU, d = range(r, lo, hi) * isl.r, x = isl.x + Math.cos(a) * d, z = isl.z + Math.sin(a) * d, y = islandHeight(isl, x, z), v = (r() * 8) | 0;
@@ -92,6 +92,10 @@ function build(isl) {
       if (k % 3 === 0) { out.push({ k: 'lamp', x: x - uz * 1.65, z: z + ux * 1.65, v: 1 }); out.push({ k: 'lamp', x: x + uz * 1.65, z: z - ux * 1.65, v: 1 }); }
       else if (k > 1 && rr() < 0.35) out.push({ k: rr() < 0.5 ? 'crate' : 'barrel', x: x - uz * 1.5 * s, z: z + ux * 1.5 * s, v: (rr() * 4) | 0 });
     }
+  }
+  if (yd) { // a hamlet: the well in its yard, a bench, and a barrel or crate against the side wall of each house (out of the way of its door)
+    out.push({ k: 'well', x: yd.x, z: yd.z, v: 0 }, { k: 'bench', x: yd.x + 2.6, z: yd.z + 2.8, v: 0 });
+    town.buildings.forEach((b, i) => out.push({ k: i % 2 ? 'crate' : 'barrel', x: b.x + (i & 1 ? 1 : -1) * (b.w / 2 + 0.7), z: b.z + b.d / 2 - 0.9, v: i & 3 }));
   }
   if (isl.treasure) out.push({ k: 'xmark', x: isl.treasure.x, z: isl.treasure.z, v: 0 });
   return out.sort((a, b) => a.z - b.z);

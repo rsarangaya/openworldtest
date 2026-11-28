@@ -131,6 +131,14 @@ function landmark(m, k, x, y, z, w, d, seed) {
     for (const [dx, len, wid] of [[0, 3, 1.9], [1.9, 1.1, 1.3], [-1.9, 1.1, 1.5], [2.65, 0.5, 0.6]]) m.box(x + dx, y + 0.7, z, len, 0.8, wid, wood, 0.25);
     m.box(x, y + 1.14, z, 3.2, 0.08, 1.35, dark); for (const s of [-1, 1]) { m.box(x, y + 1.2, z + s * 0.95, 4.4, 0.16, 0.14, [0.62, 0.46, 0.28]); m.box(x + s * 1.3, y + 0.2, z, 0.5, 0.4, 1.4, dark); }
     m.blob(x - 1.2, y + 0.15, z + 1.7, 0.7, [0.55, 0.5, 0.36], 0.4);
+  } else if (k === 'plot') { // a hamlet's crop plot: tilled rows of greens or grain inside a post-and-rail fence
+    const crop = Math.abs(Math.round(x + z)) % 3 ? [0.34, 0.58, 0.26] : [0.84, 0.72, 0.32];
+    m.box(x, y + 0.05, z, w - 0.3, 0.12, d - 0.3, [0.42, 0.3, 0.2]);
+    for (let i = 0, n = Math.floor((d - 1) / 0.9); i < n; i++) m.box(x, y + 0.3, z - (n - 1) * 0.45 + i * 0.9, w - 1.2, 0.4, 0.42, crop);
+    for (const [ax, az, len, alongX] of [[0, -d / 2, w, 1], [0, d / 2, w, 1], [-w / 2, 0, d, 0], [w / 2, 0, d, 0]]) {
+      for (const hy of [0.5, 0.95]) m.box(x + ax, y + hy, z + az, alongX ? len : 0.1, 0.1, alongX ? 0.1 : len, wood);
+      for (let p = 0, n = Math.max(2, Math.round(len / 1.6)); p <= n; p++) { const o = -len / 2 + (p * len) / n; m.box(x + ax + (alongX ? o : 0), y + 0.55, z + az + (alongX ? 0 : o), 0.16, 1.1, 0.16, dark); }
+    }
   } else if (k === 'hall') { // an open market hall: four pillars, a tiled roof, counters of goods
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(x + sx * (w / 2 - 0.3), y + 1.9, z + sz * (d / 2 - 0.3), 0.55, 3.8, 0.55, [0.92, 0.88, 0.78]);
     const ex = w / 2 + 0.6, ez = d / 2 + 0.6, e = y + 3.7, ry = y + 5.6, red = [0.76, 0.24, 0.16], rd = [0.6, 0.18, 0.12];
@@ -266,7 +274,7 @@ export const islandMesh = (isl) => ({ ground: islandGround(isl), structs: island
 export function islandGround(isl) { const it = islandGroundSteps(isl); for (;;) { const r = it.next(); if (r.done) return r.value; } }
 // the ground pauses between its heavy stages (heights, colours, rows of triangles) so the caller can spread it over several frames
 export function* islandGroundSteps(isl) {
-  const m = new Mesh(), town = islandTown(isl), ext = isl.r * 1.5, N = clamp(Math.round((ext * 2) / (isl.port ? 4.5 : 6)), 24, 72), st = (ext * 2) / N, W = N + 1, H = new Float32Array(W * W);
+  const m = new Mesh(), town = islandTown(isl), ext = isl.r * 1.5, N = clamp(Math.round((ext * 2) / (isl.port || town.yard ? 4.5 : 6)), 24, 72), st = (ext * 2) / N, W = N + 1, H = new Float32Array(W * W);
   for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { H[j * W + i] = Math.max(-2, islandHeight(isl, isl.x - ext + i * st, isl.z - ext + j * st)); if (i === N && j % 24 === 23) yield; }
   yield;
   const h = (i, j) => H[clamp(j, 0, N) * W + clamp(i, 0, N)];
@@ -278,7 +286,8 @@ export function* islandGroundSteps(isl) {
     let c = terrainColor(isl, y, 1 - nrm[1]);
     c = dim(c, 0.94 + 0.12 * fbm(isl.seed + 3, x * 0.03, z * 0.03, 1)); // gentle large-scale tint only: no fine noise that shimmers
     if (y < 0.35 && y > -1.3) c = lerp3(c, [0.95, 0.98, 1], clamp((1 - Math.abs(y + 0.45) / 0.85) * 0.6, 0, 0.6));
-    if (isl.port) {
+    if (isl.port || town.yard) {
+      if (town.yard) { const d = Math.hypot(x - town.yard.x, z - town.yard.z); if (d < 5.5) c = lerp3(c, [0.6, 0.5, 0.36], sstep(5.5, 4.2, d)); } // a hamlet's trodden yard
       if (pl) { const d = Math.hypot(x - pl.x, z - pl.z); if (d < 10.2) c = lerp3(c, [0.62, 0.6, 0.56], sstep(10.2, 8.6, d)); }
       const pd = pathDist(isl, x, z); if (pd < 2 && y > 0.4) c = lerp3(c, [0.64, 0.54, 0.38], 1 - sstep(1.0, 2.0, pd));
       for (const b of town.buildings) { const d = Math.max(Math.abs(x - b.x) - b.w / 2, Math.abs(z - b.z) - b.d / 2); if (d < 3.2) c = dim(c, 0.74 + 0.26 * sstep(0, 3.2, Math.max(d, 0))); }
@@ -298,7 +307,7 @@ export function* islandGroundSteps(isl) {
     if (i === 0 && j % 12 === 11) yield;
     if (Math.max(h(i, j), h(i + 1, j), h(i + 1, j + 1), h(i, j + 1)) < -1.5) continue;
     const x0 = isl.x - ext + i * st, z0 = isl.z - ext + j * st;
-    if (isl.port && nearBuilding(x0, z0, x0 + st, z0 + st)) {
+    if ((isl.port || town.yard) && nearBuilding(x0, z0, x0 + st, z0 + st)) {
       const S = 3, make = (a, b) => vtx(x0 + (a * st) / S, z0 + (b * st) / S, a === 0 || b === 0 || a === S || b === S ? (h(i, j) * (S - a) + h(i + 1, j) * a) / S * (S - b) / S + (h(i, j + 1) * (S - a) + h(i + 1, j + 1) * a) / S * b / S : undefined), G = [];
       const q = (a, b) => { const key = (j * S + b) * (N * S + 1) + i * S + a; let v = fine.get(key); if (!v) fine.set(key, (v = make(a, b))); return v; };
       for (let b2 = 0; b2 <= S; b2++) for (let a2 = 0; a2 <= S; a2++) G.push(q(a2, b2));
