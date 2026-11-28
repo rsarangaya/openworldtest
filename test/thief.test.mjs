@@ -34,10 +34,21 @@ test('run him down: the cutpurse drops the purse and the town thanks you', () =>
   assert.ok(tries >= 12, `tries ${tries}`); assert.ok(caught / tries >= 0.75, `caught ${caught}/${tries}`);
 });
 
-test('stand still: he gets away with the gold', () => {
+test('stand still: the watch turns out, and the watchman either nabs him (purse back, to the cells) or loses him', () => {
+  let nab = 0, gone = 0;
+  for (let seed = 1; seed <= 8; seed++) for (let k = 0; k < 2; k++) {
+    const { s, isl } = ashore(seed, k), rep0 = localRep(s, isl.id), o = startThief(s, isl); if (!o) continue; run(s, THIEF_S + 2, () => ({}));
+    const L = s.log.join(' '); assert.equal(s.thief, null); assert.ok(/Stop, thief!/.test(L), 'a watchman hears the shout');
+    if (/tackles the cutpurse/.test(L)) { nab++; assert.equal(s.gold, 300, 'purse back, no reward'); assert.ok(/to the cells/.test(L)); assert.ok(localRep(s, isl.id) > rep0); }
+    else { gone++; assert.equal(s.gold, 300 - o.amt, 'gold gone'); assert.ok(/lost in the dark lanes/.test(L)); }
+  }
+  assert.ok(nab >= 3 && gone >= 3, `the watchman is a help, not a sure thing: nabbed ${nab}, lost ${gone}`);
+});
+
+test('wanted here: no watchman turns out for you, and he gets away', () => {
   for (let seed = 1; seed <= 4; seed++) {
-    const { s, isl } = ashore(seed), o = startThief(s, isl); assert.ok(o); run(s, THIEF_S + 2, () => ({}));
-    assert.equal(s.thief, null); assert.equal(s.gold, 300 - o.amt, 'gold gone'); assert.ok(/lost in the dark lanes/.test(s.log.join(' ')));
+    const { s, isl } = ashore(seed); s.alert[isl.id] = s.t + 999; const o = startThief(s, isl); assert.ok(o); run(s, THIEF_S + 2, () => ({}));
+    assert.ok(!/Stop, thief!/.test(s.log.join(' '))); assert.equal(s.gold, 300 - o.amt);
   }
 });
 
