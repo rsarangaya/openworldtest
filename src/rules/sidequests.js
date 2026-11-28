@@ -164,7 +164,7 @@ const place = (i) => ({ id: i.id, name: nameOf(i), x: i.x, z: i.z });
 // the words and places of one quest
 function ctxOf(s, q) {
   const r = rngFor(q.seed, 11), w = q.realm || realm(s), crews = rivalCrews(s.seed), giver = captainName(r, w), other = captainName(r, w), third = captainName(r, w), cr = pick(r, crews), d = q.b ? Math.hypot(q.b.x - q.from.x, q.b.z - q.from.z) : 0;
-  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, twist: r() < 0.5, maid: maidName(r), pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), home: q.from.name, a: q.a?.name, b: q.b?.name };
+  return { giver, other, third, crew: cr.name, rival: cr.captain, rship: cr.ship, rkind: ['raider', 'trader', 'navy'][cr.id], twist: r() < 0.5, maid: maidName(r), pay: T[q.tpl].pay, secs: q.b ? Math.round(240 + d / 5) : 0, rsecs: Math.round(RACE_SLACK + d / RIVAL_SPEED), home: q.from.name, a: q.a?.name, b: q.b?.name };
 }
 export const stepOf = (s, q) => T[q.tpl].steps(ctxOf(s, q))[q.step];
 export const titleOf = (q) => T[q.tpl].title;
@@ -267,9 +267,45 @@ function stepClocks(s, g) {
   for (const q of [...sideOf(s)]) {
     const st = stepOf(s, q);
     if (q.due && s.t > q.due) { g.say(s, st.late.say); if (st.late.to) advance(s, q, {}, st.late.to, g); else finish(s, q, g, true); continue; }
+    if (q.tpl === 'race') raceNews(s, q, g);
     if (st.kind === 'board' && q.realm === realm(s) && s.mode === 'ship' && s.ship && !s.enemies.has('s' + q.id)) { const p = placeOf(s, q); if (Math.hypot(p.x - s.ship.x, p.z - s.ship.z) < 900) g.ship(s, q, st.ship, st.name, p); }
   }
 }
+// the rival's ship in a race: she casts off RACE_OUT s after the bet, sails round the islands in the way at the pace that makes her time, and ties up
+// off the judge's dock RACE_SLACK - RACE_OUT s before the clock runs out. Worked out from the clock alone, so nothing of her goes in the save.
+export const RACE_OUT = 15;
+const routes = new WeakMap(); // the race (a loaded save starts afresh) -> her course (a point off each dock, the line between pushed clear of land)
+function raceRoute(s, q, g) {
+  const c = ctxOf(s, q), end = (p, side) => { const isl = g.nearby(s, p.x, p.z, 1).find((i) => i.id === p.id), k = isl?.port?.dock; if (!k) return { x: p.x, z: p.z };
+    const l = Math.hypot(k.x0 - k.x1, k.z0 - k.z1) || 1, ux = (k.x0 - k.x1) / l, uz = (k.z0 - k.z1) / l; return { x: k.x0 + ux * 16 - uz * side, z: k.z0 + uz * 16 + ux * side }; };
+  const a = end(q.from, 0), b = end(q.b, 9), n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 25)), pts = [a];
+  for (let i = 1; i < n; i++) { // a point of the straight line over land is pushed out from that island's middle until she has sea room
+    let x = a.x + ((b.x - a.x) * i) / n, z = a.z + ((b.z - a.z) * i) / n;
+    for (let k = 0, isl; k < 40 && (isl = g.land(s, x, z)); k++) { const l = Math.hypot(x - isl.x, z - isl.z) || 1; x += ((x - isl.x) / l) * 8; z += ((z - isl.z) / l) * 8; }
+    pts.push({ x, z });
+  }
+  pts.push(b); const at = [0]; for (let i = 1; i < pts.length; i++) at.push(at[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z));
+  return { pts, at, len: at[at.length - 1], rsecs: c.rsecs, seed: hash(q.seed, 61), kind: c.rkind, name: c.rship, crew: c.crew, to: c.b };
+}
+export function rivalShip(s, q, g) {
+  if (q.tpl !== 'race' || q.step !== 'start' || !q.due || q.realm !== realm(s)) return null;
+  let R = routes.get(q); if (!R) { R = raceRoute(s, q, g); routes.set(q, R); }
+  const sail = R.rsecs - RACE_SLACK, u = Math.max(0, Math.min(1, (s.t - (q.due - R.rsecs) - RACE_OUT) / sail)), m = u * R.len;
+  let i = 1; while (i < R.pts.length - 1 && R.at[i] < m) i++;
+  const p = R.pts[i - 1], n = R.pts[i], f = Math.min(1, (m - R.at[i - 1]) / (R.at[i] - R.at[i - 1] || 1));
+  return { id: 'r' + q.id, seed: R.seed, kind: R.kind, name: R.name, x: p.x + (n.x - p.x) * f, z: p.z + (n.z - p.z) * f, yaw: Math.atan2(n.z - p.z, n.x - p.x), speed: u > 0 && u < 1 ? R.len / sail : 0, left: R.len - m, done: u >= 1, R };
+}
+// once a second in a race: a word when she casts off, when one of you passes the other at sea, and when she is in
+function raceNews(s, q, g) {
+  const r = rivalShip(s, q, g); if (!r) return; const R = r.R, B = R.pts[R.pts.length - 1];
+  if (r.speed && !R.off) { R.off = true; g.say(s, `${r.name} casts off, ${R.crew} jeering from the rail.`); }
+  if (r.done) { if (!R.in) { R.in = true; g.say(s, `${r.name} is in at ${R.to}. Find the judge before ${R.crew} do!`); } return; }
+  if (s.mode !== 'ship' || !s.ship || !r.speed) return;
+  const lead = Math.hypot(B.x - s.ship.x, B.z - s.ship.z) < r.left;
+  if (R.lead !== undefined && lead !== R.lead && s.t - (R.saidT || -99) > 20) { R.saidT = s.t; g.say(s, lead ? `You pass ${r.name}!` : `${r.name} slips past you.`); }
+  R.lead = lead;
+}
+export const rivalShips = (s, g) => (s.side || []).map((q) => rivalShip(s, q, g)).filter(Boolean);
 // a story ship was taken (boarded) or went to the bottom
 export function sideShip(s, e, taken, g) {
   const q = e.quest && sideOf(s).find((v) => v.id === e.quest); if (!q) return;
