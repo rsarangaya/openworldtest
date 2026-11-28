@@ -41,8 +41,9 @@ export function createUnder(renderer) {
     if (!d.den) { const tilt = h & 1 ? 1 : -1; objects.push({ m: hullOf(h % 997, realm), mat: model(dv.wx, fy + 0.9, dv.wz, (h % 628) / 100, 0.1 * tilt, 0.42 * tilt, 0.75), tint: [0.8, 0.62, 0.45] }); } // an old hull on her side, half in the sand
     else if (sprites) { const ax = dv.wx + Math.cos(dv.yaw + Math.PI) * 6, az = dv.wz + Math.sin(dv.yaw + Math.PI) * 6; for (let i = 0; i < 2; i++) bb(sprites.critter('krarm', i ? 'L' : 'R', (Math.floor(t * 1.5) + i) % 2), ax + (i ? 3 : -3), fy + 2.6, az, 2.2); } // arms curling out of the den
     if (!sprites) return;
+    if (d.swim) for (const it of d.swim.loot) if (!it.got) { bb(sprites.prop({ k: it.k === 'coin' ? 'barrel' : 'crate', v: it.k === 'box' ? 1 : 0 }, 0), it.x, fy + 0.15, it.z, it.k === 'coin' ? 0.9 : 1.2); if (((t * 3 + it.x) | 0) % 3 === 0) bb(sprites.fx('flash'), it.x, fy + 1.4, it.z, 0.25); } // what you can pick up, with a glint to find it by
     for (let i = 0; i < 6; i++) { const a = t * (0.25 + i * 0.03) * (i & 1 ? 1 : -1) + i * 1.1, r = 9 + i * 3, kind = i < 4 ? 'school' : SWIM[realm] || 'turtle'; // fish circling the wreck at different depths
       bb(sprites.critter(kind, (i & 1 ? 1 : -1) > 0 ? 'R' : 'L', ((t * 2 + i) | 0) & 1), dv.wx + Math.cos(a) * r, fy + 4 + (i % 3) * 3.5, dv.wz + Math.sin(a) * r, kind === 'school' ? 1.6 : 2); }
-    for (let i = 0; i < 3; i++) { const u = (t * 0.7 + i / 3) % 1; bb(sprites.fx('splash'), dv.x + Math.cos(dv.yaw) * 1.6 + (i - 1) * 0.3, dv.y - 0.6 + u * 2.2, dv.z + Math.sin(dv.yaw) * 1.6, 0.05 + u * 0.05); } // the diver's own bubbles
+    for (let i = 0; i < 3; i++) { const u = (t * 0.7 + i / 3) % 1; bb(sprites.fx('splash'), dv.x + Math.cos(dv.yaw) * 1.6 + (i - 1) * 0.3, dv.y + (d.swim ? 0.9 : -0.6) + u * 2.2, dv.z + Math.sin(dv.yaw) * 1.6, 0.05 + u * 0.05); } // the diver's own bubbles
   };
 }

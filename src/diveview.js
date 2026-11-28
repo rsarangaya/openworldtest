@@ -9,7 +9,7 @@ const c = (f, l) => PAL[1 + f * 6 + Math.max(0, Math.min(5, l))], GREY = (k) => 
 // per world: water hue family, sea-floor colour pair, fish colour
 const LOOK = { terra: [8, [c(3, 3), c(3, 2)], c(3, 4)], asgard: [10, [GREY(4), GREY(3)], GREY(7)], atlantis: [7, [c(3, 4), c(3, 3)], c(1, 4)], olympus: [9, [c(2, 3), c(2, 2)], c(9, 5)] };
 const strHash = (t) => { let h = 2166136261; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); return h >>> 0; };
-const PHASE = { down: 'going down the line', search: 'searching the wreck', up: 'coming back up' }, DEN = { down: 'going down with the keg', search: 'setting the keg', up: 'swimming clear' };
+const PHASE = { down: 'going down the line', search: 'searching the wreck', up: 'coming back up', swim: 'you are swimming' }, DEN = { down: 'going down with the keg', search: 'setting the keg', up: 'swimming clear' };
 const GOLD = PAL[103], KR = (l) => c(13, l); // the kraken's red-purple and gold eyes, as on its surface sprites
 
 export function createDiveView() {

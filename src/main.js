@@ -19,7 +19,7 @@ import { serpentParts, LUNGE_AT } from './rules/serpent.js';
 import { krakenParts } from './rules/kraken.js';
 import { rockAt, SPLASH_R } from './rules/cyclops.js';
 import { hydraParts } from './rules/hydra.js';
-import { wrecksNear, diverAt, diveStage } from './rules/salvage.js';
+import { wrecksNear, diverAt, diveStage, startSwim } from './rules/salvage.js';
 import { createUnder } from './under.js';
 import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
 import { quantize } from './render/palette.js';
@@ -148,7 +148,8 @@ function updateCamera(dt, t) {
   const k = cam.blend * cam.blend * (3 - 2 * cam.blend), f = poseFoot(), p = cam.blend > 0 && s.ship ? poseShip() : f;
   cam.x = lerp(f.x, p.x, k); cam.y = lerp(f.y, p.y, k); cam.z = lerp(f.z, p.z, k); cam.pitch = lerp(f.pitch, p.pitch, k); cam.yaw = f.yaw + wrapPi(p.yaw - f.yaw) * k;
   dvNow = underOn && s.mode === 'ship' && s.dive ? diverAt(s) : null;
-  if (dvNow) { cam.x = dvNow.x; cam.y = dvNow.y + Math.sin(t * 1.7) * 0.15; cam.z = dvNow.z; cam.yaw = dvNow.yaw + orbit.yaw; cam.pitch = Math.max(-1.2, Math.min(1.2, dvNow.pitch + orbit.pitch + 0.22)); } // on the diver, looking at the wreck (the mouse looks round)
+  if (dvNow?.swim) { cam.x = dvNow.x; cam.y = dvNow.y + Math.sin(t * 1.7) * 0.08; cam.z = dvNow.z; cam.yaw = view.yaw; cam.pitch = view.pitch; } // swimming: you look where you swim
+  else if (dvNow) { cam.x = dvNow.x; cam.y = dvNow.y + Math.sin(t * 1.7) * 0.15; cam.z = dvNow.z; cam.yaw = dvNow.yaw + orbit.yaw; cam.pitch = Math.max(-1.2, Math.min(1.2, dvNow.pitch + orbit.pitch + 0.22)); } // on the diver, looking at the wreck (the mouse looks round)
   if (s.mode === 'ship') { orbit.idle += dt; if (orbit.idle > 2.5) orbit.yaw *= 1 - Math.min(1, dt * 1.5), orbit.pitch = lerp(orbit.pitch, -0.22, Math.min(1, dt * 1.5)); }
 }
 
@@ -339,7 +340,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyT' && s?.mode === 'ship') cycleOrder(s, say);
   else if (e.code === 'KeyM' && !mapAvailable(s)) say(s, 'You have no map. An old cartographer in Port Haven might part with one for a favour.');
   else if (e.code === 'KeyM') { phase = 'panel'; unlock(); ui.map(s, () => { phase = 'play'; lock(); }, (id) => { phase = 'warp'; ui.fade(true); setTimeout(() => { travelTo(s, id); const f = s.mode === 'ship' ? s.ship : s.foot; clearLife(); updateSectors(f.x, f.z, true); view.yaw = s.mode === 'ship' ? s.ship.yaw : s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22; keys.clear(); ui.fade(false); phase = 'play'; lock(); saveGame(s); }, 900); }); }
-  else if (e.code === 'KeyV' && s?.mode === 'ship' && s.dive) { underOn = !underOn; orbit.yaw = 0; orbit.pitch = -0.22; }
+  else if (e.code === 'KeyV' && s?.mode === 'ship' && s.dive) { if (s.dive.swim) s.dive.swim.leave = true; underOn = !underOn; orbit.yaw = 0; orbit.pitch = -0.22; if (underOn) takeDiver(); }
   else if (e.code === 'KeyR') toggleAuto(s);
   else if (e.code === 'KeyO') toggleRow(s);
   else if (e.code === 'Tab') { phase = 'panel'; unlock(); ui.questLog(s, () => { phase = 'play'; lock(); }); }
@@ -352,7 +353,7 @@ addEventListener('mousemove', (e) => {
   if (phase !== 'play' || !locked()) return;
   const k = 0.0022 * opts.sens, cl = (v) => Math.max(-200, Math.min(200, v)); // Chrome can report one huge jump when the lock is (re)acquired: it must not pin the view straight up
   const mvX = cl(e.movementX), mvY = cl(e.movementY);
-  if (s.mode === 'foot') { view.yaw += mvX * k; view.pitch = Math.max(-1.45, Math.min(1.45, view.pitch - mvY * k)); }
+  if (s.mode === 'foot' || s.dive?.swim) { view.yaw += mvX * k; view.pitch = Math.max(-1.45, Math.min(1.45, view.pitch - mvY * k)); }
   else { orbit.yaw += mvX * k; orbit.pitch = Math.max(-0.9, Math.min(0.15, orbit.pitch - mvY * k)); orbit.idle = 0; }
 });
 canvas.addEventListener('click', () => { audio.init(); if (phase === 'play' && !locked()) { goFullscreen(); lock(); } }); // only the click that captures the mouse may go fullscreen: attack clicks must never drop the pointer lock
@@ -364,8 +365,10 @@ document.addEventListener('pointerlockchange', () => {
 });
 addEventListener('resize', resize);
 
+// going down with the diver on a wreck hands you the diver to swim (rules/salvage.js startSwim); you look the way they face
+function takeDiver() { const v = diverAt(s); if (v && startSwim(s, (roughOf(weatherNow(s)) - 1) / 0.8)) { view.yaw = v.yaw; view.pitch = v.pitch; } }
 function onInteract() {
-  const r = interact(s);
+  const r = interact(s); if (r.type === 'dive' && underOn) takeDiver();
   if (r.type === 'npc') {
     phase = 'panel'; unlock();
     ui.dialog(s, r, { island: standingOn(s), audio, say: (m) => say(s, m), onChange: () => saveGame(s), onClose: () => { phase = 'play'; lock(); saveGame(s); } });
@@ -444,7 +447,7 @@ function advance(dt, maxSteps) {
     for (let n = 0; acc >= DT && n < maxSteps; n++, acc -= DT) {
       const on = (k) => (keys.has(k) ? 1 : 0);
       step(s, s.mode === 'ship'
-        ? { rudder: on('KeyD') - on('KeyA'), sail: on('KeyW') - on('KeyS'), trim: on('KeyC') - on('KeyZ'), fireL: keys.has('KeyQ'), fireR: keys.has('KeyE') }
+        ? { rudder: on('KeyD') - on('KeyA'), sail: on('KeyW') - on('KeyS'), trim: on('KeyC') - on('KeyZ'), fireL: keys.has('KeyQ'), fireR: keys.has('KeyE'), swim: s.dive?.swim ? { mx: on('KeyD') - on('KeyA'), mz: on('KeyW') - on('KeyS'), up: keys.has('Space'), yaw: view.yaw, pitch: view.pitch } : undefined }
         : { mx: on('KeyD') - on('KeyA'), mz: on('KeyW') - on('KeyS'), run: keys.has('ShiftLeft') || keys.has('ShiftRight'), jump: keys.has('Space'), yaw: view.yaw, attack: keys.has('KeyQ') || mouseDown, wsel: (() => { const w = wsel; wsel = 0; return w; })() }, DT);
     }
     for (const ev of s.events) {

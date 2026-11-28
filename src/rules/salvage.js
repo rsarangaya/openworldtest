@@ -54,14 +54,16 @@ const DEN = { name: "The kraken's den", deep: true }; // a diver sent down to th
 // what the dive view shows: the wreck (or the den), how far through the dive (k 0..1), the diver's depth (0 surface .. 1 at the bottom) and what they are doing
 export function diveStage(s) {
   const d = s.dive, w = d && (d.den ? DEN : all(s).find((q) => q.id === d.id)); if (!w) return null;
+  if (d.swim) return { w, k: 0.5, phase: 'swim', depth: Math.max(0, Math.min(1, d.swim.y / d.swim.floor)), realm: realm(s), last: divesLeft(s, w) === 1, den: false, swim: d.swim };
   const k = Math.max(0, Math.min(1, (s.t - d.t0) / DIVE_S)), phase = k < 0.4 ? 'down' : k < 0.75 ? 'search' : 'up';
   return { w, k, phase, depth: phase === 'down' ? k / 0.4 : phase === 'search' ? 1 : 1 - (k - 0.75) / 0.25, realm: realm(s), last: !d.den && divesLeft(s, w) === 1, den: !!d.den };
 }
 // a step at sea while a diver is down: hold the ship still, haul them up on trouble, pay out when they surface
-export function stepDive(s, dt, say, puff, danger, rough = 0) {
+export function stepDive(s, dt, say, puff, danger, rough = 0, swim) {
   const d = s.dive; if (!d) return; const p = s.ship, w = live(s).find((q) => q.id === d.id);
   p.speed *= 1 - Math.min(1, dt * 2); p.sail = 0;
   if (!w || danger(s, SAFE_R * 0.75)) { s.dive = null; say(s, 'Trouble! Your diver is hauled back up empty-handed.'); return; }
+  if (d.swim) return stepSwim(s, w, dt, say, puff, swim);
   if (s.t - d.t0 < DIVE_S) return;
   s.dive = null; const k = keyOf(s, w), n = ((s.salvage ||= {})[k] || 0) + 1, name = w.name.replace(/^The /, '');
   const risk = diveRisk(w, n, rough), roll = (hash(s.seed, 9200 + n, (d.t0 * 10) | 0) % 1000) / 1000, hurt = roll < risk / 2;
@@ -81,10 +83,64 @@ export function stepDive(s, dt, say, puff, danger, rough = 0) {
 export const FLOOR = { near: 16, deep: 26 }; // how far down the sea floor lies under a near wreck and a deep one (and the den)
 export function diverAt(s, d = diveStage(s)) {
   if (!d || !s.ship) return null;
+  if (d.swim) { const q = d.swim; return { x: q.x, y: q.y, z: q.z, wx: d.w.x, wz: d.w.z, floor: q.floor, yaw: q.yaw || 0, pitch: 0, swim: q }; }
   const p = s.ship, m = d.den && s.kraken, wx = d.den ? (m ? m.lx : p.x) : d.w.x, wz = d.den ? (m ? m.lz : p.z) : d.w.z, fy = -(d.w.deep ? FLOOR.deep : FLOOR.near);
   const sx = p.x - Math.sin(p.yaw) * 3, sz = p.z + Math.cos(p.yaw) * 3, a0 = Math.atan2(sz - wz, sx - wx), e = (u) => u * u * (3 - 2 * u);
   let x, y, z;
   if (d.phase === 'search') { const a = a0 + ((d.k - 0.4) / 0.35) * 2.4; x = wx + Math.cos(a) * 16; z = wz + Math.sin(a) * 16; y = fy + 4.5; }
   else { const u = e(d.depth), bx = wx + Math.cos(d.phase === 'up' ? a0 + 2.4 : a0) * 16, bz = wz + Math.sin(d.phase === 'up' ? a0 + 2.4 : a0) * 16; x = sx + (bx - sx) * u; z = sz + (bz - sz) * u; y = -2.4 + (fy + 4.5 + 2.4) * u; }
   return { x, y, z, wx, wz, floor: fy, yaw: Math.atan2(wz - z, wx - x), pitch: Math.atan2(fy + 1.5 - y, Math.hypot(wx - x, wz - z) || 1) };
+}
+// Swimming the dive yourself (round 132, underwater in 3D, step 2). Going down with the diver (V) hands you the diver: swim where you look
+// with W/S, A/D to the side, Space up, and pick up the casks of coins and cargo crates lying round the wreck (the strongbox by her hull on the
+// last dive) by swimming to them. Air runs out in AIR_S seconds (less in a swell); come up beside the ship to bank what you carry. Out of air,
+// the crew hauls you up gasping: half the coins, the cargo dropped, and a rest before the next dive. A swim dive with nothing found does not count.
+export const AIR_S = 45, SWIM_V = 4.2, GRAB_R = 2.4, SURF_R = 12, ROAM_R = 44;
+// what lies on the floor for dive n of a wreck: [{ x, z, k: 'coin' | 'crate' | 'box', v }]
+export function swimLoot(s, w, n) {
+  const last = n >= DIVES, r = (i, q) => hash(s.seed, 9300 + n * 7 + i, q) % 1000 / 1000, at = (i, r0, r1) => { const a = r(i, 1) * 6.283, d = r0 + r(i, 2) * (r1 - r0); return { x: w.x + Math.cos(a) * d, z: w.z + Math.sin(a) * d }; };
+  if (last) return [{ ...at(0, 3, 5), k: 'box', v: BOX[0] + (hash(s.seed, 9170 + w.id.length + n) % (BOX[1] - BOX[0])) }];
+  const gold = 40 + (hash(s.seed, 9180 + n, w.x | 0) % 70), out = [];
+  for (let i = 0; i < 3; i++) out.push({ ...at(i, 6, 26), k: 'coin', v: Math.round(gold * (i < 2 ? 0.4 : 0.2)) });
+  for (let i = 0, c = 1 + (hash(s.seed, 9190 + n, w.z | 0) % 2); i < c; i++) out.push({ ...at(3 + i, 8, 30), k: 'crate', v: 1 });
+  return out;
+}
+// hand the diver to the player: from where the diver is now, or from the ship's side at the start
+export function startSwim(s, rough = 0) {
+  const d = s.dive; if (!d || d.den || d.swim) return false; const w = all(s).find((q) => q.id === d.id); if (!w) return false;
+  const v = diverAt(s), n = DIVES - divesLeft(s, w) + 1;
+  d.swim = { x: v.x, y: v.y, z: v.z, floor: v.floor, air: AIR_S * (1 - 0.3 * Math.max(0, Math.min(1, rough))), loot: swimLoot(s, w, n), gold: 0, crates: 0, box: 0, n };
+  return true;
+}
+// one step of a swim dive. inp: { mx, mz, up, yaw, pitch } (the look sets the way W swims)
+function stepSwim(s, w, dt, say, puff, inp = {}) {
+  const d = s.dive, sw = d.swim, p = s.ship, yaw = inp.yaw ?? 0, pitch = inp.pitch ?? 0, cp = Math.cos(pitch), mz = inp.mz || 0, mx = inp.mx || 0;
+  let vx = Math.cos(yaw) * cp * mz - Math.sin(yaw) * mx, vy = Math.sin(pitch) * mz + (inp.up ? 1 : 0), vz = Math.sin(yaw) * cp * mz + Math.cos(yaw) * mx; const l = Math.hypot(vx, vy, vz);
+  if (l > 1) { vx /= l; vy /= l; vz /= l; } sw.yaw = yaw;
+  sw.x += vx * SWIM_V * dt; sw.y = Math.max(sw.floor + 1, Math.min(-0.8, sw.y + vy * SWIM_V * dt)); sw.z += vz * SWIM_V * dt;
+  const ox = sw.x - w.x, oz = sw.z - w.z, od = Math.hypot(ox, oz); if (od > ROAM_R) { sw.x = w.x + ox / od * ROAM_R; sw.z = w.z + oz / od * ROAM_R; } // the line holds you to the wreck
+  for (const it of sw.loot) if (!it.got && Math.hypot(it.x - sw.x, it.z - sw.z, sw.floor + 0.6 - sw.y) < GRAB_R) {
+    if (it.k === 'crate' && cargoCount(s) + sw.crates >= s.hold) { if (s.t - (sw.fullT || -9) > 4) { sw.fullT = s.t; say(s, 'A crate of ' + w.good + ', but the hold is full: leave it.'); } continue; }
+    it.got = true; if (it.k === 'crate') sw.crates++; else { sw.gold += it.v; if (it.k === 'box') sw.box = it.v; }
+    say(s, it.k === 'box' ? `The ${w.name.replace(/^The /, '')}'s strongbox! Swim it up to the ship.` : it.k === 'crate' ? `A crate of ${w.good}, roped to your belt.` : `A little cask of coins: ${it.v} gold.`); s.events.push({ type: 'coin' });
+  }
+  sw.air -= dt;
+  const atShip = sw.y >= -1.2 && Math.hypot(sw.x - p.x, sw.z - p.z) < SURF_R;
+  if (atShip || sw.leave) return endSwim(s, w, say, puff, false);
+  if (sw.air <= 0) return endSwim(s, w, say, puff, true);
+}
+// the swim ends: at the ship (or V back on deck sets leave: up the line), or out of air
+function endSwim(s, w, say, puff, gasp) {
+  const sw = s.dive.swim, p = s.ship, name = w.name.replace(/^The /, ''), k = keyOf(s, w); s.dive = null; s.salvage ||= {};
+  const gold = gasp ? (sw.gold - (sw.box || 0)) >> 1 : sw.gold, crates = gasp ? 0 : sw.crates, any = gold > 0 || crates > 0;
+  puff(s, 'splash', p.x + Math.cos(p.yaw + 1.57) * 3, 0.6, p.z + Math.sin(p.yaw + 1.57) * 3, 0.8, { sc: 1.6 });
+  if (gasp) s.diveRest = s.t + REST_S;
+  if (!any) { say(s, gasp ? `Out of air! The crew hauls you up the line, coughing, with nothing. You need ${REST_S} s before the next dive.` : `Back on deck with nothing from the ${name}: the haul is still down there.`); s.events.push({ type: 'splash' }); return; }
+  const box = sw.box && !gasp; s.salvage[k] = box ? DIVES : Math.min(DIVES - 1, sw.n); // the strongbox dropped in a gasp stays down: she is not stripped yet
+  s.gold += gold; s.score += gold; if (crates) s.cargo[w.good] = (s.cargo[w.good] || 0) + crates;
+  if (box) s.killsBy.wreck = (s.killsBy.wreck || 0) + 1;
+  const left = DIVES - s.salvage[k], what = `${gold} gold${crates ? ` and ${crates} ${w.good}` : ''}`;
+  say(s, gasp ? `Out of air! The crew hauls you up the line, coughing; you let go of ${sw.box ? 'the strongbox, ' : ''}${sw.crates ? 'the crates and ' : ''}half the coins. +${gold} gold. You need ${REST_S} s before the next dive.`
+    : box ? `You haul the ${name}'s strongbox up beside the ship! +${gold} gold. The wreck is stripped.` : `You surface beside the ship with ${what}. ${left} more dive${left > 1 ? 's' : ''} should strip her.`);
+  s.events.push({ type: 'coin' });
 }
