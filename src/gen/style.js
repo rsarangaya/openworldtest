@@ -26,6 +26,11 @@ export const repairCost = (port) => (port?.style === 'mining' ? 1 : 2); // gold 
 export const isMiner = (isl, seed) => isl?.style === 'mining' && seed % 3 !== 0; // two in three of a mining town's people dress as miners (looks only)
 export const isSmuggler = (isl, seed) => isl?.style === 'smuggler' && seed % 2 === 0; // half a cove's people dress as smugglers (looks only)
 export const isPriest = (isl, seed) => isl?.style === 'temple' && seed % 3 === 0; // one in three of a temple town's people are robed priests (looks only)
+export const isFisher = (isl, seed) => isl?.style === 'fishing' && seed % 2 === 1; // half a fishing village's people wear oilskins and a sou'wester (looks only)
+export const isTrader = (isl, seed) => isl?.style === 'trade' && seed % 3 === 0; // one in three of a trade port's people are traders in a waistcoat (looks only)
+export const isMilitia = (isl, seed) => isl?.style === 'fortress' && seed % 3 === 0; // one in three of a fortress town's people are militia in a quilted coat (looks only)
+// the sprite a stroller in a town is drawn with, by the kind of town
+export const townsKind = (isl, seed) => (isMiner(isl, seed) ? 'miner' : isSmuggler(isl, seed) ? 'smuggler' : isPriest(isl, seed) ? 'priest' : isFisher(isl, seed) ? 'fisher' : isTrader(isl, seed) ? 'trader' : isMilitia(isl, seed) ? 'militia' : 'villager');
 export const OFFERING = 20, OFFER_WAIT = 300; // gold for an offering at the temple; seconds before the same temple takes another
 export const bountyMul = (port) => (port?.style === 'smuggler' ? 0.5 : 1); // gold paid per gold of bounty cleared
 export const weaponMul = (port) => (port?.style === 'fortress' ? 0.85 : 1);

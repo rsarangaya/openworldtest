@@ -25,7 +25,7 @@ import { quantize } from './render/palette.js';
 import { CINE_S, gateOf, gateAngleOf } from './rules/realm.js';
 import { soundScene as sceneOf } from './rules/meadhall.js';
 import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, hamletBeasts, beastPos, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
-import { isMiner, isSmuggler, isPriest } from './gen/style.js';
+import { townsKind } from './gen/style.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
 import { board, byId } from './rules/hunt.js';
 import { travelTo, warpNow, handIn, grapple, DECK_Y, fighterOf, toggleBombard, cycleOrder } from './rules/game.js';
@@ -236,7 +236,7 @@ function render(t) {
         const dir = Math.abs(fwd) >= Math.abs(rgt) ? (fwd > 0 ? 'up' : 'down') : rgt > 0 ? 'right' : 'left';
         const vx2 = f.cx + Math.cos(an) * f.rad, vz2 = f.cz + Math.sin(an) * f.rad;
         const [kx, kz, ks] = kb(s.npcs?.[`v${isl.id}:${f.seed}`], vx2, vz2);
-        bb(sprites.person(isMiner(isl, f.seed) ? 'miner' : isSmuggler(isl, f.seed) ? 'smuggler' : isPriest(isl, f.seed) ? 'priest' : 'villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
+        bb(sprites.person(townsKind(isl, f.seed), f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
       }
       if (isl.hamlet && Math.hypot(isl.x - cam.x, isl.z - cam.z) < isl.r + 180) { // a hamlet: its animals grazing, and smoke from every other house
         const cx = -Math.sin(cam.yaw), cz = Math.cos(cam.yaw);
