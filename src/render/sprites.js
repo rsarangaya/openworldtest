@@ -48,6 +48,7 @@ export function createSprites(R) {
       case 'forge': return get('fg', A.FORGE_BOX, 12, (g) => A.paintForge(g));
       case 'shelf': return get(`sh${p.kind}`, A.SHELF_BOX, 12, (g) => A.paintShelf(g, p.kind));
       case 'hearth': return get('hh', A.HEARTH_BOX, 12, (g) => A.paintHearth(g));
+      case 'fire': return get('hf', A.HEARTH_BOX, 12, (g) => A.paintHearth(g), true); // a hamlet's cooking fire: the hearth drawing, its flames lit at night
       case 'feast': return get('ft' + (p.v & 1), A.FEAST_BOX, 12, (g) => A.paintFeast(g, p.v & 1));
       case 'rune': return get('ru', A.RUNE_BOX, 12, (g) => A.paintRune(g));
       case 'pillar': return get('pl', A.PILLAR_BOX, 12, (g) => A.paintPillar(g), true);

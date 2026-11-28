@@ -247,7 +247,7 @@ function building(m, isl, b) {
     m.box(b.x, ry + 2, b.z, 0.2, 4.4, 0.2, DARKWOOD); m.box(b.x + 1.2, ry + 3.4, b.z, 2.2, 1.4, 0.1, [0.22, 0.42, 0.86]); m.box(b.x + 1.2, ry + 3.4, b.z, 2.2, 0.3, 0.14, [0.92, 0.75, 0.24]);
   }
   if (vik) vikingTrim(m, b, y0, y1, ry, alongX);
-  else if (!b.door && b.w > 5) { m.box(b.x + hw * 0.5, ry + 0.1, b.z + hd * 0.3, 0.9, 1.9, 0.9, [0.45, 0.4, 0.38], 0.1); m.box(b.x + hw * 0.5, ry + 1.1, b.z + hd * 0.3, 1.1, 0.2, 1.1, [0.3, 0.28, 0.27]); } // chimney with cap
+  else if (!b.door && (b.w > 5 || isl.hamlet)) { m.box(b.x + hw * 0.5, ry + 0.1, b.z + hd * 0.3, 0.9, 1.9, 0.9, [0.45, 0.4, 0.38], 0.1); m.box(b.x + hw * 0.5, ry + 1.1, b.z + hd * 0.3, 1.1, 0.2, 1.1, [0.3, 0.28, 0.27]); } // chimney with cap (every hamlet house has one: its smoke is drawn in main.js)
 }
 
 // the plaza: a well, market stalls, lamp posts, benches. Rings are kept clear so townsfolk can walk around them.

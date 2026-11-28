@@ -447,6 +447,7 @@ export const CRIT_BOX = {
   whale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, icewhale: { x0: -4.7, x1: 4.7, y0: -3.6, y1: 1.2 }, dolphin: { x0: -2, x1: 2, y0: -1.6, y1: 1.6 }, orca: { x0: -3, x1: 3, y0: -2.4, y1: 2 }, narwhal: { x0: -2.6, x1: 4.2, y0: -2, y1: 2 },
   school: { x0: -1.8, x1: 1.8, y0: -0.7, y1: 0.5 }, flyfish: { x0: -0.8, x1: 0.8, y0: -0.6, y1: 0.5 }, turtle: { x0: -1.1, x1: 1.1, y0: -0.9, y1: 0.5 }, fin: { x0: -1, x1: 1, y0: -1.7, y1: 0.3 }, seal: { x0: -1.1, x1: 1.1, y0: -1.1, y1: 0.7 }, ray: { x0: -1.9, x1: 1.6, y0: -1.3, y1: 0.5 },
   serhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, sercoil: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, krarm: { x0: -1.8, x1: 2.4, y0: -7, y1: 0.6 }, krhead: { x0: -3.8, x1: 3.8, y0: -6.2, y1: 0.7 }, hyhead: { x0: -2.2, x1: 3.6, y0: -6.4, y1: 0.7 }, hybody: { x0: -3, x1: 3, y0: -3.4, y1: 0.6 }, cyclops: { x0: -3.4, x1: 3.4, y0: -7.6, y1: 0.2 }, boulder: { x0: -1, x1: 1, y0: -1, y1: 0.9 },
+  sheep: { x0: -1.3, x1: 1.55, y0: -1.75, y1: 0.1 }, goat: { x0: -1.2, x1: 1.5, y0: -2.25, y1: 0.1 }, chicken: { x0: -0.8, x1: 0.85, y0: -1.35, y1: 0.1 },
   gull: { x0: -1.6, x1: 1.4, y0: -1.2, y1: 1.1 }, albatross: { x0: -3.1, x1: 3.1, y0: -1.2, y1: 1.2 }, raven: { x0: -1.4, x1: 1.2, y0: -1.1, y1: 1 }, eagle: { x0: -3, x1: 3, y0: -1.4, y1: 1.4 }, harpy: { x0: -3, x1: 3, y0: -2.4, y1: 2.6 },
 };
 const curve = (...p) => (g) => { g.moveTo(p[0], p[1]); for (let i = 2; i + 3 < p.length; i += 4) g.quadraticCurveTo(p[i], p[i + 1], p[i + 2], p[i + 3]); g.closePath(); };
@@ -488,6 +489,32 @@ export function paintCritter(g, kind, dir, fr) {
     case 'school': { for (const [x, y, r] of [[-1.1, -0.1, 0.5], [0.2, -0.25, 0.9], [1.1, 0.0, 0.6]]) { g.beginPath(); g.ellipse(x, y, r, r * 0.28, 0, 0, TAU); g.lineWidth = 0.07; g.strokeStyle = 'rgba(230,245,255,0.85)'; g.stroke(); } const P = fr ? [[-0.9, -0.15], [-0.1, -0.35], [0.5, -0.05], [1.0, -0.3], [0.2, 0.1]] : [[-1.0, -0.25], [-0.3, -0.05], [0.4, -0.4], [0.9, -0.1], [0.0, -0.2]]; for (const [x, y] of P) { cel(g, ell(x, y, 0.2, 0.08), [0.78, 0.88, 0.96], { lw: 0.04 }); } break; }
     case 'ray': { const up = fr ? -0.35 : -1.05, c = [0.2, 0.32, 0.44]; cel(g, poly(-0.2, -0.1, -0.7, up, -0.05, -0.3), mixc(c, [0, 0, 0], 0.2), { lw: 0.07 }); cel(g, curve(-1.0, 0, -0.4, -0.45, 0.8, -0.2, 1.3, -0.05, 0.8, 0.15, -0.3, 0.2, -1.0, 0), c, { lw: 0.08 }); cel(g, poly(0.1, -0.15, 0.55, up - 0.1, 0.65, -0.2), c, { lw: 0.07 }); fillPath(g, curve(-0.6, 0.08, 0.2, 0.0, 1.0, 0.05, 0.2, 0.17, -0.6, 0.08), '#e8eef2'); line(g, -1.0, 0, -1.8, 0.1, 0.05, INK); for (const s of [-1, 1]) line(g, 1.2, -0.05, 1.45, -0.05 + s * 0.12, 0.05, rgb(c)); break; } // a manta at the surface, both wing tips out of the water (frame 0 raised, frame 1 down), horn-fins at the head
     case 'fin': cel(g, poly(-0.8, 0.1, 0.1, -1.55, 0.7, 0.1), [0.34, 0.38, 0.44], { lw: 0.1 }); break;
+    case 'sheep': case 'goat': { // a hamlet's animals, nose to the right; frames 0 and 1 walk, frame 2 grazes (head down)
+      const sh = kind === 'sheep', leg = sh ? '#3a302a' : '#5a4636', lg = (fr === 1 ? 0.12 : 0), by = sh ? -0.95 : -1.1, head = fr === 2 ? [1.05, by + 0.65] : sh ? [1.05, by - 0.15] : [1.0, by - 0.55];
+      for (const [x, s2] of [[-0.6, 1], [-0.35, -1], [0.45, 1], [0.7, -1]]) line(g, x, by + 0.3, x + lg * s2, 0, 0.13, leg);
+      if (!sh) { cel(g, poly(-0.85, by - 0.1, -1.05, by - 0.5, -0.75, by - 0.2), [0.55, 0.42, 0.3], { lw: 0.06 }); } // the goat's tail, up
+      cel(g, ell(0, by, sh ? 0.95 : 0.85, sh ? 0.55 : 0.4), sh ? [0.93, 0.91, 0.84] : [0.62, 0.48, 0.34], { lw: 0.09 });
+      if (sh) for (const [x, y] of [[-0.55, by - 0.4], [-0.1, by - 0.5], [0.4, by - 0.42], [-0.7, by + 0.1], [0.65, by]]) fillPath(g, ell(x, y, 0.24, 0.18), '#f6f3ea'); // tufts of wool
+      else fillPath(g, ell(-0.1, by + 0.15, 0.55, 0.18), rgb([0.86, 0.82, 0.74])); // a pale belly
+      line(g, 0.6, by - 0.1, head[0] - 0.1, head[1], sh ? 0.3 : 0.24, sh ? '#f0ede4' : rgb([0.62, 0.48, 0.34])); // the neck
+      cel(g, ell(head[0], head[1], sh ? 0.3 : 0.27, sh ? 0.24 : 0.2, 0.3), sh ? [0.24, 0.21, 0.2] : [0.66, 0.52, 0.38], { lw: 0.07 });
+      if (sh) cel(g, ell(head[0] - 0.2, head[1] - 0.15, 0.14, 0.07, -0.5), [0.24, 0.21, 0.2], { lw: 0.05 }); // an ear
+      else { line(g, head[0] - 0.1, head[1] - 0.15, head[0] - 0.45, head[1] - 0.55, 0.08, '#d8cdb4'); line(g, head[0] + 0.15, head[1] + 0.12, head[0] + 0.12, head[1] + 0.42, 0.07, '#e8e0cc'); } // horns and a beard
+      fillPath(g, ell(head[0] + 0.08, head[1] - 0.06, 0.05, 0.05), sh ? '#f4efe0' : INK);
+      break;
+    }
+    case 'chicken': { // frames 0 and 1 walk, frame 2 pecks
+      const hd = fr === 2 ? [0.5, -0.4] : [0.38, -1.0];
+      for (const [x, s2] of [[-0.08, 1], [0.12, -1]]) line(g, x, -0.3, x + (fr === 1 ? 0.08 * s2 : 0), 0, 0.06, '#e0a020');
+      cel(g, poly(-0.25, -0.6, -0.7, -1.0, -0.6, -0.45), [0.3, 0.3, 0.32], { lw: 0.05 }); // tail feathers
+      cel(g, ell(0, -0.55, 0.45, 0.32), [0.95, 0.92, 0.86], { lw: 0.07 });
+      line(g, 0.22, -0.7, hd[0], hd[1] + 0.1, 0.18, '#f4efe4');
+      cel(g, ell(hd[0], hd[1], 0.17, 0.15), [0.95, 0.92, 0.86], { lw: 0.05 });
+      fillPath(g, poly(hd[0] - 0.12, hd[1] - 0.12, hd[0] - 0.02, hd[1] - 0.3, hd[0] + 0.1, hd[1] - 0.14), '#d02a22'); // comb
+      fillPath(g, poly(hd[0] + 0.15, hd[1] - 0.03, hd[0] + 0.33, hd[1] + 0.03, hd[0] + 0.15, hd[1] + 0.08), '#e0a020'); // beak
+      fillPath(g, ell(hd[0] + 0.05, hd[1] - 0.03, 0.035, 0.035), INK);
+      break;
+    }
     case 'seal': { cel(g, curve(-0.9, 0.5, -0.7, -0.15, 0, -0.2, 0.6, -0.1, 0.9, 0.5, 0, 0.7, -0.9, 0.5), [0.48, 0.44, 0.4], { lw: 0.09 }); const dy = fr ? 0.25 : 0; cel(g, ell(0.2, -0.55 + dy, 0.5, 0.4), [0.56, 0.52, 0.48], { lw: 0.09 }); fillPath(g, ell(0.48, -0.5 + dy, 0.07, 0.07), INK); fillPath(g, ell(0.62, -0.4 + dy, 0.1, 0.08), INK); for (const k of [-0.1, 0.1]) line(g, 0.62, -0.38 + dy + k, 1.0, -0.38 + dy + k * 2, 0.025, '#e8e4dc'); break; }
     case 'serhead': case 'sercoil': case 'hyhead': case 'hybody': { // the sea serpent: green scales, a pale belly, a red crest; the head opens its jaw on frame 1. The hydra: the same shapes in purple with a gold crest
       const hy = kind[0] === 'h', sc = hy ? [0.42, 0.26, 0.44] : [0.2, 0.5, 0.42], dk = hy ? [0.24, 0.12, 0.26] : [0.1, 0.3, 0.26], bel = hy ? [0.85, 0.72, 0.5] : [0.8, 0.82, 0.55], crest = hy ? [0.9, 0.7, 0.2] : [0.75, 0.2, 0.18];

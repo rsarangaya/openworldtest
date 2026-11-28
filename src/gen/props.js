@@ -93,8 +93,9 @@ function build(isl) {
       else if (k > 1 && rr() < 0.35) out.push({ k: rr() < 0.5 ? 'crate' : 'barrel', x: x - uz * 1.5 * s, z: z + ux * 1.5 * s, v: (rr() * 4) | 0 });
     }
   }
-  if (yd) { // a hamlet: the well in its yard, a bench, and a barrel or crate against the side wall of each house (out of the way of its door)
-    out.push({ k: 'well', x: yd.x, z: yd.z, v: 0 }, { k: 'bench', x: yd.x + 2.6, z: yd.z + 2.8, v: 0 });
+  if (yd) { // a hamlet: the well in its yard, a bench, a lantern, the cooking fire, and a barrel or crate against the side wall of each house (out of the way of its door)
+    out.push({ k: 'well', x: yd.x, z: yd.z, v: 0 }, { k: 'bench', x: yd.x + 2.6, z: yd.z + 2.8, v: 0 }, { k: 'lamp', x: yd.x, z: yd.z - 2.2, v: 1 }); // and a lantern on a post, lit at night
+    if (town.fire) out.push({ k: 'fire', x: town.fire.x, z: town.fire.z, v: 0 }); // the cooking fire: a stone ring, flames and a pot on a spit
     town.buildings.forEach((b, i) => out.push({ k: i % 2 ? 'crate' : 'barrel', x: b.x + (i & 1 ? 1 : -1) * (b.w / 2 + 0.7), z: b.z + b.d / 2 - 0.9, v: i & 3 }));
   }
   if (isl.treasure) out.push({ k: 'xmark', x: isl.treasure.x, z: isl.treasure.z, v: 0 });

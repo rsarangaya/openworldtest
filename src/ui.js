@@ -183,7 +183,7 @@ export function createUI() {
   ui.dialog = (s, res, ctx) => {
     const el = $('panel'); let i = 0;
     const close = () => { on('panel', false); ctx.onClose?.(); };
-    const head = `<div class=npc>${esc(res.npc.name)} · ${esc(res.npc.kind)}</div>`;
+    const head = `<div class=npc>${esc(res.npc.name)} · ${esc(res.npc.role || res.npc.kind)}</div>`;
     const talk = () => {
       el.innerHTML = `<div class=box>${head}<p>${esc(res.lines[i])}</p><button id=pN>${i < res.lines.length - 1 ? 'Continue' : res.panel ? 'Trade' : 'Farewell'}</button></div>`;
       $('pN').onclick = () => { if (++i < res.lines.length) talk(); else if (res.panel) shop(); else close(); };

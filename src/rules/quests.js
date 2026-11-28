@@ -86,8 +86,17 @@ export function dialog(s, npc) {
       return { lines: [asgardLine(s, npc.seed, 2), ...(s.upgrades.ram ? ['That ram will do it. Make for the weak spot and do not slow down.'] : ['So the stories got you here. The weak spot is thin ice, but only an icebreaker ram will crack it.', 'I can fit one to your ship. Five hundred gold.'])], panel: 'warden' };
     case 'smith': return { lines: !s.weapon || s.weapon === 'fists' ? ['Bare hands? That is no way to cross the sea, or to walk a strange town.', 'Have a look at what I have. A good blade pays for itself.'] : ['Keep it sharp. Anything else you need?'], panel: 'arms' };
     case 'guard': return { lines: s.bountyGold > 0 ? ['You are wanted. Pay what you owe and the matter is closed.'] : s.prisoner ? ['You have someone with you. Let us have a look.'] : [isNight(nowHour(s)) ? 'The night watch is out, so there are more of us about. Keep your blade sheathed till morning.' : 'Keep the peace in this town and we will get along. Break it and you will see our cell.', 'The wanted list is here if you want honest work.'], panel: 'guard' };
-    case 'villager': { const h = hash(npc.seed >>> 0, Math.floor(s.t / 400), 5); return { lines: [h % 5 < 2 ? asgardLine(s, npc.seed, Math.floor(s.t / 400)) : ['Fine weather for it.', 'Mind the guards, they have short tempers.', 'The tide is late today.', 'If you need a drink, the tavern is the place.', 'I have lived here all my life and never left. Never wanted to.'][h % 5]], panel: null }; }
+    case 'villager': { const h = hash(npc.seed >>> 0, Math.floor(s.t / 400), 5); if (npc.hamlet) return { lines: [HAMLET[npc.role][h % 4], HAMLET[s.realm in HAMLET ? s.realm : 'terra'][(h >>> 3) % 3]], panel: null }; return { lines: [h % 5 < 2 ? asgardLine(s, npc.seed, Math.floor(s.t / 400)) : ['Fine weather for it.', 'Mind the guards, they have short tempers.', 'The tide is late today.', 'If you need a drink, the tavern is the place.', 'I have lived here all my life and never left. Never wanted to.'][h % 5]], panel: null }; }
     default: return { lines: ['...'], panel: null };
   }
 }
+// what folk in a hamlet say (no port, no shops): their work, then something about their world
+const HAMLET = {
+  islander: ['Sit by the fire a while, if you like. The pot is only turnips, but it is hot.', 'A ship! We do not see many. Most sail past for the ports.', 'There is no tavern here, friend. Just us, the well and the weather.', 'My grandfather built the first house here. We have never wanted for much.'],
+  farmer: ['The soil is thin, but it gives if you work it.', 'Keep off the beds, please. Those are the greens for next winter.', 'Rain last week, sun this week. That is all a crop asks.', 'The goats get into everything. Fences are half my work.'],
+  terra: ['Folk say there is a wall of ice at the edge of the world. I will take their word for it.', 'We trade a little at the nearest port, when someone has a boat free.', 'The sea gives fish and takes boats. It always has.'],
+  asgard: ['The winters here are long. We keep the fire lit and the mead close.', 'The old stones on the hills were here before us. We leave them be.', 'When the green lights dance in the sky, my mother says the gods are feasting.'],
+  atlantis: ['The water here is so clear you can count the fish from the shore.', 'Sometimes at low tide you can see old walls under the water.', 'The crystal stones hum on still nights. You get used to it.'],
+  olympus: ['The goats like the high slopes. So do the eagles, which is a worry.', 'We leave a little oil and bread at the statue. It does not hurt to.', 'Stay off the far beaches. Something big throws rocks there.'],
+};
 export { cargoCount };

@@ -788,8 +788,8 @@ export function prompt(s) {
   if (s.deck && !nearSub(s)) return s.deck.won ? 'F  Decide the ship\'s fate' : 'F  Cut the grapples and retreat';
   const sb = nearSub(s); if (sb) return s.prisoner ? 'You are already holding a prisoner' : `F  Bind ${sb.name} (${sb.crime})`;
   const qa = nearActor(s); if (qa) return qa.kind === 'find' ? 'F  Search here' : `F  Speak with ${qa.name}`;
-  const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.kind})`;
-  for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
+  const n = nearNpc(s); if (n) return `F  Talk to ${n.name} (${n.role || n.kind})`;
+  for (const i of islandsAt(s, s.foot.x, s.foot.z)) for (const q of islandTown(i).npcs) if (!q.hamlet && !npcAlive(s, q.id) && Math.hypot(q.x - s.foot.x, q.z - s.foot.z) < 4.5) return 'Closed: the owner is gone';
   if (nearBoard(s)) return 'F  Read the notice board';
   { const rn = nearRune(s); if (rn) return `F  Read the ${MARKS[rn.theme]?.name.toLowerCase() || 'rune stone'}`; }
   if (nearTemple(s)) return `F  Make an offering at the temple (${OFFERING}g)`;

@@ -24,7 +24,7 @@ import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
 import { quantize } from './render/palette.js';
 import { CINE_S, gateOf, gateAngleOf } from './rules/realm.js';
 import { soundScene as sceneOf } from './rules/meadhall.js';
-import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
+import { folkPos, sectorOf, sectorIslands, islandTown, townsfolk, hamletBeasts, beastPos, islandHeight, dockDist, DOCK_Y, SECTOR, WALL_R, gatePos } from './gen/world.js';
 import { isMiner, isSmuggler, isPriest } from './gen/style.js';
 import { npcAlive, npcMax, SINK_S, CORPSE_S, groundAt } from './rules/game.js';
 import { board, byId } from './rules/hunt.js';
@@ -236,6 +236,11 @@ function render(t) {
         const vx2 = f.cx + Math.cos(an) * f.rad, vz2 = f.cz + Math.sin(an) * f.rad;
         const [kx, kz, ks] = kb(s.npcs?.[`v${isl.id}:${f.seed}`], vx2, vz2);
         bb(sprites.person(isMiner(isl, f.seed) ? 'miner' : isSmuggler(isl, f.seed) ? 'smuggler' : isPriest(isl, f.seed) ? 'priest' : 'villager', f.seed, dir, 1 + (((t * 5 + f.seed) | 0) & 1)), kx, islandHeight(isl, vx2, vz2), kz, sprites.PERSON_SCALE * ks);
+      }
+      if (isl.hamlet && Math.hypot(isl.x - cam.x, isl.z - cam.z) < isl.r + 180) { // a hamlet: its animals grazing, and smoke from every other house
+        const cx = -Math.sin(cam.yaw), cz = Math.cos(cam.yaw);
+        for (const b of hamletBeasts(isl)) { const q = beastPos(b, s.t); bb(sprites.critter(b.kind, q.vx * cx + q.vz * cz >= 0 ? 'R' : 'L', q.walk ? ((t * 4) | 0) & 1 : 2), q.x, islandHeight(isl, q.x, q.z), q.z, b.kind === 'chicken' ? 0.5 : 0.62); }
+        const vik = isl.theme === 'asgard'; islandTown(isl).buildings.forEach((b, i) => { if (i & 1) return; const hw = b.w / 2, hd = b.d / 2, top = b.pad + b.h + (vik ? 1.9 + Math.min(hw, hd) * 0.9 : 1.3 + Math.min(hw, hd) * 0.55 + 1.2), x0 = vik ? b.x : b.x + hw * 0.5, z0 = vik ? b.z : b.z + hd * 0.3; for (let k = 0; k < 2; k++) { const p = (t * 0.2 + i * 0.37 + k * 0.5) % 1; bb(sprites.fx('smoke'), x0 + p * 1.4 * Math.cos(s.wind.dir), top + 0.3 + p * 3.5, z0 + p * 1.4 * Math.sin(s.wind.dir), 0.25 + p * 0.55); } }); // from the chimney (an Asgard longhouse: its smoke hole)
       }
       for (const o of s.foes) if (o.isl === isl.id) { const la = s.t - (o.atk ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0; bb(sprites.person(o.kind, o.seed, 'down', atkFrame(o, Math.hypot(o.x - s.foot.x, o.z - s.foot.z) < 2.6, 1 + (((o.walk || 0) * 1.4 | 0) & 1))), o.x + Math.cos(o.face || 0) * lu * 0.7, o.y, o.z + Math.sin(o.face || 0) * lu * 0.7, sprites.PERSON_SCALE); hpBar(o.id, o.kind, o.x, o.y, o.z); } // a hidden fighter, now revealed
       for (const a of s.qa || []) if (a.isl === isl.id) { // people in your stories: a speaker, a mark to search, or a gang

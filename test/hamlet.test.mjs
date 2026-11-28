@@ -21,7 +21,7 @@ test('hamlets: only on wild islands with a landing, laid out clear of the landin
     for (const isl of hs) {
       const t = islandTown(isl), L = isl.landing, T = isl.treasure; assert.ok(t.yard, `${isl.id} has a yard`);
       assert.ok(t.buildings.length >= 2 && t.buildings.length <= 5, `${isl.id}: ${t.buildings.length} houses`);
-      assert.equal(t.npcs.length, 0); assert.equal(t.plaza, null);
+      assert.ok(t.npcs.length <= 2 && t.npcs.every((n) => n.hamlet && n.kind === 'villager')); assert.equal(t.plaza, null);
       const things = [...t.buildings, ...t.marks];
       for (const b of things) {
         assert.ok(Math.hypot(b.x - L.x, b.z - L.z) > Math.max(b.w, b.d) / 2 + 2, `${isl.id}: ${b.k || 'house'} off the landing`);

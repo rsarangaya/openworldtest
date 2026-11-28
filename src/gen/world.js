@@ -166,34 +166,52 @@ export const pathDist = (isl, x, z) => { if (!isl.port && !isl.hamlet) return 1e
 // props.js registers its generator here (world.js cannot import it: props needs world), so villagers can keep clear of trees, rocks, stalls and so on
 let propsOf = () => [];
 export const bindProps = (f) => { propsOf = f; };
-const KEEP = { tree: 0.55, rock: 0.7, bush: 0.6, well: 1.6, lamp: 0.35, sign: 0.4, barrel: 0.6, crate: 0.6, bench: 1.4, stall: 2.2, board: 2.6 };
+const KEEP = { fire: 1.4, tree: 0.55, rock: 0.7, bush: 0.6, well: 1.6, lamp: 0.35, sign: 0.4, barrel: 0.6, crate: 0.6, bench: 1.4, stall: 2.2, board: 2.6 };
 const folkCache = new Map();
 // ambient villagers spread through the whole town: a few keep to the plaza, the rest each pace a small loop at their own spot between the houses.
 // Every loop is checked: no building wall, prop, dock, water or steep ground (nobody clips or floats). Pure data, cached per island.
 // where a villager is at time t (they pace a small loop)
 export const folkPos = (f, t) => { const an = f.a0 + t * f.speed; return { x: f.cx + Math.cos(an) * f.rad, z: f.cz + Math.sin(an) * f.rad, an }; };
+const loopClear = (isl, t, solids, cx, cz, w, y0) => { for (let k = 0; k < 13; k++) { const a = (k / 12) * TAU, x = k < 12 ? cx + Math.cos(a) * w : cx, z = k < 12 ? cz + Math.sin(a) * w : cz;
+  if (Math.abs(islandHeight(isl, x, z) - y0) > 0.4 || islandHeight(isl, x, z) < 0.8 || dockDist(isl, x, z) < 3
+    || t.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)
+    || t.marks.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)
+    || (isl.hamlet && t.npcs.some((n) => (n.x - x) ** 2 + (n.z - z) ** 2 < 1.4))
+    || solids.some((p) => (p.x - x) ** 2 + (p.z - z) ** 2 < (KEEP[p.k] + 0.9) ** 2)) return false; } return true; };
 export function townsfolk(isl) {
-  if (!isl.port) return [];
+  if (!isl.port && !isl.hamlet) return [];
   let out = folkCache.get(isl.seed); if (out) return out;
-  const t = islandTown(isl); if (!t.plaza) return [];
-  const r = rngFor(isl.seed, 8), n = { village: 5, town: 10, city: 18 }[isl.tier] || 5, solids = propsOf(isl).filter((p) => KEEP[p.k]), P = t.plaza;
-  const clear = (cx, cz, w, y0) => { for (let k = 0; k < 13; k++) { const a = (k / 12) * TAU, x = k < 12 ? cx + Math.cos(a) * w : cx, z = k < 12 ? cz + Math.sin(a) * w : cz;
-    if (Math.abs(islandHeight(isl, x, z) - y0) > 0.4 || islandHeight(isl, x, z) < 0.8 || dockDist(isl, x, z) < 3
-      || t.buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)
-      || t.marks.some((b) => Math.abs(b.x - x) < b.w / 2 + 1 && Math.abs(b.z - z) < b.d / 2 + 1)
-      || solids.some((p) => (p.x - x) ** 2 + (p.z - z) ** 2 < (KEEP[p.k] + 0.9) ** 2)) return false; } return true; };
+  const t = islandTown(isl), P = t.plaza || t.yard; if (!P) return [];
+  const r = rngFor(isl.seed, 8), n = isl.port ? { village: 5, town: 10, city: 18 }[isl.tier] || 5 : 1 + ((r() * 2) | 0), solids = propsOf(isl).filter((p) => KEEP[p.k]), clear = (cx, cz, w, y0) => loopClear(isl, t, solids, cx, cz, w, y0);
   out = [];
   for (let i = 0; i < n; i++) {
     const seed = (isl.seed + i * 977) >>> 0, dir = r() < 0.5 ? -1 : 1, lin = 0.8 + r() * 0.6;
-    if (i % 4 === 0) { const rad = 2.4 + r() * 0.6; out.push({ seed, a0: r() * TAU, rad, speed: dir * lin / rad, cx: P.x, cz: P.z, y: P.y }); continue; }
-    for (let tries = 0; tries < 60; tries++) { // pick a spot anywhere in the town
-      const a = r() * TAU, d = 11 + r() * Math.max(6, isl.r * 0.62 - 11), w = 1.2 + r() * 1.6, cx = P.x + Math.cos(a) * d, cz = P.z + Math.sin(a) * d, y0 = islandHeight(isl, cx, cz);
+    if (isl.port && i % 4 === 0) { const rad = 2.4 + r() * 0.6; out.push({ seed, a0: r() * TAU, rad, speed: dir * lin / rad, cx: P.x, cz: P.z, y: P.y }); continue; }
+    for (let tries = 0; tries < 60; tries++) { // pick a spot anywhere in the town (in a hamlet: near its yard)
+      const a = r() * TAU, d = isl.port ? 11 + r() * Math.max(6, isl.r * 0.62 - 11) : 4 + r() * 9, w = 1.2 + r() * 1.6, cx = P.x + Math.cos(a) * d, cz = P.z + Math.sin(a) * d, y0 = islandHeight(isl, cx, cz);
       if (clear(cx, cz, w, y0)) { out.push({ seed, a0: r() * TAU, rad: w, speed: dir * lin / w, cx, cz, y: y0 }); break; }
     }
   }
   folkCache.set(isl.seed, out); if (folkCache.size > 80) folkCache.delete(folkCache.keys().next().value);
   return out;
 }
+// a hamlet's animals: two to four, each grazing round a small loop near the yard (a few steps, then a stop to graze). The kinds depend on the world.
+const HERDS = { terra: ['sheep', 'chicken', 'goat'], asgard: ['sheep', 'goat', 'sheep'], atlantis: ['goat', 'chicken', 'chicken'], olympus: ['goat', 'sheep', 'goat'] };
+const beastCache = new Map();
+export function hamletBeasts(isl) {
+  if (!isl.hamlet) return [];
+  let out = beastCache.get(isl.seed); if (out) return out;
+  const t = islandTown(isl); out = [];
+  if (t.yard) { const r = rngFor(isl.seed, 9), kinds = HERDS[isl.theme] || HERDS.terra, k0 = (r() * kinds.length) | 0, solids = propsOf(isl).filter((p) => KEEP[p.k]);
+    for (let i = 0, n = 2 + ((r() * 3) | 0); i < n; i++) for (let tries = 0; tries < 40; tries++) {
+      const a = r() * TAU, d = 5 + r() * 10, w = 1 + r() * 1.5, cx = t.yard.x + Math.cos(a) * d, cz = t.yard.z + Math.sin(a) * d, y0 = islandHeight(isl, cx, cz);
+      if (loopClear(isl, t, solids, cx, cz, w, y0)) { out.push({ kind: kinds[(k0 + (i >> 1)) % kinds.length], cx, cz, rad: w, a0: r() * TAU, off: r() * 9, dir: r() < 0.5 ? -1 : 1 }); break; }
+    } }
+  beastCache.set(isl.seed, out); if (beastCache.size > 40) beastCache.delete(beastCache.keys().next().value);
+  return out;
+}
+// where an animal is at time t: two seconds walking a little way round its loop, then two seconds grazing
+export const beastPos = (b, t) => { const u = t * 0.25 + b.off, k = Math.floor(u), f = u - k, walk = f < 0.5, an = b.a0 + b.dir * (k + (walk ? f * 2 : 1)) * (0.9 / b.rad); return { x: b.cx + Math.cos(an) * b.rad, z: b.cz + Math.sin(an) * b.rad, vx: -Math.sin(an) * b.dir, vz: Math.cos(an) * b.dir, walk }; };
 // where you can stand: terrain, plus the dock planks (a little above the water)
 export const DOCK_Y = 2.9; // pier deck height: above the highest wave crest
 // beside the deck the dry ground ramps up to meet it, so there is never a lip too high to step (water beside the pier stays water)
@@ -331,6 +349,12 @@ function hamletOf(isl) {
   }
   const box = t.box = [yard.x - 8, yard.x + 8, yard.z - 8, yard.z + 8];
   for (const b of buildings) { const ex = b.w / 2 + 5.2, ez = b.d / 2 + 5.2; box[0] = Math.min(box[0], b.x - ex); box[1] = Math.max(box[1], b.x + ex); box[2] = Math.min(box[2], b.z - ez); box[3] = Math.max(box[3], b.z + ez); }
+  // a cooking fire on the far side of the well from the landing with an islander beside it, and half the time a farmer at the first crop plot
+  const away = Math.atan2(yard.z - L.z, yard.x - L.x);
+  for (const da of [0.5, -0.5, 1.1, -1.1, 1.7, -1.7]) { const x = yard.x + Math.cos(away + da) * 3.8, z = yard.z + Math.sin(away + da) * 3.8; if (Math.hypot(x - yard.x - 2.6, z - yard.z - 2.8) > 2.4 && Math.hypot(x - yard.x, z - yard.z + 2.2) > 2.2 && !buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 1.5 && Math.abs(b.z - z) < b.d / 2 + 1.5)) { t.fire = { x, z }; break; } }
+  const folk = (x, z, k, role) => t.npcs.push({ id: `${isl.id}:h${k}`, kind: 'villager', role, hamlet: true, name: captainName(r, isl.theme), x, z, y: islandHeight(isl, x, z), island: isl.id, seed: (isl.seed + k * 7919 + 3) >>> 0 });
+  if (t.fire) { const a = Math.atan2(yard.z - t.fire.z, yard.x - t.fire.x) + 0.9; folk(t.fire.x + Math.cos(a) * 1.5, t.fire.z + Math.sin(a) * 1.5, 0, 'islander'); }
+  const pl = marks.find((m) => m.k === 'plot'); if (pl && r() < 0.5) folk(pl.x, pl.z + pl.d / 2 + 0.9, 1, 'farmer');
   return t;
 }
 
