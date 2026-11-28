@@ -19,7 +19,8 @@ import { serpentParts, LUNGE_AT } from './rules/serpent.js';
 import { krakenParts } from './rules/kraken.js';
 import { rockAt, SPLASH_R } from './rules/cyclops.js';
 import { hydraParts } from './rules/hydra.js';
-import { wrecksNear } from './rules/salvage.js';
+import { wrecksNear, diverAt, diveStage } from './rules/salvage.js';
+import { createUnder } from './under.js';
 import { bake, CRIT_BOX, paintCritter } from './render2d/art.js';
 import { quantize } from './render/palette.js';
 import { CINE_S, gateOf, gateAngleOf } from './rules/realm.js';
@@ -56,6 +57,7 @@ let lastNight = 0; // how dark the last frame was (the hand on screen darkens wi
 // ---------------------------------------------------------------- sectors: built on demand, one per frame, freed when far
 const sectors = new Map(), shipMeshes = new Map(), npcMeshes = new Map(), tasks = [];
 let ballGpu = null, sprites = null;
+let underOn = false, underDraw = null, dvNow = null; // V while a diver is down: the camera goes down with them (the choice holds for later dives)
 const LIFE = [];
 const BB = { data: new Float32Array(12 * 8000), n: 0 }, propCache = new Map();
 function bb(sp, x, y, z, sc) { // one billboard instance: anchor + scale, quad extents, atlas rect
@@ -145,6 +147,8 @@ function updateCamera(dt, t) {
   cam.blend += Math.sign(target - cam.blend) * Math.min(Math.abs(target - cam.blend), dt / 1.1);
   const k = cam.blend * cam.blend * (3 - 2 * cam.blend), f = poseFoot(), p = cam.blend > 0 && s.ship ? poseShip() : f;
   cam.x = lerp(f.x, p.x, k); cam.y = lerp(f.y, p.y, k); cam.z = lerp(f.z, p.z, k); cam.pitch = lerp(f.pitch, p.pitch, k); cam.yaw = f.yaw + wrapPi(p.yaw - f.yaw) * k;
+  dvNow = underOn && s.mode === 'ship' && s.dive ? diverAt(s) : null;
+  if (dvNow) { cam.x = dvNow.x; cam.y = dvNow.y + Math.sin(t * 1.7) * 0.15; cam.z = dvNow.z; cam.yaw = dvNow.yaw + orbit.yaw; cam.pitch = Math.max(-1.2, Math.min(1.2, dvNow.pitch + orbit.pitch + 0.22)); } // on the diver, looking at the wreck (the mouse looks round)
   if (s.mode === 'ship') { orbit.idle += dt; if (orbit.idle > 2.5) orbit.yaw *= 1 - Math.min(1, dt * 1.5), orbit.pitch = lerp(orbit.pitch, -0.22, Math.min(1, dt * 1.5)); }
 }
 
@@ -274,6 +278,7 @@ function render(t) {
       for (const p of props) { const dx = p.x - cam.x, dz = p.z - cam.z; if (dx * dx + dz * dz < 36000 && (p.k !== 'tuft' && p.k !== 'flower' || dx * dx + dz * dz < 6400)) { const sp = sprites.prop(p, isl.biome); bb(sp, p.x, p.y, p.z, -1); if (!FIXED[p.k] && p.k !== 'tuft' && p.k !== 'flower') bb(sp, p.x, p.y, p.z, -1000); } }
     }
   }
+  const dv = s && dvNow; if (dv) { underDraw ||= createUnder(renderer); underDraw(s, diveStage(s), dv, objects, bb, sprites, t); }
   const far = R * SECTOR * 1.5 + 600, wp = WORLD_SEA[s?.realm], mix = (a, b, k) => (wp ? wp[k] : a.map((v, i) => lerp(v, b[i], cold))); // Atlantis and Olympus have their own sea and haze
   // the weather greys the sky and the light, thickens the haze and raises the swell
   const wx = s ? weatherNow(s) : null, over = wx ? Math.min(1, Math.max(wx.cloud * 0.75 + wx.storm * 0.25, wx.fog)) : 0, rough = wx ? roughOf(wx) : 1, haze = wx ? 1 + 8 * wx.fog * wx.fog + 0.6 * wx.rain + 0.5 * wx.snow + 0.5 * wx.storm : 1;
@@ -281,9 +286,10 @@ function render(t) {
   // day and night: the sun (or moon) and how dark it is; indoors the lamps keep most of the dark out
   const L = lightAt(s ? hourAt(s.t, s.dayOff) : 12), inside = s && s.mode === 'foot' && sectorIslands(s.seed, sectorOf(cam.x), sectorOf(cam.z)).some((i) => islandTown(i).buildings.some((b) => b.door && Math.abs(cam.x - b.x) < b.w / 2 && Math.abs(cam.z - b.z) < b.d / 2)), night = L.night * (inside ? 0.35 : 1); lastNight = night;
   const dark = (c) => c.map((v, i) => lerp(v, [0.05, 0.07, 0.16][i], night * 0.85));
-  renderer.draw({ sun: L.sun, night, dusk: L.dusk,
+  const uw = dv ? mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72], 2).map((v, i) => lerp(v, mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27], 1)[i], 0.45 + 0.35 * Math.min(1, -dv.y / 26)) * (1 - 0.75 * night) * (1 - 0.3 * over)) : null; // the water's colour round the diver: greener near the top, darker deep down and at night
+  renderer.draw({ sun: L.sun, night, dusk: L.dusk, under: !!dv,
     cam: { x: cam.x, y: cam.y, z: cam.z, yaw: cam.yaw, pitch: cam.pitch, fov: 1.05 }, t, far, extent: R * SECTOR * 1.3 + 200, objects, bb: BB, calm: calmZ,
-    pal: { cold, over, rough, density: (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dark(dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96], 0))), deep: dark(shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27], 1))), shal: dark(shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72], 2))), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
+    pal: { cold, over, rough, density: dv ? 0.075 : (2.4 / (R * SECTOR * 0.8 + 300)) * haze, fog: dv ? uw : dark(dull(mix([0.62, 0.78, 0.9], [0.82, 0.9, 0.96], 0))), deep: dark(shade(mix([0.02, 0.2, 0.32], [0.04, 0.17, 0.27], 1))), shal: dark(shade(mix([0.1, 0.5, 0.55], [0.3, 0.62, 0.72], 2))), aurora: s && s.realm === 'asgard' ? 0.75 * Math.max(0, 1 - over * 1.6) : 0 },
   });
 }
 // pixel-art look: the world is drawn at a small internal height (opts.pixels, default 270) and the browser scales it up with hard edges
@@ -333,6 +339,7 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'KeyT' && s?.mode === 'ship') cycleOrder(s, say);
   else if (e.code === 'KeyM' && !mapAvailable(s)) say(s, 'You have no map. An old cartographer in Port Haven might part with one for a favour.');
   else if (e.code === 'KeyM') { phase = 'panel'; unlock(); ui.map(s, () => { phase = 'play'; lock(); }, (id) => { phase = 'warp'; ui.fade(true); setTimeout(() => { travelTo(s, id); const f = s.mode === 'ship' ? s.ship : s.foot; clearLife(); updateSectors(f.x, f.z, true); view.yaw = s.mode === 'ship' ? s.ship.yaw : s.foot.yaw; view.pitch = 0; cam.blend = s.mode === 'ship' ? 1 : 0; orbit.yaw = 0; orbit.pitch = -0.22; keys.clear(); ui.fade(false); phase = 'play'; lock(); saveGame(s); }, 900); }); }
+  else if (e.code === 'KeyV' && s?.mode === 'ship' && s.dive) { underOn = !underOn; orbit.yaw = 0; orbit.pitch = -0.22; }
   else if (e.code === 'KeyR') toggleAuto(s);
   else if (e.code === 'KeyO') toggleRow(s);
   else if (e.code === 'Tab') { phase = 'panel'; unlock(); ui.questLog(s, () => { phase = 'play'; lock(); }); }
@@ -466,11 +473,11 @@ function loop(now) {
   updateSectors(fx, fz);
   render(T);
   { const live = s && phase !== 'menu', w = live ? weatherNow(s) : null, indoors = live && w.rain + w.snow > 0 && s.mode === 'foot' && !s.deck && (standingOn(s) ? islandTown(standingOn(s)).buildings.some((b) => Math.abs(b.x - s.foot.x) < b.w / 2 && Math.abs(b.z - s.foot.z) < b.d / 2) : false);
-    weatherFx.draw(dt, w, live ? Math.sin(s.wind.dir - cam.yaw) : 0, indoors); audio.weather(w && !indoors ? w.rain : 0, w ? w.storm : 0); }
+    weatherFx.draw(dt, w, live ? Math.sin(s.wind.dir - cam.yaw) : 0, indoors || !!dvNow); audio.weather(w && !indoors ? w.rain : 0, w ? w.storm : 0); }
   if (s && (phase === 'play' || phase === 'panel')) { // the HUD keeps up while a shop is open (gold after a purchase)
     const pr = prompt(s) || (!locked() ? 'Click to capture the mouse' : null);
     if (s.mode !== prevMode) { prevMode = s.mode; ui.tips(s.mode === 'ship'); }
-    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)), night: lastNight }); showAfk(); diveView(s, lastNight);
+    ui.updateHud(s, { prompt: pr, yaw: cam.yaw, moving: ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some((k) => keys.has(k)), night: lastNight }); showAfk(); diveView(s, lastNight, !!dvNow);
     audio.update(s.ship?.speed || 0, s.realm === 'asgard' ? 0.85 : s.realm === 'atlantis' || s.realm === 'olympus' ? 0 : Math.max(0, Math.min(1, (Math.hypot(cam.x, cam.z) / WALL_R - 0.5) / 0.4)), soundScene());
   }
   const p2 = performance.now(), M = (window.__ms ||= { step: 0, draw: 0 }); M.step += (p1 - p0 - M.step) * 0.05; M.draw += (p2 - p1 - M.draw) * 0.05; // smoothed CPU milliseconds a frame

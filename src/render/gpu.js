@@ -40,18 +40,21 @@ struct VO{@builtin(position)p:vec4f,@location(0)w:vec3f,@location(1)n:vec3f,@loc
   let d=max(dot(n,normalize(g.sun.xyz)),0.);
   let dB=floor(d*3.+.5)/3.;let hB=floor((n.y*.5+.5)*3.+.5)/3.;
   let nt=g.dn.x;var col=v.c*(mix(.45,.7,hB)*mix(vec3f(.68,.72,.85),vec3f(.26,.3,.48),nt)+dB*mix(mix(vec3f(1.,.92,.78),vec3f(1.,.66,.42),g.dn.y),vec3f(.24,.3,.46),nt)*.9);
-  col=mix(col,vec3f(1.,.82,.42),v.gl*nt);
+  col=mix(col,vec3f(1.,.82,.42),v.gl*nt);if(g.dn.z>.5){col*=vec3f(.5,.82,.95);} // under water the reds go first
   return vec4f(fogMix(col,v.w),select(1.,.5,v.d>1.5));}
 struct SO{@builtin(position)p:vec4f,@location(0)uv:vec2f};
 @vertex fn vsSky(@builtin(vertex_index)i:u32)->SO{
   let x=f32((i<<1u)&2u);let y=f32(i&2u);var s:SO;s.p=vec4f(x*2.-1.,y*2.-1.,1.,1.);s.uv=vec2f(x*2.-1.,y*2.-1.);return s;}
 @fragment fn fsSky(s:SO)->@location(0)vec4f{
+  if(g.dn.z>.5){return vec4f(g.fogC.rgb,1.);} // under the surface only the water's own murk is left
   let rd=normalize(g.fwd.xyz+g.right.xyz*s.uv.x*g.cam.w*g.right.w+g.up.xyz*s.uv.y*g.cam.w);return vec4f(skyCol(rd,1.),1.);}
 struct WO{@builtin(position)p:vec4f,@location(0)w:vec3f};
 @vertex fn vsW(@location(0)p:vec3f)->WO{
   var w=o.m*vec4f(p,1.);w.y=wave(w.xz,g.up.w);var v:WO;v.w=w.xyz;v.p=g.vp*w;return v;}
 @fragment fn fsW(v:WO)->@location(0)vec4f{
-  let dist=length(v.w-g.cam.xyz);let W=wv(v.w.xz,g.up.w,dist);
+  let dist=length(v.w-g.cam.xyz);
+  if(g.dn.z>.5){let b=vn(v.w.xz*.12+vec2f(g.up.w*.15,0.))+vn(v.w.xz*.12-vec2f(0.,g.up.w*.11));return vec4f(fogMix(mix(g.shalC.rgb*1.25,vec3f(.8,.94,1.)*(1.-.7*g.dn.x),step(1.25,b)*.7),v.w),1.);} // seen from below: a bright, rippling skin
+  let W=wv(v.w.xz,g.up.w,dist);
   let T=g.up.w;let q=v.w.xz;let cm=rise(q); // calm barely changes across a few units: work it out once per pixel
   let sw=cm*vec2f(swell(q+vec2f(3.,0.),T)-swell(q-vec2f(3.,0.),T),swell(q+vec2f(0.,3.),T)-swell(q-vec2f(0.,3.),T))/6.; // the big swell's slope, so crests and troughs show
   let n=normalize(vec3f(-W.y*1.1-sw.x*4.5,1.,-W.z*1.1-sw.y*4.5));let vd=normalize(g.cam.xyz-v.w);
@@ -72,7 +75,7 @@ struct BO{@builtin(position)p:vec4f,@location(0)w:vec3f,@location(1)uv:vec2f};
   let cx=f32(vi&1u);let cy=f32((vi>>1u)&1u);var r=vec3f(g.right.x,0.,g.right.z);var sc=abs(i.a.w);if(i.a.w<-500.){r=vec3f(0.,0.,1.);sc=1.;}else if(i.a.w<0.){r=vec3f(1.,0.,0.);}
   let w=i.a.xyz+r*(mix(i.b.x,i.b.y,cx)*sc)+vec3f(0.,mix(i.b.w,i.b.z,cy)*sc,0.);
   var o2:BO;o2.w=w;o2.p=g.vp*vec4f(w,1.);o2.uv=vec2f(mix(i.c.x,i.c.z,cx),mix(i.c.w,i.c.y,cy));return o2;}
-@fragment fn fsB(v:BO)->@location(0)vec4f{let t=textureSampleLevel(tA,sA,v.uv,0.);if(t.a<.5){discard;}let lit=select(mix(mix(vec3f(1.),vec3f(1.,.86,.72),g.dn.y),vec3f(.4,.44,.66),g.dn.x),vec3f(1.),t.a<.9);return vec4f(fogMix(t.rgb*lit,v.w),1.);} // partly clear pixels (lamp flames) glow at night
+@fragment fn fsB(v:BO)->@location(0)vec4f{let t=textureSampleLevel(tA,sA,v.uv,0.);if(t.a<.5){discard;}let lit=select(mix(mix(vec3f(1.),vec3f(1.,.86,.72),g.dn.y),vec3f(.4,.44,.66),g.dn.x),vec3f(1.),t.a<.9)*select(vec3f(1.),vec3f(.6,.88,1.),g.dn.z>.5);return vec4f(fogMix(t.rgb*lit,v.w),1.);} // partly clear pixels (lamp flames) glow at night
 `;
 
 export async function createRenderer(canvas) {
@@ -178,7 +181,7 @@ const BAYER=array<f32,16>(0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.)
     G.set(vp, 0);
     G.set([c.x, c.y, c.z, Math.tan(c.fov / 2), sx, 0, sz, W / H, ux, uy, uz, f.t, fx, fy, fz, f.pal.cold, ...(f.sun || [0.45, 0.8, 0.3]), (f.pal.rough || 1) - 1, ...f.pal.fog, f.pal.density, ...f.pal.deep, f.pal.over || 0, ...f.pal.shal, f.pal.aurora || 0], 16);
     for (let i = 0; i < 8; i++) { const z = f.calm?.[i]; G.set(z ? [z[0], z[1], z[2], 0] : [0, 0, 0, 0], 48 + i * 4); }
-    G[80] = f.night || 0; G[81] = f.dusk || 0; Q.writeBuffer(gBuf, 0, G, 0, 84);
+    G[80] = f.night || 0; G[81] = f.dusk || 0; G[82] = f.under ? 1 : 0; Q.writeBuffer(gBuf, 0, G, 0, 84);
     const ext = f.extent, cell = 1.5, // the water grid follows the camera in small steps (its cells under the ship are a couple of units)
       wm = model(Math.round(c.x / cell) * cell, 0, Math.round(c.z / cell) * cell, 0, 0, 0, ext);
     const list = f.objects, n = Math.min(list.length, MAXOBJ - 1);

@@ -17,15 +17,17 @@ export function createDiveView() {
   box.style.cssText = 'position:fixed;right:18px;top:96px;z-index:5;pointer-events:none;display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 8px 8px;text-align:center;font-size:12px;color:var(--dim)';
   box.innerHTML = '<div></div><canvas width=' + W + ' height=' + H + ' style="position:static;display:block;width:336px;height:192px;margin-top:4px;border:2px solid #07080c"></canvas>';
   document.body.appendChild(box);
-  const cap = box.firstChild, g = box.lastChild.getContext('2d');
+  const cap = box.firstChild, cv = box.lastChild, g = cv.getContext('2d');
   const R = (col, x, y, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x | 0, y | 0, w, h); };
-  let shown = false, lastCap = '';
-  return (s, night = 0) => {
+  let shown = false, lastCap = '', below = false;
+  return (s, night = 0, under = false) => { // under: the camera is down with the diver, so only the caption shows
     const d = s && s.mode === 'ship' ? diveStage(s) : null;
     if (!!d !== shown) { shown = !!d; box.style.display = shown ? 'block' : 'none'; }
     if (!d) return;
-    const name = d.w.name.replace(/^The /, ''), txt = `Diver down · the ${name} · ${(d.den ? DEN : PHASE)[d.phase]}`;
+    const name = d.w.name.replace(/^The /, ''), txt = `Diver down · the ${name} · ${(d.den ? DEN : PHASE)[d.phase]} · V: ${under ? 'back on deck' : 'go down with them'}`;
     if (txt !== lastCap) { lastCap = txt; cap.textContent = txt; }
+    if (under !== below) { below = under; cv.style.display = under ? 'none' : 'block'; }
+    if (under) return;
     const [hue, floor, fish] = LOOK[d.realm] || LOOK.terra, dk = (d.w.deep ? 1 : 0) + (night > 0.5 ? 1 : 0), t = Math.floor(s.t * 8) / 8, h = strHash(d.w.name);
     // sky strip and the ship's hull at the surface, then four flat bands of water, darker with depth
     R(night > 0.5 ? c(10, 0) : c(8, 4), 0, 0, W, SURF); R(c(2, 0), LINE_X - 14, SURF - 3, 26, 3); R(PAL[0], LINE_X - 12, SURF, 22, 1);

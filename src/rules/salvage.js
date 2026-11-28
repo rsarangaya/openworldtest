@@ -76,3 +76,15 @@ export function stepDive(s, dt, say, puff, danger, rough = 0) {
   else say(s, last ? `Your diver comes up with the ${name}'s strongbox! +${gold} gold. Nothing more down there: the wreck is stripped.` : `Your diver surfaces with coins${c ? ` and ${c} ${w.good}` : room ? '' : ' (the hold is full, so the cargo stays down there)'}. +${gold} gold. ${DIVES - n} more dive${DIVES - n > 1 ? 's' : ''} should strip her.`);
   s.events.push({ type: 'coin' });
 }
+// Going down with the diver (round 131): where the diver is in the water and what they look at, for the first-person view under the surface.
+// The line runs from the ship's side to the wreck (or the den) on the sea floor; the diver circles her while searching, then climbs the line again.
+export const FLOOR = { near: 16, deep: 26 }; // how far down the sea floor lies under a near wreck and a deep one (and the den)
+export function diverAt(s, d = diveStage(s)) {
+  if (!d || !s.ship) return null;
+  const p = s.ship, m = d.den && s.kraken, wx = d.den ? (m ? m.lx : p.x) : d.w.x, wz = d.den ? (m ? m.lz : p.z) : d.w.z, fy = -(d.w.deep ? FLOOR.deep : FLOOR.near);
+  const sx = p.x - Math.sin(p.yaw) * 3, sz = p.z + Math.cos(p.yaw) * 3, a0 = Math.atan2(sz - wz, sx - wx), e = (u) => u * u * (3 - 2 * u);
+  let x, y, z;
+  if (d.phase === 'search') { const a = a0 + ((d.k - 0.4) / 0.35) * 2.4; x = wx + Math.cos(a) * 16; z = wz + Math.sin(a) * 16; y = fy + 4.5; }
+  else { const u = e(d.depth), bx = wx + Math.cos(d.phase === 'up' ? a0 + 2.4 : a0) * 16, bz = wz + Math.sin(d.phase === 'up' ? a0 + 2.4 : a0) * 16; x = sx + (bx - sx) * u; z = sz + (bz - sz) * u; y = -2.4 + (fy + 4.5 + 2.4) * u; }
+  return { x, y, z, wx, wz, floor: fy, yaw: Math.atan2(wz - z, wx - x), pitch: Math.atan2(fy + 1.5 - y, Math.hypot(wx - x, wz - z) || 1) };
+}
