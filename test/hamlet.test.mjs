@@ -20,7 +20,7 @@ test('hamlets: only on wild islands with a landing, laid out clear of the landin
     for (const isl of all) if (isl.hamlet) assert.ok(!isl.port && isl.landing && !isl.special && isl.r >= 24, isl.id);
     for (const isl of hs) {
       const t = islandTown(isl), L = isl.landing, T = isl.treasure; assert.ok(t.yard, `${isl.id} has a yard`);
-      assert.ok(t.buildings.length >= 2 && t.buildings.length <= 5, `${isl.id}: ${t.buildings.length} houses`);
+      assert.ok(t.buildings.length >= (['hermit', 'light'].includes(t.kind) ? 1 : 2) && t.buildings.length <= 5, `${isl.id}: ${t.buildings.length} houses`);
       assert.ok(t.npcs.length <= 2 && t.npcs.every((n) => n.hamlet && n.kind === 'villager')); assert.equal(t.plaza, null);
       const things = [...t.buildings, ...t.marks];
       for (const b of things) {
@@ -32,7 +32,7 @@ test('hamlets: only on wild islands with a landing, laid out clear of the landin
       for (const b of t.buildings) assert.equal(islandHeight(isl, b.x, b.z), b.pad, `${isl.id}: a house stands on its terrace`);
       assert.ok(islandProps(isl).some((p) => p.k === 'well' && p.x === t.yard.x), `${isl.id}: a well`);
     }
-    assert.ok(hs.some((i) => islandTown(i).marks.some((m) => m.k === 'plot')) && hs.some((i) => islandTown(i).marks.some((m) => m.k === 'boat')), `${th}: plots and boats`);
+    assert.ok(hs.some((i) => islandTown(i).marks.some((m) => ['plot', 'pen', 'rack', 'logs'].includes(m.k))) && hs.some((i) => islandTown(i).marks.some((m) => m.k === 'boat')), `${th}: work places and boats`);
     for (const isl of hs) islandStructs(isl); // the houses, plots and boats build without error
   }
   setSeedTheme(1717, 'terra');
@@ -45,7 +45,7 @@ test('played: row ashore at every hamlet, walk the footpath up to the well, and 
   for (const isl of hs) {
     const S = newGame(1717), t = islandTown(isl), L = isl.landing, Y = t.yard;
     S.mode = 'ship'; S.ship = { x: L.x + Math.cos(L.a) * 8, z: L.z + Math.sin(L.a) * 8, yaw: 0, speed: 0, sail: 0, cd: [0, 0] }; S.shipClass = 'sailboat'; S.hull = S.maxHull = 60; S.hold = 20;
-    const r = interact(S); assert.equal(r.type, 'ashore', `${isl.id}: went ashore`); assert.ok(S.log.some((m) => /footpath leads up to a hamlet/.test(m)), `${isl.id}: told of the hamlet`);
+    const r = interact(S); assert.equal(r.type, 'ashore', `${isl.id}: went ashore`); assert.ok(S.log.some((m) => /footpath leads up to an? /.test(m)), `${isl.id}: told of the hamlet`);
     const len = Math.hypot(Y.x - L.x, Y.z - L.z), ux = (Y.x - L.x) / len, uz = (Y.z - L.z) / len; let last = { ...S.foot }, side = 0, dodge = 0;
     for (let i = 0; i < 60 * 40 && Math.hypot(S.foot.x - Y.x, S.foot.z - Y.z) > 3.6; i++) { // follow the footpath a few steps ahead; when stuck, sidestep for a moment like a player would
       const along = Math.min(len, (S.foot.x - L.x) * ux + (S.foot.z - L.z) * uz + 4), tx = L.x + ux * along, tz = L.z + uz * along;

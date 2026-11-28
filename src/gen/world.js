@@ -202,8 +202,8 @@ export function hamletBeasts(isl) {
   if (!isl.hamlet) return [];
   let out = beastCache.get(isl.seed); if (out) return out;
   const t = islandTown(isl); out = [];
-  if (t.yard) { const r = rngFor(isl.seed, 9), kinds = HERDS[isl.theme] || HERDS.terra, k0 = (r() * kinds.length) | 0, solids = propsOf(isl).filter((p) => KEEP[p.k]);
-    for (let i = 0, n = 2 + ((r() * 3) | 0); i < n; i++) for (let tries = 0; tries < 40; tries++) {
+  if (t.yard) { const r = rngFor(isl.seed, 9), sh = t.kind === 'shepherd', all = HERDS[isl.theme] || HERDS.terra, kinds = sh ? all.filter((k) => k !== 'chicken') : all, k0 = (r() * kinds.length) | 0, solids = propsOf(isl).filter((p) => KEEP[p.k]);
+    for (let i = 0, n = sh ? 4 + ((r() * 3) | 0) : { farm: 2 + ((r() * 3) | 0), hermit: 1, ruin: 0, light: (r() * 2) | 0 }[t.kind] ?? 1 + ((r() * 2) | 0); i < n; i++) for (let tries = 0; tries < 40; tries++) { // a shepherds' steading keeps a flock; a ruin none
       const a = r() * TAU, d = 5 + r() * 10, w = 1 + r() * 1.5, cx = t.yard.x + Math.cos(a) * d, cz = t.yard.z + Math.sin(a) * d, y0 = islandHeight(isl, cx, cz);
       if (loopClear(isl, t, solids, cx, cz, w, y0)) { out.push({ kind: kinds[(k0 + (i >> 1)) % kinds.length], cx, cz, rad: w, a0: r() * TAU, off: r() * 9, dir: r() < 0.5 ? -1 : 1 }); break; }
     } }
@@ -308,6 +308,10 @@ export function islandTown(isl) {
   t = { buildings, npcs, plaza, marks, box };
   townCache.set(isl.seed, t); return t;
 }
+// the kinds of hamlet, weighted per world [terra, asgard, atlantis, olympus], picked by a hash of the island so nothing else moves
+const HAMLET_KINDS = { farm: [4, 2, 2, 3], fishing: [3, 4, 4, 2], shepherd: [2, 3, 0, 4], woods: [2, 4, 1, 1], hermit: [1, 1, 1, 2], light: [1, 1, 2, 1], ruin: [1, 1, 2, 3] };
+export const HAMLET_SAY = { farm: 'a farmstead', fishing: 'a fishing camp', shepherd: "a shepherds' steading", woods: "a woodcutters' camp", hermit: "a hermit's hut", light: 'a lighthouse', ruin: 'an old ruin, with smoke rising from it' };
+export const hamletKind = (isl) => { const c = { asgard: 1, atlantis: 2, olympus: 3 }[isl.theme] || 0, ks = Object.keys(HAMLET_KINDS); let v = (hash(isl.seed, 1401) >>> 0) % ks.reduce((n, k) => n + HAMLET_KINDS[k][c], 0); for (const k of ks) if ((v -= HAMLET_KINDS[k][c]) < 0) return k; return 'farm'; };
 // a hamlet on a wild island (no port, no shops): two to five houses round a yard with a well, one or two fenced crop plots, a footpath to the
 // beach landing and a boat hauled up beside it. It keeps clear of the landing (quest fights) and the treasure. Pure data, cached like a town.
 function hamletOf(isl) {
@@ -320,7 +324,8 @@ function hamletOf(isl) {
     const a = L.a + (r() < 0.5 ? -1 : 1) * Math.PI * range(r, 0.3, 0.9), d = isl.r * range(r, 0.12, 0.6), x = isl.x + Math.cos(a) * d, z = isl.z + Math.sin(a) * d, v = level(x, z, 8, 8), easy = k >= 60;
     if (v.lo >= 1.4 && v.hi <= isl.h * (easy ? 0.85 : 0.65) && v.hi - v.lo < (easy ? 3.2 : 2.2) && Math.hypot(x - L.x, z - L.z) > 16 && (!T || Math.hypot(x - T.x, z - T.z) > 14)) yard = { x, z, y: lift(h(x, z)) };
   }
-  t = yard ? { buildings: [], npcs: [], plaza: null, marks: [], yard } : EMPTY;
+  const kind = hamletKind(isl), one = kind === 'hermit' || kind === 'light';
+  t = yard ? { buildings: [], npcs: [], plaza: null, marks: [], yard, kind } : EMPTY;
   townCache.set(isl.seed, t); if (!yard) return t;
   const { buildings, marks } = t, path = { x0: yard.x, z0: yard.z, x1: L.x, z1: L.z };
   const clear = (x, z, w, d, gap, low = 1) => {
@@ -330,22 +335,29 @@ function hamletOf(isl) {
     return { pad: lift(Math.round(((v.lo + v.hi) / 2) * 4) / 4), rad };
   };
   const far = (x, z, rad) => Math.hypot(x - L.x, z - L.z) >= rad + 6; // the landing stays open
-  for (let tries = 0, n = 2 + ((r() * 4) | 0); buildings.length < n && tries < 200; tries++) {
+  for (let tries = 0, n = one ? 1 : 2 + ((r() * ({ farm: 4, fishing: 3, ruin: 3 }[kind] || 2)) | 0); buildings.length < n && tries < 200; tries++) {
     const an = r() * TAU, ring = 7 + r() * (9 + tries * 0.05), w = range(r, 4, 5.5), d = range(r, 4, 5.2), x = yard.x + Math.cos(an) * ring, z = yard.z + Math.sin(an) * ring, sp = clear(x, z, w, d, 2.6);
     if (!sp || !far(x, z, sp.rad)) continue;
-    const b = { x, z, w, d, h: range(r, 2.6, 3.4), pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: null, face: '+z', kind: null };
+    const b = { x, z, w, d, h: range(r, 2.6, 3.4), pad: sp.pad, rad: sp.rad, roof: (r() * 3) | 0, door: null, face: '+z', kind: null, ...(kind === 'ruin' ? { ruin: true } : {}) }; // a ruin's houses are roofless broken walls (mesh.js)
     b.solids = solidsOf(b); buildings.push(b);
   }
-  if (buildings.length < 2) { townCache.set(isl.seed, EMPTY); return EMPTY; } // too steep for a hamlet after all: the island stays wild
-  for (let tries = 0, n = 1 + (r() < 0.5 ? 1 : 0), got = 0; got < n && tries < 80; tries++) {
-    const an = r() * TAU, ring = 9 + r() * 10, w = range(r, 6, 8), d = range(r, 4.5, 6), x = yard.x + Math.cos(an) * ring, z = yard.z + Math.sin(an) * ring, sp = clear(x, z, w, d, 1.5);
-    if (!sp || !far(x, z, sp.rad) || level(x, z, w, d).hi - level(x, z, w, d).lo > 1.2) continue;
-    const m = { k: 'plot', x, z, w, d, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); got++;
+  if (buildings.length < (one ? 1 : 2)) { townCache.set(isl.seed, EMPTY); return EMPTY; } // too steep for a hamlet after all: the island stays wild
+  // what the kind of hamlet works at: crop plots, fish racks, a sheep pen, a log pile, a hermit's shrine, or the lighthouse itself (on the highest open ground near the yard)
+  const work = { farm: ['plot', 6, 8, 4.5, 6, 1 + (r() < 0.5 ? 1 : 0)], fishing: ['rack', 5, 5, 1.8, 1.8, 1 + (r() < 0.5 ? 1 : 0)], shepherd: ['pen', 7, 9, 6, 7, 1], woods: ['logs', 4.5, 4.5, 2.4, 2.4, 1], hermit: ['shrine', 2.6, 2.6, 2.6, 2.6, 1], light: ['light', 5, 5, 5, 5, 1] }[kind];
+  if (work) { const [k, w0, w1, d0, d1, n] = work; let best = null;
+    for (let tries = 0, got = 0; got < n && tries < 160; tries++) { // later tries look further out and take slightly rougher ground
+      const an = r() * TAU, ring = 9 + r() * (10 + tries * 0.06), w = range(r, w0, w1), d = range(r, d0, d1), x = yard.x + Math.cos(an) * ring, z = yard.z + Math.sin(an) * ring, sp = clear(x, z, w, d, 1.5);
+      if (!sp || !far(x, z, sp.rad) || level(x, z, w, d).hi - level(x, z, w, d).lo > (tries < 80 ? 1.2 : 1.8)) continue;
+      const m = { k, x, z, w, d, pad: sp.pad }; m.solids = markSolids(m);
+      if (k === 'light') { if (!best || m.pad > best.pad) best = m; if (tries > 40) got++; continue; } // a lighthouse keeps looking a while for higher ground
+      marks.push(m); got++;
+    }
+    if (best) marks.push(best);
   }
   const ca = Math.cos(L.a), sa = Math.sin(L.a); // the boat: just up the beach beside the landing, off the path
-  for (const [up, side] of [[3, 5], [3, -5], [5, 6], [5, -6], [2, 7], [2, -7], [7, 5], [7, -5], [9, 6], [9, -6], [4, 9], [4, -9]]) {
-    const x = L.x - ca * up - sa * side, z = L.z - sa * up + ca * side, sp = clear(x, z, 5.5, 2.6, 0.5, 0.65);
-    if (sp && Math.hypot(x - L.x, z - L.z) > 4) { const m = { k: 'boat', x, z, w: 5.5, d: 2.6, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); break; }
+  for (let i = 0, boats = kind === 'fishing' ? 2 : kind === 'ruin' ? 0 : 1, sides = [[3, 5], [3, -5], [5, 6], [5, -6], [2, 7], [2, -7], [7, 5], [7, -5], [9, 6], [9, -6], [4, 9], [4, -9]]; boats > 0 && i < sides.length; i++) { // a fishing camp has two boats; squatters in a ruin have none
+    const [up, side] = sides[i], x = L.x - ca * up - sa * side, z = L.z - sa * up + ca * side, sp = clear(x, z, 5.5, 2.6, 0.5, 0.65);
+    if (sp && Math.hypot(x - L.x, z - L.z) > 4) { const m = { k: 'boat', x, z, w: 5.5, d: 2.6, pad: sp.pad }; m.solids = markSolids(m); marks.push(m); boats--; }
   }
   const box = t.box = [yard.x - 8, yard.x + 8, yard.z - 8, yard.z + 8];
   for (const b of buildings) { const ex = b.w / 2 + 5.2, ez = b.d / 2 + 5.2; box[0] = Math.min(box[0], b.x - ex); box[1] = Math.max(box[1], b.x + ex); box[2] = Math.min(box[2], b.z - ez); box[3] = Math.max(box[3], b.z + ez); }
@@ -353,8 +365,10 @@ function hamletOf(isl) {
   const away = Math.atan2(yard.z - L.z, yard.x - L.x);
   for (const da of [0.5, -0.5, 1.1, -1.1, 1.7, -1.7]) { const x = yard.x + Math.cos(away + da) * 3.8, z = yard.z + Math.sin(away + da) * 3.8; if (Math.hypot(x - yard.x - 2.6, z - yard.z - 2.8) > 2.4 && Math.hypot(x - yard.x, z - yard.z + 2.2) > 2.2 && !buildings.some((b) => Math.abs(b.x - x) < b.w / 2 + 1.5 && Math.abs(b.z - z) < b.d / 2 + 1.5)) { t.fire = { x, z }; break; } }
   const folk = (x, z, k, role) => t.npcs.push({ id: `${isl.id}:h${k}`, kind: 'villager', role, hamlet: true, name: captainName(r, isl.theme), x, z, y: islandHeight(isl, x, z), island: isl.id, seed: (isl.seed + k * 7919 + 3) >>> 0 });
-  if (t.fire) { const a = Math.atan2(yard.z - t.fire.z, yard.x - t.fire.x) + 0.9; folk(t.fire.x + Math.cos(a) * 1.5, t.fire.z + Math.sin(a) * 1.5, 0, 'islander'); }
-  const pl = marks.find((m) => m.k === 'plot'); if (pl && r() < 0.5) folk(pl.x, pl.z + pl.d / 2 + 0.9, 1, 'farmer');
+  if (t.fire) { const a = Math.atan2(yard.z - t.fire.z, yard.x - t.fire.x) + 0.9; folk(t.fire.x + Math.cos(a) * 1.5, t.fire.z + Math.sin(a) * 1.5, 0, { hermit: 'hermit', light: 'keeper', ruin: 'squatter' }[kind] || 'islander');
+    if (kind === 'ruin') folk(t.fire.x - Math.cos(a) * 1.5, t.fire.z - Math.sin(a) * 1.5, 1, 'squatter'); } // two squatters share the fire
+  const wk = { farm: 'farmer', fishing: 'fisher', shepherd: 'shepherd', woods: 'woodcutter' }[kind], pl = wk && marks.find((m) => m.k === work[0]); // the one at work: half the time a farmer, always the others
+  if (pl && (kind !== 'farm' || r() < 0.5)) { const z = pl.z + pl.d / 2 + 0.9; if (!buildings.some((b) => Math.abs(b.x - pl.x) < b.w / 2 + 0.6 && Math.abs(b.z - z) < b.d / 2 + 0.6) && !marks.some((m) => m !== pl && Math.abs(m.x - pl.x) < m.w / 2 + 0.6 && Math.abs(m.z - z) < m.d / 2 + 0.6)) folk(pl.x, z, 1, wk); }
   return t;
 }
 

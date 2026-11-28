@@ -131,10 +131,11 @@ function landmark(m, k, x, y, z, w, d, seed) {
     for (const [dx, len, wid] of [[0, 3, 1.9], [1.9, 1.1, 1.3], [-1.9, 1.1, 1.5], [2.65, 0.5, 0.6]]) m.box(x + dx, y + 0.7, z, len, 0.8, wid, wood, 0.25);
     m.box(x, y + 1.14, z, 3.2, 0.08, 1.35, dark); for (const s of [-1, 1]) { m.box(x, y + 1.2, z + s * 0.95, 4.4, 0.16, 0.14, [0.62, 0.46, 0.28]); m.box(x + s * 1.3, y + 0.2, z, 0.5, 0.4, 1.4, dark); }
     m.blob(x - 1.2, y + 0.15, z + 1.7, 0.7, [0.55, 0.5, 0.36], 0.4);
-  } else if (k === 'plot') { // a hamlet's crop plot: tilled rows of greens or grain inside a post-and-rail fence
+  } else if (k === 'plot' || k === 'pen') { // a hamlet's crop plot (tilled rows of greens or grain) or a shepherds' pen (trodden straw, a trough), inside a post-and-rail fence
     const crop = Math.abs(Math.round(x + z)) % 3 ? [0.34, 0.58, 0.26] : [0.84, 0.72, 0.32];
-    m.box(x, y + 0.05, z, w - 0.3, 0.12, d - 0.3, [0.42, 0.3, 0.2]);
-    for (let i = 0, n = Math.floor((d - 1) / 0.9); i < n; i++) m.box(x, y + 0.3, z - (n - 1) * 0.45 + i * 0.9, w - 1.2, 0.4, 0.42, crop);
+    m.box(x, y + 0.05, z, w - 0.3, 0.12, d - 0.3, k === 'pen' ? [0.7, 0.6, 0.36] : [0.42, 0.3, 0.2]);
+    if (k === 'pen') { m.box(x + w * 0.2, y + 0.35, z - d * 0.25, 2, 0.5, 0.6, wood); m.box(x + w * 0.2, y + 0.58, z - d * 0.25, 1.7, 0.06, 0.4, [0.3, 0.45, 0.6]); m.blob(x - w * 0.25, y + 0.4, z + d * 0.1, 0.8, [0.84, 0.74, 0.4], 0.6); } // a water trough and a heap of hay
+    else for (let i = 0, n = Math.floor((d - 1) / 0.9); i < n; i++) m.box(x, y + 0.3, z - (n - 1) * 0.45 + i * 0.9, w - 1.2, 0.4, 0.42, crop);
     for (const [ax, az, len, alongX] of [[0, -d / 2, w, 1], [0, d / 2, w, 1], [-w / 2, 0, d, 0], [w / 2, 0, d, 0]]) {
       for (const hy of [0.5, 0.95]) m.box(x + ax, y + hy, z + az, alongX ? len : 0.1, 0.1, alongX ? 0.1 : len, wood);
       for (let p = 0, n = Math.max(2, Math.round(len / 1.6)); p <= n; p++) { const o = -len / 2 + (p * len) / n; m.box(x + ax + (alongX ? o : 0), y + 0.55, z + az + (alongX ? 0 : o), 0.16, 1.1, 0.16, dark); }
@@ -189,13 +190,35 @@ function landmark(m, k, x, y, z, w, d, seed) {
     for (const s of [-0.45, 0.45]) m.box(x, y + 0.06, z + s, w, 0.1, 0.1, [0.36, 0.34, 0.34]); for (let i = 0; i < 6; i++) m.box(x - w / 2 + 0.3 + i * ((w - 0.6) / 5), y + 0.02, z, 0.2, 0.06, 1.3, dark);
     const cx = x + ((seed % 3) - 1) * 0.6; m.box(cx, y + 0.75, z, 1.6, 0.8, 1.1, [0.32, 0.3, 0.3], 0.15); for (const sx of [-0.5, 0.5]) for (const s of [-0.58, 0.58]) m.box(cx + sx, y + 0.25, z + s, 0.4, 0.4, 0.08, [0.14, 0.13, 0.14]);
     m.blob(cx - 0.3, y + 1.2, z, 0.5, [0.5, 0.34, 0.24], 0.7); m.blob(cx + 0.35, y + 1.2, z + 0.1, 0.42, [0.55, 0.52, 0.5], 0.7);
-
+  } else if (k === 'logs') { // woodcutters' work: a stack of logs between posts, a chopping block with an axe in it, split wood beside it
+    const bark = [0.56, 0.4, 0.26], cut = [0.9, 0.76, 0.52];
+    for (let row = 0; row < 3; row++) for (let i = 0; i < 4 - row; i++) { const lz = z - 0.9 + (i + row * 0.5) * 0.6; m.box(x - 0.6, y + 0.3 + row * 0.52, lz, 2.6, 0.5, 0.5, bark); for (const e of [-1, 1]) m.box(x - 0.6 + e * 1.32, y + 0.3 + row * 0.52, lz, 0.06, 0.4, 0.4, cut); }
+    for (const s of [-1, 1]) m.box(x - 0.6 + s * 1.45, y + 0.8, z - 0.9, 0.14, 1.6, 0.14, dark);
+    m.box(x + 1.5, y + 0.35, z + 0.5, 0.75, 0.7, 0.75, bark); m.box(x + 1.5, y + 0.72, z + 0.5, 0.6, 0.06, 0.6, cut); // chopping block
+    m.box(x + 1.5, y + 1.0, z + 0.5, 0.08, 0.6, 0.08, wood); m.box(x + 1.5, y + 0.82, z + 0.62, 0.06, 0.18, 0.3, [0.6, 0.62, 0.66]); // the axe, its head bitten into the block
+    for (let i = 0; i < 4; i++) m.box(x + 1.1 + (i % 2) * 0.4, y + 0.1, z + 1.0 + (i >> 1) * 0.25, 0.5, 0.18, 0.18, cut);
+  } else if (k === 'light') { // a lighthouse: a tapering white tower with red bands, a gallery and a lamp room lit at night
+    const wh = [0.92, 0.9, 0.86], red = [0.74, 0.2, 0.16];
+    for (let i = 0; i < 5; i++) { const s = 1 - i * 0.09; m.box(x, y + 1.2 + i * 2.4, z, (w - 1) * s, 2.42, (d - 1) * s, i % 2 ? red : wh, 0.15); }
+    m.box(x, y + 12.2, z, w - 0.6, 0.3, d - 0.6, dark); for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) m.box(x + ax * (w / 2 - 0.35), y + 12.65, z + az * (d / 2 - 0.35), ax ? 0.08 : w - 0.7, 0.6, az ? 0.08 : d - 0.7, dark); // gallery and rail
+    m.box(x, y + 13.4, z, 1.7, 1.6, 1.7, glow([1, 0.88, 0.5])); for (const [ax, az] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) m.box(x + ax * 0.85, y + 13.4, z + az * 0.85, 0.12, 1.6, 0.12, dark); // lamp room
+    m.box(x, y + 14.4, z, 2.1, 0.4, 2.1, red); m.box(x, y + 14.9, z, 1, 0.6, 1, red); m.box(x, y + 1.1, z + (d - 1) / 2 + 0.03, 1, 2.1, 0.08, dark); // cap, door
   }
 }
 function building(m, isl, b) {
   const vik = isl.theme === 'asgard', at = isl.theme === 'atlantis' ? [AT_WALL, AT_ROOF] : isl.theme === 'olympus' ? [OL_WALL, OL_ROOF] : null, sl = STYLE_LOOK[isl.style], wall = vik ? VK_WALL[b.roof % 3] : at ? at[0][b.roof % 3] : sl ? sl.wall[b.roof % 3] : isl.biome === 'frozen' ? [0.82, 0.84, 0.9] : WALLS[b.roof % 4], roof = vik ? VK_ROOF[b.roof % 3] : at ? at[1][b.roof % 3] : sl ? sl.roof[b.roof % 3] : ROOFS[b.roof], y0 = b.pad, y1 = y0 + b.h, hw = b.w / 2, hd = b.d / 2, trim = dim(wall, 1.12).map((v) => Math.min(1, v));
   m.box(b.x, y0 - 1.4, b.z, b.w + 0.4, 2.8, b.d + 0.4, [0.44, 0.42, 0.4]); // foundation reaches below the terrain on any slope
   if (!b.door) m.box(b.x, y0 + 0.3, b.z, b.w + 0.25, 0.6, b.d + 0.25, STONE, 0.15); // stone plinth (houses only: shops are hollow)
+  if (b.ruin) { // an old ruin: roofless walls broken off at uneven heights, rubble inside and at their feet, moss on the stones
+    const old = dim(wall, 0.78), moss = [0.36, 0.46, 0.28], rr = rngFor(Math.round(b.x * 7 + b.z * 3), 4);
+    for (const [ax, az, len, alongX] of [[0, -hd, b.w, 1], [0, hd, b.w, 1], [-hw, 0, b.d, 0], [hw, 0, b.d, 0]]) for (let i = 0, n = Math.max(2, Math.round(len / 1.3)); i < n; i++) {
+      const o = -len / 2 + (i + 0.5) * (len / n), h = rr() < 0.2 ? 0.5 : range(rr, 0.9, b.h * 0.9), cx = b.x + ax + (alongX ? o : 0), cz = b.z + az + (alongX ? 0 : o);
+      m.box(cx, y0 + h / 2, cz, alongX ? len / n + 0.02 : 0.45, h, alongX ? 0.45 : len / n + 0.02, i % 3 ? old : dim(old, 0.9), 0.12); if (h > 1.5 && rr() < 0.4) m.box(cx, y0 + h + 0.05, cz, alongX ? len / n : 0.5, 0.12, alongX ? 0.5 : len / n, moss);
+    }
+    for (let i = 0; i < 4; i++) m.blob(b.x + range(rr, -hw, hw) * 0.7, y0 + 0.5, b.z + range(rr, -hd, hd) * 0.7, range(rr, 0.4, 0.8), old, 0.6);
+    m.blob(b.x + hw + 0.6, y0 + 0.2, b.z + range(rr, -hd, hd), 0.5, old, 0.6);
+    return;
+  }
   if (b.door) {
     for (const [x0, x1, z0, z1] of b.solids) m.box((x0 + x1) / 2, y0 + b.h / 2, (z0 + z1) / 2, x1 - x0, b.h, z1 - z0, wall, 0.18);
     m.box(b.x, y0 + 0.05, b.z, b.w - 0.8, 0.14, b.d - 0.8, WOOD); // floor

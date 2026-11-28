@@ -1,6 +1,6 @@
 // Game rules, stepped at a fixed rate with no drawing code, so they run (and are tested) in plain Node.
 // Two modes: 'foot' (first person, on land) and 'ship' (third person, at sea).
-import { GOODS, SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS } from '../gen/world.js';
+import { GOODS, SECTOR, WALL_R, GATE_HALF, TAU, sectorOf, sectorIslands, sectorEnemies, islandTown, islandHeight, walkHeight, questWorld, gatePos, KINDS, HAMLET_SAY } from '../gen/world.js';
 import { sailEfficiency, windAt, windAngle, polar, pointOfSail, setRough, calm } from './sea.js';
 import { weatherAt, climeOf, roughOf, windMul, gust } from './weather.js';
 import { weaponOf, equip, keyWeapon } from './weapons.js';
@@ -804,7 +804,7 @@ export function interact(s) {
   if (s.mode === 'ship') {
     const l = findLand(s); if (!l && denHere(s)) { const wx = weatherNow(s); startDenDive(s, say, wx.storm > 0.6, foeNear); return { type: s.dive ? 'dive' : 'none' }; } const wk = !l && wreckHere(s); if (wk) { const wx = weatherNow(s); startDive(s, wk, say, wx.storm > 0.6, foeNear, (roughOf(wx) - 1) / 0.8); return { type: s.dive ? 'dive' : 'none' }; }
     if (!l) { say(s, 'You can only go ashore at a dock or a beach landing.'); return { type: 'none' }; }
-    unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; say(s, islandsAt(s, l.x, l.z).some((i) => i.landing === l.at && islandTown(i).yard) ? 'Ashore. A footpath leads up to a hamlet.' : 'Ashore.'); return { type: 'ashore' };
+    unstickShip(s); s.mode = 'foot'; s.foot = { x: l.x, z: l.z, y: l.y, yaw: l.yaw }; s.ship.speed = 0; { const h = islandsAt(s, l.x, l.z).map((i) => i.landing === l.at && islandTown(i)).find((t) => t && t.yard); say(s, h ? 'Ashore. A footpath leads up to ' + HAMLET_SAY[h.kind] + '.' : 'Ashore.'); } return { type: 'ashore' };
   }
   const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
   const qa = nearActor(s); if (qa) return useActor(s, qa, G);
