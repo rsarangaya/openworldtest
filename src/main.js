@@ -252,6 +252,7 @@ function render(t) {
       }
       for (const b of s.fallen || []) if (s.t - b.t < CORPSE_S && Math.hypot(b.x - isl.x, b.z - isl.z) < isl.r * 1.7) bb(sprites.fallen('sailor', b.seed), b.x, b.y + 0.05, b.z, sprites.PERSON_SCALE);
       if (s.ev?.iid === isl.id) (s.ev.crowd || []).forEach(([x, y, z], k) => bb(sprites.person('villager', (isl.seed + k * 131) >>> 0, 'down', ((t * 2 + k) | 0) & 1), x, y, z, sprites.PERSON_SCALE)); // a crowd round the well
+      if (s.ev?.iid === isl.id) for (const [x, y, z] of s.ev.lamps || []) bb(sprites.prop({ k: 'lamp', v: 0 }, 0), x, y, z, -1); // the night market's lamp posts
       for (const g of s.guards) if (g.isl === isl.id) { // a guard lunges at you when it strikes and flinches when you hit it
         const la = s.t - (g.atk ?? -9), fa = s.t - (g.hitT ?? -9), lu = la < 0.3 ? Math.sin((la / 0.3) * Math.PI) : 0, fl = fa < 0.25 ? Math.sin((fa / 0.25) * Math.PI) : 0, off = lu * 0.7 - fl * 0.5;
         bb(sprites.person('warden', g.seed, 'down', atkFrame(g, Math.hypot(g.x - s.foot.x, g.z - s.foot.z) < 2.6, 1 + (((g.walk || 0) * 5 | 0) & 1))), g.x + Math.cos(g.face || 0) * off, g.y, g.z + Math.sin(g.face || 0) * off, sprites.PERSON_SCALE * (1 - fl * 0.12));

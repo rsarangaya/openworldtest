@@ -32,7 +32,7 @@ import { hash, rngFor } from '../gen/rng.js';
 import { shipName, captainName } from '../gen/names.js';
 import { islandProps, LANDMARK } from '../gen/props.js';
 import { townsfolk, folkPos } from '../gen/world.js';
-import { eventFor } from './events.js';
+import { eventFor, EVENTS } from './events.js';
 import { stepSerpent, shotSerpent, nearLair, compassWord } from './serpent.js';
 import { stepDraugr, nearBarrow, shotMul } from './draugr.js';
 import { stepKraken, shotKraken, nearKraken, denHere, startDenDive, stepDenDive } from './kraken.js';
@@ -718,7 +718,7 @@ function stepEvents(s) {
   const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => i.port); if (!isl) { s.ev = null; return; }
   const ev = townState(s, isl.id) >= 2 ? null : eventFor(s, isl);
   if (ev && (s.ev?.iid !== isl.id || s.ev.key !== ev.key)) say(s, `${isl.port.name}: ${ev.name}. ${ev.line}`);
-  if (!ev) s.ev = null; else if (s.ev?.iid !== isl.id || s.ev.key !== ev.key) s.ev = { iid: isl.id, key: ev.key, crowd: crowdSpots(s, isl, ev.folk || 0) };
+  if (!ev) s.ev = null; else if (s.ev?.iid !== isl.id || s.ev.key !== ev.key) { const c = crowdSpots(s, isl, (ev.folk || 0) + (ev.lamps || 0)); s.ev = { iid: isl.id, key: ev.key, lamps: c.splice(0, ev.lamps || 0), crowd: c }; }
   if (ev?.smoke) { const bs = islandTown(isl).buildings, b = bs[(isl.seed >>> 0) % bs.length]; if (b) puff(s, 'smoke', b.x + (Math.floor(s.t) % 3) - 1, b.pad + b.h + 1, b.z, 2.2, { vy: 2.4, sc: 2.2 }); }
 }
 // input: { rudder, sail, fireL, fireR } at sea; { mx, mz, run, yaw } on foot
@@ -814,7 +814,7 @@ export function interact(s) {
   }
   const sb = nearSub(s); if (sb) { if (s.prisoner) { say(s, 'You are already holding a prisoner. Hand them in first.'); return { type: 'none' }; } { const hb = huntOf(s, sb); hb.st = 'bound'; hb.hp = 12; hb.x = undefined; } s.prisoner = sb.id; if (s.deck) { const c = s.deck.defs.find((d) => d.captain); if (c) c.st = 'taken'; } say(s, `You bind ${sb.name}. Take them to any guard station in this realm and hand them in (${sb.aliveOnly ? 'alive only' : 'alive pays more'}).`); return { type: 'bind' }; }
   const qa = nearActor(s); if (qa) return useActor(s, qa, G);
-  const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; if (n.kind !== 'tavern' && shopsShut(nowHour(s))) return { type: 'npc', npc: n, lines: ['We are shut for the night. Come back at dawn (06:00).', 'The tavern is still open, if you want a bed.'], panel: null }; }
+  const n = nearNpc(s); if (n && ['merchant', 'shipwright', 'smith', 'tavern'].includes(n.kind)) { const bi = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (bi && townState(s, bi.id) >= 2) return { type: 'npc', npc: n, lines: [townState(s, bi.id) === 2 ? 'The shop is on fire! Get away from here, or help with the buckets.' : 'There is nothing left to sell. Look what you did.'], panel: null }; if (n.kind !== 'tavern' && shopsShut(nowHour(s)) && !(n.kind === 'merchant' && s.ev?.iid === bi?.id && EVENTS[s.ev.key]?.open)) return { type: 'npc', npc: n, lines: ['We are shut for the night. Come back at dawn (06:00).', 'The tavern is still open, if you want a bed.'], panel: null }; }
   if (n) { const isl = islandsAt(s, s.foot.x, s.foot.z).find((i) => islandTown(i).npcs.includes(n)); if (isl && shunned(s, isl.id) && ['merchant', 'shipwright', 'warden', 'smith'].includes(n.kind)) return { type: 'npc', npc: n, lines: ['I know what you did here. Get out. I will not serve you.'], panel: null }; const dl = dialog(s, n), tip = learn(s, n, isl); if (tip) dl.lines = [...dl.lines, tip]; return { type: 'npc', npc: n, island: isl, ...dl }; }
   const nb = nearBoard(s); if (nb) return { type: 'news', island: nb };
   const rn = nearRune(s); if (rn) return readRune(s, rn);

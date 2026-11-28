@@ -1,5 +1,5 @@
 // Town events: at most one per port per notice issue, a pure function of (island seed, issue), so nothing is saved.
-// food: provision price, buy: goods price multiplier, folk: extra people in the plaza, smoke: a building smoulders, hook: a side-quest template.
+// food: provision price, buy: goods price multiplier, folk: extra people in the plaza, lamps: lamp posts in the plaza, open: the market trades at night, smoke: a building smoulders, hook: a side-quest template.
 import { rngFor, pick } from '../gen/rng.js';
 import { issueOf } from './news.js';
 import { isNight, nowHour } from './daynight.js';
@@ -28,12 +28,13 @@ export const EVENTS = {
   runaway: { name: 'A Runaway in Silk', line: 'A young stranger in very good boots is sleeping in the hayloft. Men in a noble house\'s colours were asking after them in the next port.', hook: 'noble' },
   cutpurses: { name: 'Cutpurses Abroad', line: 'A ring of cutpurses works the lanes after dark. Keep a hand on your purse: the watch pays 30 gold for each one brought down.', night: true, thief: true }, // night only
   landing: { name: 'Lanterns on the Beach', line: 'Lanterns blink on a wild shore across the water: smugglers are landing a cargo that pays no dues. The watch pays to have it stopped before dawn.', night: true, hook: 'landing' }, // night only
+  nightmarket: { name: 'Night Market', line: 'Lamps are strung over the square and the stalls stay open till dawn. The market trades by lamplight tonight, and its goods go cheap.', night: true, open: true, buy: 0.85, folk: 5, lamps: 4 }, // night only: the market keeps trading after dark
 };
 const keysOf = (w) => Object.keys(EVENTS).filter((k) => !EVENTS[k].night && (!EVENTS[k].world || EVENTS[k].world === w)), KEYS = {};
 
 export function eventFor(s, isl) {
   if (!isl?.port) return null;
-  if (isNight(nowHour(s))) { const n = rngFor(isl.seed, 9900 + issueOf(s))(); if (n < 0.3) return { key: 'cutpurses', ...EVENTS.cutpurses }; if (n < 0.45) return { key: 'landing', ...EVENTS.landing }; } // some nights belong to the cutpurses, some to the smugglers
+  if (isNight(nowHour(s))) { const n = rngFor(isl.seed, 9900 + issueOf(s))(); if (n < 0.3) return { key: 'cutpurses', ...EVENTS.cutpurses }; if (n < 0.45) return { key: 'landing', ...EVENTS.landing }; if (n < 0.57) return { key: 'nightmarket', ...EVENTS.nightmarket }; } // some nights belong to the cutpurses, some to the smugglers, some to the night market
   const r = rngFor(isl.seed, 9700 + issueOf(s));
   if (r() < 0.45) return null;
   const w = s.realm || 'terra', key = pick(r, (KEYS[w] ||= keysOf(w))); return { key, ...EVENTS[key] };
